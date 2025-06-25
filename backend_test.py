@@ -248,6 +248,69 @@ class TerrionRTSTester:
         self.tests_run += 1
         
         return energy_test_passed and units_test_passed and building_energy_test_passed and buildings_test_passed
+        
+    async def test_websocket_connection(self):
+        """Test WebSocket connection and real-time updates"""
+        if not self.game_id:
+            print("❌ Cannot test WebSocket: No game ID")
+            return False
+            
+        print(f"\n🔌 Testing WebSocket connection to {self.ws_url}/ws/{self.game_id}...")
+        self.tests_run += 1
+        
+        try:
+            # Connect to WebSocket
+            async with websockets.connect(f"{self.ws_url}/ws/{self.game_id}") as websocket:
+                print("✅ WebSocket connection established")
+                
+                # Wait for initial game state
+                initial_state = await websocket.recv()
+                try:
+                    game_state = json.loads(initial_state)
+                    print("✅ Received initial game state via WebSocket")
+                    print(f"Player energy: {game_state['player_core']['energy']}")
+                    print(f"Game time: {game_state['game_time']}")
+                    
+                    # Wait for a few updates to verify real-time updates
+                    print("Waiting for real-time updates...")
+                    start_time = game_state['game_time']
+                    
+                    # Wait for 3 seconds to get updates
+                    for i in range(3):
+                        update = await asyncio.wait_for(websocket.recv(), timeout=2.0)
+                        updated_state = json.loads(update)
+                        print(f"Update {i+1}: Game time: {updated_state['game_time']}, Player energy: {updated_state['player_core']['energy']}")
+                    
+                    end_time = updated_state['game_time']
+                    time_passed = end_time - start_time
+                    
+                    # Verify time is advancing
+                    if time_passed > 0:
+                        print(f"✅ Game time advancing: {time_passed:.2f} seconds passed")
+                        
+                        # Verify energy generation
+                        initial_energy = game_state['player_core']['energy']
+                        final_energy = updated_state['player_core']['energy']
+                        energy_generated = final_energy - initial_energy
+                        
+                        if energy_generated > 0:
+                            print(f"✅ Energy generation working: Generated {energy_generated:.2f} energy")
+                            self.tests_passed += 1
+                            return True
+                        else:
+                            print(f"❌ Energy generation not working properly")
+                            return False
+                    else:
+                        print(f"❌ Game time not advancing properly")
+                        return False
+                    
+                except json.JSONDecodeError:
+                    print(f"❌ Received invalid JSON from WebSocket: {initial_state}")
+                    return False
+                    
+        except Exception as e:
+            print(f"❌ WebSocket connection failed: {str(e)}")
+            return False
 
 def main():
     # Setup
