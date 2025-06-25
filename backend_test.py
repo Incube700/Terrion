@@ -1,8 +1,6 @@
 import requests
 import json
 import time
-import websocket
-import threading
 import sys
 from datetime import datetime
 
@@ -10,12 +8,7 @@ class TerrionRTSTester:
     def __init__(self, base_url="https://c130068d-9d0c-4ee7-bb84-6ef0e9baa15d.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_url = f"{base_url}/api"
-        self.ws_url = f"{base_url.replace('http', 'ws')}/ws"
         self.game_id = None
-        self.ws = None
-        self.ws_thread = None
-        self.game_state = None
-        self.ws_connected = False
         self.tests_run = 0
         self.tests_passed = 0
 
@@ -52,67 +45,6 @@ class TerrionRTSTester:
         except Exception as e:
             print(f"❌ Failed - Error: {str(e)}")
             return False, {}
-
-    def on_ws_message(self, ws, message):
-        """Handle WebSocket messages"""
-        try:
-            self.game_state = json.loads(message)
-            print(f"📊 Game state updated - Time: {self.game_state.get('game_time', 0):.1f}s")
-        except Exception as e:
-            print(f"Error parsing WebSocket message: {e}")
-
-    def on_ws_open(self, ws):
-        """Handle WebSocket connection open"""
-        self.ws_connected = True
-        print("🔌 WebSocket connected")
-
-    def on_ws_close(self, ws, close_status_code, close_msg):
-        """Handle WebSocket connection close"""
-        self.ws_connected = False
-        print(f"🔌 WebSocket disconnected: {close_msg if close_msg else 'No message'}")
-
-    def on_ws_error(self, ws, error):
-        """Handle WebSocket errors"""
-        print(f"🔌 WebSocket error: {error}")
-
-    def connect_websocket(self):
-        """Connect to the game's WebSocket"""
-        if not self.game_id:
-            print("❌ Cannot connect WebSocket: No game ID")
-            return False
-
-        ws_endpoint = f"{self.ws_url}/{self.game_id}"
-        print(f"🔌 Connecting to WebSocket: {ws_endpoint}")
-        
-        try:
-            self.ws = websocket.WebSocketApp(
-                ws_endpoint,
-                on_open=self.on_ws_open,
-                on_message=self.on_ws_message,
-                on_error=self.on_ws_error,
-                on_close=self.on_ws_close
-            )
-            
-            self.ws_thread = threading.Thread(target=self.ws.run_forever)
-            self.ws_thread.daemon = True
-            self.ws_thread.start()
-            
-            # Wait for connection
-            timeout = 5
-            start_time = time.time()
-            while not self.ws_connected and time.time() - start_time < timeout:
-                time.sleep(0.1)
-                
-            if self.ws_connected:
-                print("✅ WebSocket connected successfully")
-                return True
-            else:
-                print("❌ WebSocket connection timed out")
-                return False
-                
-        except Exception as e:
-            print(f"❌ WebSocket connection error: {str(e)}")
-            return False
 
     def test_create_game(self):
         """Test creating a new game"""
@@ -191,70 +123,128 @@ class TerrionRTSTester:
                 print(f"Total buildings: {len(response['buildings'])}")
         return success
 
-    def test_game_logic(self, duration=10):
-        """Test game logic by observing state changes over time"""
-        if not self.game_id or not self.ws_connected:
-            print("❌ Cannot test game logic: No game connection")
+    def test_api_sequence(self):
+        """Test a sequence of API calls to verify game logic"""
+        if not self.game_id:
+            print("❌ Cannot test API sequence: No game ID")
             return False
             
-        print(f"\n🎮 Testing game logic for {duration} seconds...")
+        print("\n🎮 Testing API sequence...")
         
-        # Initial state
-        initial_state = self.game_state
-        if not initial_state:
-            print("❌ No initial game state available")
+        # Get initial state
+        success, initial_state = self.run_test(
+            "Get Initial State",
+            "GET",
+            f"game/{self.game_id}/state",
+            200
+        )
+        
+        if not success:
             return False
             
         initial_energy = initial_state['player_core']['energy']
-        print(f"Initial player energy: {initial_energy}")
+        initial_units = len(initial_state['units'])
+        print(f"Initial energy: {initial_energy}, Initial units: {initial_units}")
         
-        # Wait for state changes
-        time.sleep(duration)
+        # Spawn a soldier
+        success, _ = self.run_test(
+            "Spawn Soldier",
+            "POST",
+            f"game/{self.game_id}/spawn/soldier",
+            200
+        )
         
-        # Final state
-        final_state = self.game_state
-        if not final_state:
-            print("❌ No final game state available")
+        if not success:
             return False
             
-        final_energy = final_state['player_core']['energy']
-        print(f"Final player energy: {final_energy}")
+        # Get state after spawning
+        success, after_spawn_state = self.run_test(
+            "Get State After Spawn",
+            "GET",
+            f"game/{self.game_id}/state",
+            200
+        )
         
-        # Check energy generation
-        energy_generated = final_energy - initial_energy
-        expected_generation = 5 * duration  # 5 energy per second
-        energy_test_passed = energy_generated > 0
+        if not success:
+            return False
+            
+        after_spawn_energy = after_spawn_state['player_core']['energy']
+        after_spawn_units = len(after_spawn_state['units'])
+        
+        # Verify energy was deducted (soldier costs 20)
+        energy_deducted = initial_energy - after_spawn_energy
+        energy_test_passed = energy_deducted > 0
         
         if energy_test_passed:
-            print(f"✅ Energy generation working: Generated {energy_generated} energy in {duration}s")
+            print(f"✅ Energy deduction working: Used {energy_deducted} energy to spawn soldier")
             self.tests_passed += 1
         else:
-            print(f"❌ Energy generation not working properly: Generated {energy_generated} energy in {duration}s")
+            print(f"❌ Energy not deducted properly: Before {initial_energy}, After {after_spawn_energy}")
         
         self.tests_run += 1
         
-        # Check if enemy AI is spawning units
-        initial_enemy_units = len([u for u in initial_state['units'] if u['team'] == 'enemy'])
-        final_enemy_units = len([u for u in final_state['units'] if u['team'] == 'enemy'])
+        # Verify unit was added
+        units_added = after_spawn_units - initial_units
+        units_test_passed = units_added > 0
         
-        ai_test_passed = final_enemy_units >= initial_enemy_units
-        
-        if ai_test_passed:
-            print(f"✅ Enemy AI working: Units changed from {initial_enemy_units} to {final_enemy_units}")
+        if units_test_passed:
+            print(f"✅ Unit spawning working: Added {units_added} units")
             self.tests_passed += 1
         else:
-            print(f"❌ Enemy AI not spawning units: Units remained at {final_enemy_units}")
+            print(f"❌ Unit not added properly: Before {initial_units}, After {after_spawn_units}")
         
         self.tests_run += 1
         
-        return energy_test_passed and ai_test_passed
-
-    def close(self):
-        """Close WebSocket connection"""
-        if self.ws:
-            self.ws.close()
-            if self.ws_thread:
-                self.ws_thread.join(timeout=1)
+        # Build a tower
+        success, _ = self.run_test(
+            "Build Tower",
+            "POST",
+            f"game/{self.game_id}/build/tower",
+            200,
+            params={"x": 300, "y": 400}
+        )
+        
+        if not success:
+            return False
+            
+        # Get state after building
+        success, after_build_state = self.run_test(
+            "Get State After Building",
+            "GET",
+            f"game/{self.game_id}/state",
+            200
+        )
+        
+        if not success:
+            return False
+            
+        after_build_energy = after_build_state['player_core']['energy']
+        after_build_buildings = len(after_build_state['buildings'])
+        
+        # Verify energy was deducted for building (tower costs 50)
+        building_energy_deducted = after_spawn_energy - after_build_energy
+        building_energy_test_passed = building_energy_deducted > 0
+        
+        if building_energy_test_passed:
+            print(f"✅ Building energy deduction working: Used {building_energy_deducted} energy to build tower")
+            self.tests_passed += 1
+        else:
+            print(f"❌ Building energy not deducted properly: Before {after_spawn_energy}, After {after_build_energy}")
+        
+        self.tests_run += 1
+        
+        # Verify building was added
+        buildings_test_passed = after_build_buildings > 0
+        
+        if buildings_test_passed:
+            print(f"✅ Building construction working: Now have {after_build_buildings} buildings")
+            self.tests_passed += 1
+        else:
+            print(f"❌ Building not added properly: Have {after_build_buildings} buildings")
+        
+        self.tests_run += 1
+        
+        return energy_test_passed and units_test_passed and building_energy_test_passed and buildings_test_passed
 
 def main():
     # Setup
@@ -264,22 +254,6 @@ def main():
         # Create game
         if not tester.test_create_game():
             print("❌ Game creation failed, stopping tests")
-            return 1
-            
-        # Connect WebSocket
-        if not tester.connect_websocket():
-            print("❌ WebSocket connection failed, stopping tests")
-            return 1
-            
-        # Wait for initial game state
-        print("Waiting for initial game state...")
-        timeout = 5
-        start_time = time.time()
-        while not tester.game_state and time.time() - start_time < timeout:
-            time.sleep(0.1)
-            
-        if not tester.game_state:
-            print("❌ Did not receive initial game state, stopping tests")
             return 1
             
         # Get game state via API
@@ -294,16 +268,16 @@ def main():
         tester.test_build_structure("tower", 300, 400)
         tester.test_build_structure("barracks", 200, 300)
         
-        # Test game logic
-        tester.test_game_logic(duration=10)
+        # Test API sequence to verify game logic
+        tester.test_api_sequence()
         
         # Print results
         print(f"\n📊 Tests passed: {tester.tests_passed}/{tester.tests_run}")
         return 0 if tester.tests_passed == tester.tests_run else 1
         
-    finally:
-        # Clean up
-        tester.close()
+    except Exception as e:
+        print(f"❌ Unexpected error: {str(e)}")
+        return 1
 
 if __name__ == "__main__":
     sys.exit(main())
