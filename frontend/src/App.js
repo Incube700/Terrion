@@ -79,7 +79,7 @@ function GameCanvas() {
   };
 
   const connectWebSocket = (gameId) => {
-    const ws = new WebSocket(`${WS_URL}/${gameId}`);
+    const ws = new WebSocket(`${WS_URL}/ws/${gameId}`);
     wsRef.current = ws;
 
     ws.onopen = () => {
