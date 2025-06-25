@@ -10,6 +10,7 @@ class TerrionRTSTester:
     def __init__(self, base_url="https://c130068d-9d0c-4ee7-bb84-6ef0e9baa15d.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_url = f"{base_url}/api"
+        self.ws_url = base_url.replace('https://', 'wss://').replace('http://', 'ws://')
         self.game_id = None
         self.tests_run = 0
         self.tests_passed = 0
