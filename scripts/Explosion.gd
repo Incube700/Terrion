@@ -1,10 +1,9 @@
 extends Node2D
 
-@onready var anim = $AnimationPlayer
+@onready var circle = $Circle
 
 func _ready():
-	anim.play("explode")
-	anim.animation_finished.connect(_on_anim_finished)
-
-func _on_anim_finished(_name):
-	queue_free() 
+	var tween = create_tween()
+	tween.tween_property(circle, "scale", Vector2(2,2), 0.4)
+	tween.parallel().tween_property(circle, "modulate:a", 0.0, 0.4)
+	tween.finished.connect(queue_free) 

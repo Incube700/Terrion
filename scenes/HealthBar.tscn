@@ -1,6 +1,12 @@
 [gd_scene format=3]
 
-[node name="HealthBar" type="Node2D"]
+[node name="HealthBar" type="ProgressBar"]
+min_value = 0.0
+max_value = 1.0
+value = 1.0
+size_flags_horizontal = 3
+size_flags_vertical = 0
+custom_minimum_size = Vector2(120, 16)
 
 [node name="Background" type="ColorRect" parent="."]
 anchor_right = 1.0

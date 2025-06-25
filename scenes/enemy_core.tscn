@@ -32,4 +32,7 @@ horizontal_alignment = 1
 [node name="HealthBar" parent="." instance=ExtResource( 2 )]
 position = Vector2(0, -80)
 [node name="Bar" type="ColorRect" parent="HealthBar"]
-color = Color(0.8, 0.2, 0.2, 0.9) 
+color = Color(0.8, 0.2, 0.2, 0.9)
+
+[node name="EnemyAI" type="Node2D" parent="."]
+script = "res://scripts/enemy_ai.gd" 

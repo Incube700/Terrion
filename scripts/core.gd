@@ -19,6 +19,7 @@ var flash_scene = preload("res://scenes/Flash.tscn")
 var explosion_scene = preload("res://scenes/Explosion.tscn")
 
 func _ready():
+	print("[Core] _ready called")
 	update_energy_display()
 	# Добавляем в группу для поиска
 	add_to_group("core")
@@ -42,7 +43,7 @@ func spend_energy(amount: int) -> bool:
 	return false
 
 func update_energy_display():
-	energy_label.text = "Energy: " + str(round(energy * 10) / 10.0) + "\nHealth: " + str(health)
+	energy_label.text = "Energy: %.1f" % energy + "\nHealth: " + str(health)
 
 func take_damage(damage: int):
 	health -= damage

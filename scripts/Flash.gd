@@ -1,10 +1,8 @@
 extends Node2D
 
-@onready var anim = $AnimationPlayer
+@onready var rect = $ColorRect
 
 func _ready():
-	anim.play("flash")
-	anim.animation_finished.connect(_on_anim_finished)
-
-func _on_anim_finished(_name):
-	queue_free() 
+	var tween = create_tween()
+	tween.tween_property(rect, "modulate:a", 0.0, 0.2)
+	tween.finished.connect(queue_free) 

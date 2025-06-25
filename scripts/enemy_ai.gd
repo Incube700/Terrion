@@ -4,6 +4,8 @@ extends Node2D
 class_name EnemyAI
 
 @onready var core = get_parent()
+@onready var buildings_container = get_tree().get_root().get_node("Main/BuildingsContainer")
+@onready var units_container = get_tree().get_root().get_node("Main/EnemiesContainer")
 
 # Префабы
 var soldier_scene = preload("res://scenes/enemy_soldier.tscn")
@@ -11,10 +13,6 @@ var tank_scene = preload("res://scenes/enemy_tank.tscn")
 var drone_scene = preload("res://scenes/enemy_drone.tscn")
 var tower_scene = preload("res://scenes/enemy_tower.tscn")
 var barracks_scene = preload("res://scenes/enemy_barracks.tscn")
-
-# Ссылки на контейнеры
-var units_container: Node2D
-var buildings_container: Node2D
 
 # Стоимость
 const SOLDIER_COST = 20
@@ -27,11 +25,7 @@ const BARRACKS_COST = 80
 var action_timer: Timer
 
 func _ready():
-	# Находим контейнеры
-	var main = get_tree().get_first_node_in_group("main")
-	if main:
-		units_container = main.get_node("EnemiesContainer")
-		buildings_container = main.get_node("BuildingsContainer")
+	print("[EnemyAI] _ready called")
 	# Таймер действий
 	action_timer = Timer.new()
 	action_timer.wait_time = 2.0
@@ -40,6 +34,7 @@ func _ready():
 	add_child(action_timer)
 
 func _on_action_timer():
+	print("[EnemyAI] Action timer tick")
 	# Примитивная логика: если хватает энергии — строим или призываем
 	if core.energy >= TOWER_COST and not _has_tower():
 		_build_tower()

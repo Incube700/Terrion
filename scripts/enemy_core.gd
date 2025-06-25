@@ -19,6 +19,7 @@ var flash_scene = preload("res://scenes/Flash.tscn")
 var explosion_scene = preload("res://scenes/Explosion.tscn")
 
 func _ready():
+	print("[EnemyCore] _ready called")
 	update_energy_display()
 	add_to_group("enemy_core")
 	health_bar.value = float(health) / float(max_health)
@@ -39,7 +40,7 @@ func spend_energy(amount: int) -> bool:
 	return false
 
 func update_energy_display():
-	energy_label.text = "Energy: " + str(round(energy * 10) / 10.0) + "\nHealth: " + str(health)
+	energy_label.text = "Energy: %.1f" % energy + "\nHealth: " + str(health)
 
 func take_damage(damage: int):
 	health -= damage

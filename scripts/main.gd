@@ -27,6 +27,7 @@ const TOWER_COST = 50
 const BARRACKS_COST = 80
 
 func _ready():
+	print("[Main] _ready called")
 	# Добавляем в группу для поиска
 	add_to_group("main")
 	
