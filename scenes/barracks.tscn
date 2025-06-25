@@ -1,0 +1,31 @@
+[gd_scene load_steps=3 format=3 uid="uid://d9x0y4m5n6p7q"]
+
+[ext_resource type="Script" path="res://scripts/barracks.gd" id="1_barracks"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_barracks"]
+size = Vector2(50, 40)
+
+[node name="Barracks" type="StaticBody2D"]
+script = ExtResource("1_barracks")
+
+[node name="BarracksSprite" type="ColorRect" parent="."]
+offset_left = -25.0
+offset_top = -20.0
+offset_right = 25.0
+offset_bottom = 20.0
+color = Color(0.6, 0.4, 0.8, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_barracks")
+
+[node name="ProductionTimer" type="Timer" parent="."]
+wait_time = 5.0
+autostart = true
+
+[node name="HealthLabel" type="Label" parent="."]
+offset_left = -30.0
+offset_top = -50.0
+offset_right = 30.0
+offset_bottom = -30.0
+text = "Барак"
+horizontal_alignment = 1 
