@@ -29,8 +29,8 @@ func _ready():
 	hud.build_tower_requested.connect(_on_build_tower)
 	hud.build_barracks_requested.connect(_on_build_barracks)
 	
-	# Создаем несколько врагов для тестирования
-	_create_test_enemies()
+	# Враги теперь создаются через EnemySpawner
+	print("Игра TERRION запущена! Защищайте ядро от волн врагов!")
 
 func _on_summon_soldier():
 	if core.energy >= SOLDIER_COST:
@@ -54,11 +54,4 @@ func _on_build_barracks():
 		var barracks = barracks_scene.instantiate()
 		barracks.position = core.position + Vector2(-100, 0)
 		buildings_container.add_child(barracks)
-		print("Барак построен!")
-
-func _create_test_enemies():
-	# Создаем несколько врагов для тестирования
-	for i in range(3):
-		var enemy = preload("res://scenes/enemy.tscn").instantiate()
-		enemy.position = Vector2(800 + i * 100, 300)
-		enemies_container.add_child(enemy) 
+		print("Барак построен!") 

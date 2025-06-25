@@ -56,4 +56,17 @@ func take_damage(damage: int):
 		print("Враг получил урон: ", damage, ". Здоровье: ", health)
 
 func update_health_display():
-	health_label.text = "HP: " + str(health) 
+	health_label.text = "HP: " + str(health)
+
+# Новый метод для установки улучшенных характеристик
+func set_enhanced_stats(health_boost: int, damage_boost: int):
+	health += health_boost
+	max_health += health_boost
+	attack_damage += damage_boost
+	update_health_display()
+	
+	# Изменяем цвет в зависимости от силы врага
+	var sprite = get_node("EnemySprite")
+	if sprite:
+		var intensity = 0.5 + (health_boost / 100.0) * 0.5  # От 0.5 до 1.0
+		sprite.color = Color(0.8 * intensity, 0.2, 0.2, 1) 
