@@ -457,10 +457,11 @@ async def get_game_state(game_id: str):
         return game_engine.games[game_id]
     return {"error": "Game not found"}
 
-# WebSocket endpoint
+# WebSocket endpoint - move before including router
 @app.websocket("/ws/{game_id}")
 async def websocket_endpoint(websocket: WebSocket, game_id: str):
-    await manager.connect(websocket, game_id)
+    await websocket.accept()
+    manager.active_connections[game_id] = websocket
     
     # Create game if doesn't exist
     if game_id not in game_engine.games:
@@ -471,24 +472,35 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
         last_update = asyncio.get_event_loop().time()
         
         while True:
-            current_time = asyncio.get_event_loop().time()
-            delta_time = current_time - last_update
-            last_update = current_time
-            
-            # Update game state
-            game_engine.update_game(game_id, delta_time)
-            
-            # Send updated state to client
-            if game_id in game_engine.games:
-                await manager.send_game_state(game_id, game_engine.games[game_id])
-            
-            # AI actions for enemy
-            await game_ai_actions(game_id)
-            
-            await asyncio.sleep(1/30)  # 30 FPS
+            try:
+                current_time = asyncio.get_event_loop().time()
+                delta_time = current_time - last_update
+                last_update = current_time
+                
+                # Update game state
+                game_engine.update_game(game_id, delta_time)
+                
+                # Send updated state to client
+                if game_id in game_engine.games:
+                    game_state_json = game_engine.games[game_id].json()
+                    await websocket.send_text(game_state_json)
+                
+                # AI actions for enemy
+                await game_ai_actions(game_id)
+                
+                await asyncio.sleep(1/30)  # 30 FPS
+                
+            except Exception as e:
+                print(f"Error in game loop: {e}")
+                break
             
     except WebSocketDisconnect:
-        manager.disconnect(game_id)
+        if game_id in manager.active_connections:
+            del manager.active_connections[game_id]
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+        if game_id in manager.active_connections:
+            del manager.active_connections[game_id]
 
 # Simple Enemy AI
 async def game_ai_actions(game_id: str):
