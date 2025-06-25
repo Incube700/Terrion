@@ -460,11 +460,13 @@ async def get_game_state(game_id: str):
 # WebSocket endpoint - move before including router
 @app.websocket("/ws/{game_id}")
 async def websocket_endpoint(websocket: WebSocket, game_id: str):
+    print(f"WebSocket connection attempt for game {game_id}")
     await websocket.accept()
-    manager.active_connections[game_id] = websocket
+    print(f"WebSocket connection accepted for game {game_id}")
     
     # Create game if doesn't exist
     if game_id not in game_engine.games:
+        print(f"Creating new game {game_id}")
         game_engine.create_game(game_id)
     
     try:
@@ -482,8 +484,8 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
                 
                 # Send updated state to client
                 if game_id in game_engine.games:
-                    game_state_json = game_engine.games[game_id].json()
-                    await websocket.send_text(game_state_json)
+                    game_state = game_engine.games[game_id]
+                    await websocket.send_text(game_state.json())
                 
                 # AI actions for enemy
                 await game_ai_actions(game_id)
@@ -495,12 +497,10 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str):
                 break
             
     except WebSocketDisconnect:
-        if game_id in manager.active_connections:
-            del manager.active_connections[game_id]
+        print(f"WebSocket disconnected for game {game_id}")
     except Exception as e:
-        print(f"WebSocket error: {e}")
-        if game_id in manager.active_connections:
-            del manager.active_connections[game_id]
+        print(f"WebSocket error for game {game_id}: {e}")
+        await websocket.close()
 
 # Simple Enemy AI
 async def game_ai_actions(game_id: str):
