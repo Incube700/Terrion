@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://c28a75qodghsl" path="res://scripts/main.gd" id="1_0k4m2"]
 [ext_resource type="Script" uid="uid://c2wo5tgkj3i5a" path="res://scripts/core.gd" id="2_1k4m3"]
 [ext_resource type="Script" uid="uid://d4nxcav1hmq7j" path="res://scripts/hud.gd" id="3_2k4m4"]
-[ext_resource type="PackedScene" uid="uid://f1x2y6m7n8p9q" path="res://scenes/spawners/enemy_spawner.tscn" id="4_spawner"]
+[ext_resource type="PackedScene" path="res://scenes/enemy_core.tscn" id="5_enemycore"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
 size = Vector2(80, 80)
@@ -85,6 +85,16 @@ custom_minimum_size = Vector2(120, 60)
 layout_mode = 2
 text = "Призвать солдата"
 
+[node name="SummonTankBtn" type="Button" parent="HUD/BottomPanel/HBoxContainer"]
+custom_minimum_size = Vector2(120, 60)
+layout_mode = 2
+text = "Призвать танк"
+
+[node name="SummonDroneBtn" type="Button" parent="HUD/BottomPanel/HBoxContainer"]
+custom_minimum_size = Vector2(120, 60)
+layout_mode = 2
+text = "Призвать дрона"
+
 [node name="BuildTowerBtn" type="Button" parent="HUD/BottomPanel/HBoxContainer"]
 custom_minimum_size = Vector2(120, 60)
 layout_mode = 2
@@ -101,4 +111,5 @@ text = "Построить барак"
 
 [node name="EnemiesContainer" type="Node2D" parent="."]
 
-[node name="EnemySpawner" parent="." instance=ExtResource("4_spawner")]
+[node name="EnemyCore" parent="." instance=ExtResource("5_enemycore")]
+position = Vector2(1100, 300)

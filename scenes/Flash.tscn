@@ -1,0 +1,18 @@
+[gd_scene format=3]
+
+[node name="Flash" type="Node2D"]
+
+[node name="ColorRect" type="ColorRect" parent="."]
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(1, 1, 1, 0.7)
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+
+[animation name="flash" length=0.2]
+track/0/type = "value"
+track/0/path = ":ColorRect:modulate:a"
+track/0/interp = 1
+track/0/keys = [0.0, 0.7, 0.2, 0.0] 

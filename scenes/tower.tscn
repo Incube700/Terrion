@@ -1,6 +1,7 @@
 [gd_scene load_steps=4 format=3 uid="uid://c8x9y3m4n5p6q"]
 
 [ext_resource type="Script" path="res://scripts/tower.gd" id="1_tower"]
+[ext_resource path="res://scenes/HealthBar.tscn" type="PackedScene" id=2]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tower"]
 size = Vector2(40, 60)
@@ -28,4 +29,7 @@ shape = SubResource("CircleShape2D_tower_detection")
 
 [node name="AttackTimer" type="Timer" parent="."]
 wait_time = 2.0
-autostart = false 
+autostart = false
+
+[node name="HealthBar" parent="." instance=ExtResource( 2 )]
+position = Vector2(0, -60) 

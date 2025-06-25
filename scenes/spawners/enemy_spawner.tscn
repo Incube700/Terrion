@@ -1,6 +1,6 @@
-[gd_scene load_steps=2 format=3 uid="uid://f1x2y6m7n8p9q"]
+[gd_scene load_steps=2 format=3 uid="uid://bd2tm2ccwx2e"]
 
-[ext_resource type="Script" path="res://scripts/spawners/enemy_spawner.gd" id="1_spawner"]
+[ext_resource type="Script" uid="uid://bipbxpkp3eoo4" path="res://scripts/spawners/enemy_spawner.gd" id="1_spawner"]
 
 [node name="EnemySpawner" type="Node2D"]
 script = ExtResource("1_spawner")
@@ -22,4 +22,4 @@ position = Vector2(1200, 200)
 position = Vector2(1200, 400)
 
 [node name="SpawnPoint3" type="Marker2D" parent="SpawnPoints"]
-position = Vector2(1200, 600) 
+position = Vector2(1200, 600)

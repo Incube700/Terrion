@@ -1,6 +1,7 @@
 [gd_scene load_steps=3 format=3 uid="uid://d9x0y4m5n6p7q"]
 
 [ext_resource type="Script" path="res://scripts/barracks.gd" id="1_barracks"]
+[ext_resource path="res://scenes/HealthBar.tscn" type="PackedScene" id=2]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_barracks"]
 size = Vector2(50, 40)
@@ -28,4 +29,7 @@ offset_top = -50.0
 offset_right = 30.0
 offset_bottom = -30.0
 text = "Барак"
-horizontal_alignment = 1 
+horizontal_alignment = 1
+
+[node name="HealthBar" parent="." instance=ExtResource( 2 )]
+position = Vector2(0, -60) 

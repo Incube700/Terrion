@@ -4,6 +4,7 @@ extends StaticBody2D
 class_name Barracks
 
 @onready var production_timer = $ProductionTimer
+@onready var health_bar = $HealthBar
 
 # Параметры барака
 var health: int = 150
@@ -12,6 +13,9 @@ var production_cost: int = 10  # энергии на солдата
 
 # Ссылка на основную сцену для доступа к Core
 var main_scene: Main
+
+var flash_scene = preload("res://scenes/Flash.tscn")
+var explosion_scene = preload("res://scenes/Explosion.tscn")
 
 func _ready():
 	production_timer.timeout.connect(_on_production_timer_timeout)
@@ -24,6 +28,7 @@ func _ready():
 		while current and not current is Main:
 			current = current.get_parent()
 		main_scene = current
+	health_bar.value = float(health) / float(max_health)
 
 func _on_production_timer_timeout():
 	_produce_soldier()
@@ -49,7 +54,15 @@ func _produce_soldier():
 
 func take_damage(damage: int):
 	health -= damage
+	health_bar.value = float(health) / float(max_health)
+	# Flash effect
+	var flash = flash_scene.instantiate()
+	add_child(flash)
 	if health <= 0:
+		# Explosion effect
+		var explosion = explosion_scene.instantiate()
+		get_parent().add_child(explosion)
+		explosion.global_position = global_position
 		queue_free()
 	else:
 		print("Барак получил урон: ", damage, ". Здоровье: ", health) 
