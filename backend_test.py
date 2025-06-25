@@ -337,6 +337,9 @@ def main():
         # Test API sequence to verify game logic
         tester.test_api_sequence()
         
+        # Test WebSocket connection
+        asyncio.run(tester.test_websocket_connection())
+        
         # Print results
         print(f"\n📊 Tests passed: {tester.tests_passed}/{tester.tests_run}")
         return 0 if tester.tests_passed == tester.tests_run else 1
