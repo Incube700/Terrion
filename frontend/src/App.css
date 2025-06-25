@@ -1,0 +1,88 @@
+.App {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Game-specific styles */
+.game-canvas {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border: 2px solid #374151;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+
+.control-panel {
+  background: linear-gradient(180deg, #374151 0%, #1f2937 100%);
+  border-left: 1px solid #4b5563;
+}
+
+.energy-bar {
+  background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 100%);
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
+}
+
+.unit-button {
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.unit-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.unit-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.building-mode {
+  background: linear-gradient(45deg, #f59e0b, #d97706);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .game-container {
+    flex-direction: column;
+  }
+  
+  .control-panel {
+    width: 100%;
+    max-height: 300px;
+    border-left: none;
+    border-top: 1px solid #4b5563;
+  }
+  
+  .game-canvas {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* Custom scrollbar for control panel */
+.control-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.control-panel::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+.control-panel::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 3px;
+}
+
+.control-panel::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
