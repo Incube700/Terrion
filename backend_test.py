@@ -2,6 +2,8 @@ import requests
 import json
 import time
 import sys
+import asyncio
+import websockets
 from datetime import datetime
 
 class TerrionRTSTester:
