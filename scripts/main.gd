@@ -183,13 +183,13 @@ func _get_energy_text() -> String:
 	return "Energy: %.1f / %d\nHealth: %d / %d" % [energy, max_energy, health, max_health]
 
 func _on_soldier_pressed():
-	print("[HUD] Soldier button pressed (заглушка)")
+	_on_summon_soldier()
 
 func _on_tank_pressed():
-	print("[HUD] Tank button pressed (заглушка)")
+	_on_summon_tank()
 
 func _on_tower_pressed():
-	print("[HUD] Tower button pressed (заглушка)")
+	_on_build_tower()
 
 func _on_barracks_pressed():
-	print("[HUD] Barracks button pressed (заглушка)")
+	_on_build_barracks()
