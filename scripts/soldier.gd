@@ -12,6 +12,7 @@ var target = null
 
 @onready var detection_area = $DetectionArea
 @onready var attack_timer = $AttackTimer
+@onready var navigation = get_tree().get_root().get_node_or_null("Main/Navigation2D")
 
 func _ready():
 	super()
@@ -25,7 +26,10 @@ func _physics_process(_delta):
 	if target and is_instance_valid(target):
 		var direction = (target.global_position - global_position).normalized()
 		var distance = global_position.distance_to(target.global_position)
-		
+		if navigation:
+			var path = navigation.get_simple_path(global_position, target.global_position)
+			if path.size() > 1:
+				direction = (path[1] - global_position).normalized()
 		if distance > attack_range:
 			velocity = direction * speed
 		else:

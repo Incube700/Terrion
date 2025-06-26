@@ -1,3 +1,4 @@
 [ext_resource path="res://scenes/HealthBar.tscn" type="PackedScene" id=2]
+[node name="Navigation2D" type="Navigation2D"]
 [node name="HealthBar" parent="Core" instance=ExtResource( 2 )]
 position = Vector2(0, -80) 

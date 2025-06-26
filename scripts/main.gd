@@ -84,16 +84,19 @@ func _on_summon_tank():
 		print("Недостаточно энергии для призыва танка!")
 
 func _on_summon_drone():
-	if player_core.energy >= DRONE_COST:
-		player_core.spend_energy(DRONE_COST)
+	if energy >= DRONE_COST:
+		energy -= DRONE_COST
 		var drone = drone_scene.instantiate()
-		drone.position = player_core.position + Vector2(100, -40)
+		drone.position = player_core.position
 		units_container.add_child(drone)
 		# Flash effect
 		var flash = flash_scene.instantiate()
 		flash.position = drone.position
-		units_container.add_child(flash)
-		print("Дрон призван!")
+		add_child(flash)
+		print("Дрон призван! Энергия: ", energy)
+		energy_label.text = _get_energy_text()
+	else:
+		print("Недостаточно энергии для призыва дрона!")
 
 func _on_build_tower():
 	if energy >= TOWER_COST:

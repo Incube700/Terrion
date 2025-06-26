@@ -6,6 +6,8 @@
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_barracks"]
 size = Vector2(50, 40)
 
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."]
+
 [node name="Barracks" type="StaticBody2D"]
 script = ExtResource("1_barracks")
 
