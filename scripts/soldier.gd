@@ -1,79 +1,73 @@
-extends CharacterBody2D
-
-# Скрипт солдата - автоматически ищет и атакует врагов
 class_name Soldier
+extends UnitBase
+
+# Параметры солдата
+@export var speed: float = 100.0
+@export var damage: int = 15
+@export var attack_range: float = 50.0
+@export var attack_cooldown: float = 1.0
+
+var last_attack_time: float = 0.0
+var target = null
 
 @onready var detection_area = $DetectionArea
 @onready var attack_timer = $AttackTimer
-@onready var health_bar = $HealthBar
-
-# Параметры солдата
-var speed: float = 100.0
-var attack_damage: int = 15
-var attack_range: float = 50.0
-var health: int = 100
-var max_health: int = 100
-
-# Текущая цель
-var current_target: Node2D = null
-var enemies_in_range: Array[Node2D] = []
-
-var flash_scene = preload("res://scenes/Flash.tscn")
-var explosion_scene = preload("res://scenes/Explosion.tscn")
 
 func _ready():
-	# Подключаем сигналы области обнаружения
-	detection_area.body_entered.connect(_on_enemy_entered)
-	detection_area.body_exited.connect(_on_enemy_exited)
+	super()
+	detection_area.body_entered.connect(_on_detection_area_body_entered)
+	detection_area.body_exited.connect(_on_detection_area_body_exited)
 	attack_timer.timeout.connect(_on_attack_timer_timeout)
-	health_bar.value = float(health) / float(max_health)
+	# Добавляем в группу для определения врагов
+	add_to_group("player_units")
 
-func _physics_process(delta):
-	if current_target and is_instance_valid(current_target):
-		# Двигаемся к цели
-		var direction = (current_target.global_position - global_position).normalized()
-		velocity = direction * speed
-		move_and_slide()
+func _physics_process(_delta):
+	if target and is_instance_valid(target):
+		var direction = (target.global_position - global_position).normalized()
+		var distance = global_position.distance_to(target.global_position)
 		
-		# Проверяем расстояние до цели
-		var distance = global_position.distance_to(current_target.global_position)
-		if distance <= attack_range:
+		if distance > attack_range:
+			velocity = direction * speed
+		else:
 			velocity = Vector2.ZERO
-			if attack_timer.is_stopped():
-				attack_timer.start()
+			if Time.get_unix_time_from_system() - last_attack_time >= attack_cooldown:
+				attack()
 	else:
-		# Ищем новую цель
-		_find_new_target()
+		velocity = Vector2.ZERO
+		find_new_target()
+	
+	move_and_slide()
 
-func _on_enemy_entered(body):
-	# Проверяем, что это враг (имеет скрипт Enemy)
-	if body.has_method("take_damage") and body is Enemy and body not in enemies_in_range:
-		enemies_in_range.append(body)
-		if not current_target:
-			current_target = body
+func _on_detection_area_body_entered(body):
+	if not target and (body.is_in_group("enemy_buildings") or body.is_in_group("enemies")):
+		target = body
 
-func _on_enemy_exited(body):
-	if body in enemies_in_range:
-		enemies_in_range.erase(body)
-		if current_target == body:
-			current_target = null
+func _on_detection_area_body_exited(body):
+	if target == body:
+		target = null
 
-func _find_new_target():
-	if enemies_in_range.size() > 0:
-		# Удаляем недействительные цели
-		enemies_in_range = enemies_in_range.filter(func(enemy): return is_instance_valid(enemy))
-		
-		if enemies_in_range.size() > 0:
-			current_target = enemies_in_range[0]
+func find_new_target():
+	var enemies = get_tree().get_nodes_in_group("enemy_buildings") + get_tree().get_nodes_in_group("enemies")
+	var closest_distance = INF
+	var closest_enemy = null
+	
+	for enemy in enemies:
+		if is_instance_valid(enemy):
+			var distance = global_position.distance_to(enemy.global_position)
+			if distance < closest_distance:
+				closest_distance = distance
+				closest_enemy = enemy
+	
+	target = closest_enemy
 
 func _on_attack_timer_timeout():
-	if current_target and is_instance_valid(current_target):
-		_attack_target()
+	if target and is_instance_valid(target):
+		attack()
 
-func _attack_target():
-	if current_target.has_method("take_damage"):
-		current_target.take_damage(attack_damage)
-		print("Солдат атакует врага! Урон: ", attack_damage)
+func attack():
+	if target and target.has_method("take_damage"):
+		target.take_damage(damage)
+		last_attack_time = Time.get_unix_time_from_system()
 
 func take_damage(damage: int):
 	health -= damage

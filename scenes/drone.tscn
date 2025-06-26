@@ -1,26 +1,25 @@
-[gd_scene load_steps=4 format=3 uid="uid://dronetscn"]
+[gd_scene load_steps=5 format=3 uid="uid://d2w3x4y5z6a7b"]
 
-[ext_resource type="Script" path="res://scripts/drone.gd" id="1_drone"]
-[ext_resource path="res://scenes/HealthBar.tscn" type="PackedScene" id=2]
+[ext_resource type="Script" uid="uid://c1n2m3b4v5c6x" path="res://scripts/drone.gd" id="1_drone"]
+[ext_resource type="PackedScene" uid="uid://b7k3l2m1n8p9q" path="res://scenes/HealthBar.tscn" id="2"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_drone"]
-radius = 14.0
+radius = 12.0
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_detection"]
 radius = 160.0
 
 [node name="Drone" type="CharacterBody2D"]
+collision_layer = 2
+collision_mask = 3
 script = ExtResource("1_drone")
-
-[node name="DroneSprite" type="ColorRect" parent="."]
-offset_left = -14.0
-offset_top = -14.0
-offset_right = 14.0
-offset_bottom = 14.0
-color = Color(0.2, 0.8, 1.0, 1)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_drone")
+
+[node name="DroneSprite" type="Polygon2D" parent="."]
+color = Color(0.2, 0.8, 1.0, 1.0)
+polygon = PackedVector2Array(0, -15, 13, 7.5, -13, 7.5)
 
 [node name="DetectionArea" type="Area2D" parent="."]
 
@@ -29,7 +28,6 @@ shape = SubResource("CircleShape2D_detection")
 
 [node name="AttackTimer" type="Timer" parent="."]
 wait_time = 0.7
-autostart = false
 
-[node name="HealthBar" parent="." instance=ExtResource( 2 )]
-position = Vector2(0, -35) 
+[node name="HealthBar" parent="." instance=ExtResource("2")]
+position = Vector2(0, -25) 

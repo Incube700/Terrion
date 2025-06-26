@@ -1,19 +1,17 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://b7k3l2m1n8p9q"]
 
-[node name="HealthBar" type="ProgressBar"]
-min_value = 0.0
-max_value = 1.0
-value = 1.0
-size_flags_horizontal = 3
-size_flags_vertical = 0
-custom_minimum_size = Vector2(120, 16)
+[node name="HealthBar" type="Node2D"]
 
 [node name="Background" type="ColorRect" parent="."]
-anchor_right = 1.0
-anchor_bottom = 1.0
-color = Color(0.1, 0.1, 0.1, 0.7)
+offset_left = -20.0
+offset_top = -2.0
+offset_right = 20.0
+offset_bottom = 2.0
+color = Color(0.2, 0.2, 0.2, 0.8)
 
 [node name="Bar" type="ColorRect" parent="."]
-anchor_right = 1.0
-anchor_bottom = 1.0
-color = Color(0.2, 0.8, 0.2, 0.9) 
+offset_left = -20.0
+offset_top = -2.0
+offset_right = 20.0
+offset_bottom = 2.0
+color = Color(0.2, 0.8, 0.2, 0.8) 

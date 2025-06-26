@@ -1,26 +1,29 @@
-[gd_scene load_steps=4 format=3 uid="uid://tanktscn"]
+[gd_scene load_steps=5 format=3 uid="uid://c8mj2p4k3n1xv"]
 
-[ext_resource type="Script" path="res://scripts/tank.gd" id="1_tank"]
-[ext_resource path="res://scenes/HealthBar.tscn" type="PackedScene" id=2]
+[ext_resource type="Script" uid="uid://b6r8g7x2n4m5w" path="res://scripts/tank.gd" id="1_tank"]
+[ext_resource type="PackedScene" uid="uid://b7k3l2m1n8p9q" path="res://scenes/HealthBar.tscn" id="2"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tank"]
-size = Vector2(40, 24)
+size = Vector2(40, 30)
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_detection"]
 radius = 120.0
 
 [node name="Tank" type="CharacterBody2D"]
+collision_layer = 2
+collision_mask = 3
 script = ExtResource("1_tank")
-
-[node name="TankSprite" type="ColorRect" parent="."]
-offset_left = -20.0
-offset_top = -12.0
-offset_right = 20.0
-offset_bottom = 12.0
-color = Color(0.1, 0.2, 0.7, 1)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_tank")
+
+[node name="TankSprite" type="Polygon2D" parent="."]
+color = Color(0.1, 0.2, 0.7, 1.0)
+polygon = PackedVector2Array(-20, -15, 20, -15, 20, 15, -20, 15)
+
+[node name="Turret" type="Polygon2D" parent="TankSprite"]
+color = Color(0.15, 0.25, 0.75, 1.0)
+polygon = PackedVector2Array(-5, -20, 5, -20, 5, -15, -5, -15)
 
 [node name="DetectionArea" type="Area2D" parent="."]
 
@@ -29,7 +32,6 @@ shape = SubResource("CircleShape2D_detection")
 
 [node name="AttackTimer" type="Timer" parent="."]
 wait_time = 2.0
-autostart = false
 
-[node name="HealthBar" parent="." instance=ExtResource( 2 )]
-position = Vector2(0, -50) 
+[node name="HealthBar" parent="." instance=ExtResource("2")]
+position = Vector2(0, -35) 

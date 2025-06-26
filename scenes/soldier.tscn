@@ -1,7 +1,7 @@
-[gd_scene load_steps=5 format=3 uid="uid://bqx8y2m3n4p5q"]
+[gd_scene load_steps=5 format=3 uid="uid://f77hs6q6q6m6"]
 
 [ext_resource type="Script" uid="uid://dr61k3thmbbxf" path="res://scripts/soldier.gd" id="1_soldier"]
-[ext_resource type="PackedScene" path="res://scenes/HealthBar.tscn" id="2"]
+[ext_resource type="PackedScene" uid="uid://b7k3l2m1n8qaq" path="res://scenes/HealthBar.tscn" id="2"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_soldier"]
 size = Vector2(20, 30)

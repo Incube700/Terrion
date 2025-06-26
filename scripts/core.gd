@@ -4,7 +4,7 @@ extends Node2D
 class_name Core
 
 @onready var energy_label = $EnergyLabel
-@onready var health_bar = $HealthBar
+@onready var health_bar = $HealthBar/Bar
 
 # Параметры энергии
 var energy: float = 100.0
@@ -23,7 +23,7 @@ func _ready():
 	update_energy_display()
 	# Добавляем в группу для поиска
 	add_to_group("core")
-	health_bar.value = float(health) / float(max_health)
+	update_health_bar()
 
 func _process(delta):
 	# Генерируем энергию со временем
@@ -45,10 +45,15 @@ func spend_energy(amount: int) -> bool:
 func update_energy_display():
 	energy_label.text = "Energy: %.1f" % energy + "\nHealth: " + str(health)
 
+func update_health_bar():
+	if health_bar:
+		var health_percent = float(health) / float(max_health)
+		health_bar.scale.x = health_percent
+
 func take_damage(damage: int):
 	health -= damage
 	update_energy_display()
-	health_bar.value = float(health) / float(max_health)
+	update_health_bar()
 	# Flash effect
 	var flash = flash_scene.instantiate()
 	add_child(flash)

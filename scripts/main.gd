@@ -34,11 +34,11 @@ var barracks_scene = preload("res://scenes/barracks.tscn")
 var flash_scene = preload("res://scenes/Flash.tscn")
 
 # Стоимость
-const SOLDIER_COST = 20
-const TANK_COST = 50
-const DRONE_COST = 35
-const TOWER_COST = 50
-const BARRACKS_COST = 80
+const SOLDIER_COST = 50
+const TANK_COST = 100
+const DRONE_COST = 75
+const TOWER_COST = 150
+const BARRACKS_COST = 200
 
 # GameOver
 var game_over_instance: Node = null
@@ -54,28 +54,34 @@ func _ready():
 	exit_button.pressed.connect(_on_exit_pressed)
 
 func _on_summon_soldier():
-	if player_core.energy >= SOLDIER_COST:
-		player_core.spend_energy(SOLDIER_COST)
+	if energy >= SOLDIER_COST:
+		energy -= SOLDIER_COST
 		var soldier = soldier_scene.instantiate()
-		soldier.position = player_core.position + Vector2(100, 0)
+		soldier.position = player_core.position
 		units_container.add_child(soldier)
 		# Flash effect
 		var flash = flash_scene.instantiate()
 		flash.position = soldier.position
-		units_container.add_child(flash)
-		print("Солдат призван!")
+		add_child(flash)
+		print("Солдат призван! Энергия: ", energy)
+		energy_label.text = _get_energy_text()
+	else:
+		print("Недостаточно энергии для призыва солдата!")
 
 func _on_summon_tank():
-	if player_core.energy >= TANK_COST:
-		player_core.spend_energy(TANK_COST)
+	if energy >= TANK_COST:
+		energy -= TANK_COST
 		var tank = tank_scene.instantiate()
-		tank.position = player_core.position + Vector2(120, 40)
+		tank.position = player_core.position
 		units_container.add_child(tank)
 		# Flash effect
 		var flash = flash_scene.instantiate()
 		flash.position = tank.position
-		units_container.add_child(flash)
-		print("Танк призван!")
+		add_child(flash)
+		print("Танк призван! Энергия: ", energy)
+		energy_label.text = _get_energy_text()
+	else:
+		print("Недостаточно энергии для призыва танка!")
 
 func _on_summon_drone():
 	if player_core.energy >= DRONE_COST:
@@ -90,20 +96,36 @@ func _on_summon_drone():
 		print("Дрон призван!")
 
 func _on_build_tower():
-	if player_core.energy >= TOWER_COST:
-		player_core.spend_energy(TOWER_COST)
+	if energy >= TOWER_COST:
+		energy -= TOWER_COST
 		var tower = tower_scene.instantiate()
-		tower.position = player_core.position + Vector2(0, -100)
+		# Place tower in front of the core
+		var spawn_offset = Vector2(100, 0)  # 100 pixels in front of core
+		tower.position = player_core.position + spawn_offset
 		buildings_container.add_child(tower)
-		print("Башня построена!")
+		# Flash effect
+		var flash = flash_scene.instantiate()
+		flash.position = tower.position
+		add_child(flash)
+		print("Башня построена! Энергия: ", energy)
+		energy_label.text = _get_energy_text()
+	else:
+		print("Недостаточно энергии для постройки башни!")
 
 func _on_build_barracks():
-	if player_core.energy >= BARRACKS_COST:
-		player_core.spend_energy(BARRACKS_COST)
+	if energy >= BARRACKS_COST:
+		energy -= BARRACKS_COST
 		var barracks = barracks_scene.instantiate()
-		barracks.position = player_core.position + Vector2(-100, 0)
+		barracks.position = player_core.position + Vector2(0, 100)
 		buildings_container.add_child(barracks)
-		print("Барак построен!")
+		# Flash effect
+		var flash = flash_scene.instantiate()
+		flash.position = barracks.position
+		add_child(flash)
+		print("Казарма построена! Энергия: ", energy)
+		energy_label.text = _get_energy_text()
+	else:
+		print("Недостаточно энергии для постройки казармы!")
 
 func show_game_over(message: String):
 	if game_over_instance:
@@ -131,6 +153,7 @@ func _spawn_battlefield():
 	var enemies_container = Node2D.new()
 	enemies_container.name = "EnemiesContainer"
 	add_child(enemies_container)
+	
 	# Ядро игрока
 	player_core = Node2D.new()
 	player_core.name = "PlayerCore"
@@ -140,49 +163,36 @@ func _spawn_battlefield():
 	player_core_shape.position = Vector2(-24, -24)
 	player_core.add_child(player_core_shape)
 	player_core.position = Vector2(200, 300)
+	# Add to player buildings group
+	player_core.add_to_group("player_buildings")
 	add_child(player_core)
+	
 	# Ядро врага (инстанцируем сцену EnemyCore.tscn)
 	var enemy_core_scene = preload("res://scenes/enemy_core.tscn")
 	enemy_core = enemy_core_scene.instantiate()
 	enemy_core.position = Vector2(1000, 300)
 	add_child(enemy_core)
+	
 	# Создаём HUD через отдельную сцену
 	var hud_scene = preload("res://scenes/HUD.tscn")
 	hud = hud_scene.instantiate()
 	hud.name = "HUD"
 	add_child(hud)
+	
 	# Подключаем сигналы HUD
 	hud.summon_soldier_requested.connect(_on_summon_soldier)
 	hud.summon_tank_requested.connect(_on_summon_tank)
 	hud.summon_drone_requested.connect(_on_summon_drone)
 	hud.build_tower_requested.connect(_on_build_tower)
 	hud.build_barracks_requested.connect(_on_build_barracks)
+	
+	# Инициализация энергии и таймера
+	energy = 50.0  # Начальная энергия
 	energy_label = Label.new()
 	energy_label.text = _get_energy_text()
 	energy_label.position = Vector2(20, 20)
 	hud.add_child(energy_label)
-	btn_soldier = Button.new()
-	btn_soldier.text = "Soldier"
-	btn_soldier.position = Vector2(1000, 40)
-	btn_soldier.pressed.connect(_on_soldier_pressed)
-	hud.add_child(btn_soldier)
-	btn_tank = Button.new()
-	btn_tank.text = "Tank"
-	btn_tank.position = Vector2(1000, 90)
-	btn_tank.pressed.connect(_on_tank_pressed)
-	hud.add_child(btn_tank)
-	btn_tower = Button.new()
-	btn_tower.text = "Tower"
-	btn_tower.position = Vector2(1000, 140)
-	btn_tower.pressed.connect(_on_tower_pressed)
-	hud.add_child(btn_tower)
-	btn_barracks = Button.new()
-	btn_barracks.text = "Barracks"
-	btn_barracks.position = Vector2(1000, 190)
-	btn_barracks.pressed.connect(_on_barracks_pressed)
-	hud.add_child(btn_barracks)
-	energy = 0.0
-	health = max_health
+	
 	energy_timer = Timer.new()
 	energy_timer.wait_time = 1.0
 	energy_timer.autostart = true
@@ -194,7 +204,7 @@ func _on_energy_timer():
 	energy_label.text = _get_energy_text()
 
 func _get_energy_text() -> String:
-	return "Energy: %.1f / %d\nHealth: %d / %d" % [energy, max_energy, health, max_health]
+	return "Энергия: %.1f / %d\nЗдоровье: %d / %d" % [energy, max_energy, health, max_health]
 
 func _on_soldier_pressed():
 	_on_summon_soldier()
