@@ -1,0 +1,27 @@
+[gd_scene load_steps=2 format=3 uid="uid://dtc7liy2o51dv"]
+
+[ext_resource type="Script" uid="uid://ce30ksitq5y72" path="res://scripts/BattleUI.gd" id="1"]
+
+[node name="BattleUI" type="CanvasLayer"]
+script = ExtResource("1")
+
+[node name="PlayerInfo" type="Label" parent="."]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 20.0
+offset_bottom = 20.0
+text = "Player: 100 HP | 100 Resources"
+
+[node name="EnemyInfo" type="Label" parent="."]
+offset_left = 20.0
+offset_top = 60.0
+offset_right = 20.0
+offset_bottom = 60.0
+text = "Enemy: 100 HP | 100 Resources"
+
+[node name="StartButton" type="Button" parent="."]
+offset_left = 20.0
+offset_top = 120.0
+offset_right = 20.0
+offset_bottom = 120.0
+text = "Начать битву"

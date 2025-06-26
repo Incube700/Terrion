@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3 uid="uid://cdv4q2upqdchg"]
+
+[ext_resource type="Script" uid="uid://cmy11eoykmtn" path="res://scripts/Spawner.gd" id="1"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_qcsvw"]
+
+[node name="Spawner" type="Node3D"]
+script = ExtResource("1")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_qcsvw")
+
+[node name="SpawnTimer" type="Timer" parent="."]
+wait_time = 3.0
+autostart = true

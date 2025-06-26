@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://cu74jr7jvp4kp"]
+[gd_scene format=3 uid="uid://b6m40cfhvcy1d"]
 
 [node name="ResourceCollector" type="CharacterBody2D"]
 

@@ -1,3 +1,15 @@
+# TERRION Frontend
+
+Этот фронтенд — часть мобильной RTS-лайт стратегии TERRION (Godot 4.1, три линии атаки).
+
+- Основной фокус проекта — боевая логика и ИИ (см. корневой README.md).
+- Интерфейс и визуальные эффекты будут дорабатываться на следующих этапах.
+- Для прототипирования используются 3D-примитивы.
+
+## Подробнее о механике и архитектуре
+
+См. [../README.md](../README.md) для полной информации о механике, структуре кода, архитектуре и планах развития проекта.
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).

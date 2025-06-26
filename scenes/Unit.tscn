@@ -1,0 +1,23 @@
+[gd_scene load_steps=5 format=3 uid="uid://c2x1syensys3f"]
+
+[ext_resource type="Script" uid="uid://cfxirrjn55vup" path="res://scripts/Unit.gd" id="1"]
+
+[sub_resource type="SphereMesh" id="SphereMesh_h85lg"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_fqlnf"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_aa524"]
+
+[node name="Unit" type="CharacterBody3D"]
+script = ExtResource("1")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("SphereMesh_h85lg")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("SphereShape3D_fqlnf")
+
+[node name="Area3D" type="Area3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Area3D"]
+shape = SubResource("SphereShape3D_aa524")
