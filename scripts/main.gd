@@ -114,6 +114,11 @@ func _spawn_battlefield():
 	buildings_container = Node2D.new()
 	buildings_container.name = "BuildingsContainer"
 	add_child(buildings_container)
+	# Контейнер для вражеских юнитов
+	var enemies_container = Node2D.new()
+	enemies_container.name = "EnemiesContainer"
+	add_child(enemies_container)
+	# Ядро игрока
 	player_core = Node2D.new()
 	player_core.name = "PlayerCore"
 	var player_core_shape = ColorRect.new()
@@ -123,13 +128,9 @@ func _spawn_battlefield():
 	player_core.add_child(player_core_shape)
 	player_core.position = Vector2(200, 300)
 	add_child(player_core)
-	enemy_core = Node2D.new()
-	enemy_core.name = "EnemyCore"
-	var enemy_core_shape = ColorRect.new()
-	enemy_core_shape.color = Color(1.0, 0.2, 0.2)
-	enemy_core_shape.size = Vector2(48, 48)
-	enemy_core_shape.position = Vector2(-24, -24)
-	enemy_core.add_child(enemy_core_shape)
+	# Ядро врага (инстанцируем сцену EnemyCore.tscn)
+	var enemy_core_scene = preload("res://scenes/enemy_core.tscn")
+	enemy_core = enemy_core_scene.instantiate()
 	enemy_core.position = Vector2(1000, 300)
 	add_child(enemy_core)
 	# Создаём HUD через отдельную сцену
