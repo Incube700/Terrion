@@ -1,89 +1,9 @@
-[gd_scene load_steps=9 format=3 uid="uid://bq2m1ug02f6kv"]
+[gd_scene load_steps=2 format=3 uid="uid://bq2m1ug02f6kv"]
 
-[ext_resource type="Script" uid="uid://c2wo5tgkj3i5a" path="res://scripts/core.gd" id="1"]
-[ext_resource type="Script" uid="uid://c2aoglqp23n3u" path="res://scripts/enemy_core.gd" id="2"]
-[ext_resource type="Script" uid="uid://cy6mqxxoroto6" path="res://scripts/enemy_ai.gd" id="3"]
-[ext_resource type="PackedScene" path="res://scenes/HealthBar.tscn" id="4"]
-[ext_resource type="PackedScene" uid="uid://c8yay3m4n5p6q" path="res://scenes/tower.tscn" id="5"]
-[ext_resource type="PackedScene" uid="uid://fj5e2pv3yugy" path="res://scenes/barracks.tscn" id="6"]
-[ext_resource type="PackedScene" path="res://scenes/enemy_tower.tscn" id="7"]
-[ext_resource type="PackedScene" path="res://scenes/enemy_barracks.tscn" id="8"]
+[ext_resource type="Script" uid="uid://c28a75qodghsl" path="res://scripts/main.gd" id="1_ig7tw"]
 
 [node name="Main" type="Node2D"]
-
-[node name="Core" type="Node2D" parent="."]
-script = ExtResource("1")
-
-[node name="HealthBar" parent="Core" instance=ExtResource("4")]
-offset_top = -80.0
-offset_bottom = -80.0
-
-[node name="EnergyLabel" type="Label" parent="Core"]
-offset_top = -120.0
-offset_bottom = -120.0
-text = "Energy: 100"
-
-[node name="EnemiesContainer" type="Node2D" parent="."]
-
-[node name="BuildingsContainer" type="Node2D" parent="."]
-
-[node name="PlayerTower" parent="BuildingsContainer" instance=ExtResource("5")]
-position = Vector2(200, 300)
-
-[node name="PlayerBarracks" parent="BuildingsContainer" instance=ExtResource("6")]
-position = Vector2(200, 400)
-
-[node name="EnemyTower" parent="BuildingsContainer" instance=ExtResource("7")]
-position = Vector2(1000, 300)
-
-[node name="EnemyBarracks" parent="BuildingsContainer" instance=ExtResource("8")]
-position = Vector2(1000, 400)
-
-[node name="EnemyCore" type="Node2D" parent="."]
-position = Vector2(1100, 300)
-script = ExtResource("2")
-
-[node name="HealthBar" parent="EnemyCore" instance=ExtResource("4")]
-offset_top = -80.0
-offset_bottom = -80.0
-
-[node name="EnergyLabel" type="Label" parent="EnemyCore"]
-offset_top = -120.0
-offset_bottom = -120.0
-text = "Energy: 100"
-
-[node name="EnemyAI" type="Node2D" parent="EnemyCore"]
-script = ExtResource("3")
-
-[node name="HUD" type="CanvasLayer" parent="."]
-
-[node name="BuildTowerButton" type="Button" parent="HUD"]
-offset_left = 20.0
-offset_top = 20.0
-offset_right = 20.0
-offset_bottom = 20.0
-text = "Построить башню"
-
-[node name="BuildBarracksButton" type="Button" parent="HUD"]
-offset_left = 20.0
-offset_top = 60.0
-offset_right = 20.0
-offset_bottom = 60.0
-text = "Построить казарму"
-
-[node name="SummonSoldierButton" type="Button" parent="HUD"]
-offset_left = 20.0
-offset_top = 100.0
-offset_right = 20.0
-offset_bottom = 100.0
-text = "Призвать солдата"
-
-[node name="SummonTankButton" type="Button" parent="HUD"]
-offset_left = 20.0
-offset_top = 140.0
-offset_right = 20.0
-offset_bottom = 140.0
-text = "Призвать танк"
+script = ExtResource("1_ig7tw")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
