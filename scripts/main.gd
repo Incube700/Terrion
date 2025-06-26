@@ -31,6 +31,7 @@ var tank_scene = preload("res://scenes/tank.tscn")
 var drone_scene = preload("res://scenes/drone.tscn")
 var tower_scene = preload("res://scenes/tower.tscn")
 var barracks_scene = preload("res://scenes/barracks.tscn")
+var flash_scene = preload("res://scenes/Flash.tscn")
 
 # Стоимость
 const SOLDIER_COST = 20
@@ -58,6 +59,10 @@ func _on_summon_soldier():
 		var soldier = soldier_scene.instantiate()
 		soldier.position = player_core.position + Vector2(100, 0)
 		units_container.add_child(soldier)
+		# Flash effect
+		var flash = flash_scene.instantiate()
+		flash.position = soldier.position
+		units_container.add_child(flash)
 		print("Солдат призван!")
 
 func _on_summon_tank():
@@ -66,6 +71,10 @@ func _on_summon_tank():
 		var tank = tank_scene.instantiate()
 		tank.position = player_core.position + Vector2(120, 40)
 		units_container.add_child(tank)
+		# Flash effect
+		var flash = flash_scene.instantiate()
+		flash.position = tank.position
+		units_container.add_child(flash)
 		print("Танк призван!")
 
 func _on_summon_drone():
@@ -74,6 +83,10 @@ func _on_summon_drone():
 		var drone = drone_scene.instantiate()
 		drone.position = player_core.position + Vector2(100, -40)
 		units_container.add_child(drone)
+		# Flash effect
+		var flash = flash_scene.instantiate()
+		flash.position = drone.position
+		units_container.add_child(flash)
 		print("Дрон призван!")
 
 func _on_build_tower():
