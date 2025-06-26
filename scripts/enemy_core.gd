@@ -7,7 +7,7 @@ class_name EnemyCore
 @onready var ai = $EnemyAI
 
 # Параметры энергии
-var energy: float = 0.0
+var energy: float = 120.0
 var max_energy: float = 200.0
 var energy_generation: float = 5.0
 

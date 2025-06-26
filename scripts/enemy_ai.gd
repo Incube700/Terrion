@@ -4,8 +4,8 @@ extends Node2D
 class_name EnemyAI
 
 @onready var core = get_parent()
-@onready var buildings_container = get_tree().get_root().get_node("Main/BuildingsContainer")
-@onready var units_container = get_tree().get_root().get_node("Main/EnemiesContainer")
+@onready var buildings_container = get_tree().get_root().get_node_or_null("Main/BuildingsContainer")
+@onready var units_container = get_tree().get_root().get_node_or_null("Main/EnemiesContainer")
 
 # Префабы
 var soldier_scene = preload("res://scenes/enemy_soldier.tscn")
@@ -26,15 +26,26 @@ var action_timer: Timer
 
 func _ready():
 	print("[EnemyAI] _ready called")
+	if not buildings_container:
+		print("[EnemyAI] BuildingsContainer не найден!")
+	if not units_container:
+		print("[EnemyAI] EnemiesContainer не найден!")
 	# Таймер действий
 	action_timer = Timer.new()
-	action_timer.wait_time = 2.0
+	action_timer.wait_time = 4.0
 	action_timer.autostart = true
 	action_timer.timeout.connect(_on_action_timer)
 	add_child(action_timer)
 
 func _on_action_timer():
-	print("[EnemyAI] Action timer tick")
+	print("[EnemyAI] Action timer tick, энергия: ", core.energy)
+	if not buildings_container or not units_container:
+		print("[EnemyAI] Нет контейнеров для построек или юнитов!")
+		return
+	# Если нет ни одного юнита — всегда призываем солдата
+	if units_container.get_child_count() == 0 and core.energy >= SOLDIER_COST:
+		_summon_soldier()
+		return
 	# Примитивная логика: если хватает энергии — строим или призываем
 	if core.energy >= TOWER_COST and not _has_tower():
 		_build_tower()

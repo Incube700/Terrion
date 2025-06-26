@@ -46,6 +46,10 @@ var game_over_scene = preload("res://scenes/GameOver.tscn")
 
 var battle_scene_path := "res://scenes/battle_scene.tscn"
 
+var resource_collector_scene = preload("res://scenes/ResourceCollector.tscn")
+var crystal_scene = preload("res://scenes/Crystal.tscn")
+var resources: int = 0
+
 func _ready():
 	print("[Main] _ready called")
 	# Добавляем в группу для поиска
@@ -119,6 +123,9 @@ func _on_build_barracks():
 	if energy >= BARRACKS_COST:
 		energy -= BARRACKS_COST
 		var barracks = barracks_scene.instantiate()
+		if barracks == null:
+			print("Ошибка: не удалось создать экземпляр barracks! Проверьте путь и целостность barracks.tscn.")
+			return
 		barracks.position = player_core.position + Vector2(0, 100)
 		buildings_container.add_child(barracks)
 		# Flash effect
@@ -160,10 +167,9 @@ func _spawn_battlefield():
 	# Ядро игрока
 	player_core = Node2D.new()
 	player_core.name = "PlayerCore"
-	var player_core_shape = ColorRect.new()
+	var player_core_shape = Polygon2D.new()
 	player_core_shape.color = Color(0.2, 0.6, 1.0)
-	player_core_shape.size = Vector2(48, 48)
-	player_core_shape.position = Vector2(-24, -24)
+	player_core_shape.polygon = PackedVector2Array([Vector2(0, -40), Vector2(35, -20), Vector2(35, 20), Vector2(0, 40), Vector2(-35, 20), Vector2(-35, -20)])
 	player_core.add_child(player_core_shape)
 	player_core.position = Vector2(200, 300)
 	# Add to player buildings group
@@ -173,6 +179,9 @@ func _spawn_battlefield():
 	# Ядро врага (инстанцируем сцену EnemyCore.tscn)
 	var enemy_core_scene = preload("res://scenes/enemy_core.tscn")
 	enemy_core = enemy_core_scene.instantiate()
+	if enemy_core == null:
+		print("Ошибка: не удалось создать экземпляр enemy_core! Проверьте путь и целостность enemy_core.tscn.")
+		return
 	enemy_core.position = Vector2(1000, 300)
 	add_child(enemy_core)
 	
@@ -188,6 +197,7 @@ func _spawn_battlefield():
 	hud.summon_drone_requested.connect(_on_summon_drone)
 	hud.build_tower_requested.connect(_on_build_tower)
 	hud.build_barracks_requested.connect(_on_build_barracks)
+	hud.summon_collector_requested.connect(_on_summon_collector)
 	
 	# Инициализация энергии и таймера
 	energy = 50.0  # Начальная энергия
@@ -201,6 +211,8 @@ func _spawn_battlefield():
 	energy_timer.autostart = true
 	energy_timer.timeout.connect(_on_energy_timer)
 	add_child(energy_timer)
+	
+	_spawn_crystals()
 
 func _on_energy_timer():
 	energy = min(energy + energy_generation_rate, max_energy)
@@ -220,3 +232,21 @@ func _on_tower_pressed():
 
 func _on_barracks_pressed():
 	_on_build_barracks()
+
+func _spawn_crystals():
+	for i in range(5):
+		var crystal = crystal_scene.instantiate()
+		crystal.position = Vector2(400 + i * 80, 200 + (i % 2) * 100)
+		add_child(crystal)
+		print("Кристалл создан в точке: ", crystal.position)
+
+func _on_summon_collector():
+	var collector_cost = 30
+	if resources >= collector_cost:
+		resources -= collector_cost
+		var collector = resource_collector_scene.instantiate()
+		collector.position = player_core.position
+		units_container.add_child(collector)
+		print("Сборщик ресурсов призван! Осталось ресурсов: ", resources)
+	else:
+		print("Недостаточно ресурсов для призыва сборщика!")

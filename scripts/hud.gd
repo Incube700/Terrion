@@ -9,12 +9,14 @@ signal summon_tank_requested
 signal summon_drone_requested
 signal build_tower_requested
 signal build_barracks_requested
+signal summon_collector_requested
 
 @onready var summon_soldier_btn = $BottomPanel/HBoxContainer/SummonSoldierBtn
 @onready var summon_tank_btn = $BottomPanel/HBoxContainer/SummonTankBtn
 @onready var summon_drone_btn = $BottomPanel/HBoxContainer/SummonDroneBtn
 @onready var build_tower_btn = $BottomPanel/HBoxContainer/BuildTowerBtn
 @onready var build_barracks_btn = $BottomPanel/HBoxContainer/BuildBarracksBtn
+@onready var summon_collector_btn = $BottomPanel/HBoxContainer/SummonCollectorBtn
 @onready var wave_label = $TopPanel/WaveLabel
 
 func _ready():
@@ -24,6 +26,7 @@ func _ready():
 	summon_drone_btn.pressed.connect(_on_summon_drone_pressed)
 	build_tower_btn.pressed.connect(_on_build_tower_pressed)
 	build_barracks_btn.pressed.connect(_on_build_barracks_pressed)
+	summon_collector_btn.pressed.connect(_on_summon_collector_pressed)
 	
 	# Обновляем индикатор волны каждую секунду
 	var timer = Timer.new()
@@ -46,6 +49,9 @@ func _on_build_tower_pressed():
 
 func _on_build_barracks_pressed():
 	build_barracks_requested.emit()
+
+func _on_summon_collector_pressed():
+	summon_collector_requested.emit()
 
 func _update_wave_display():
 	# Получаем информацию о текущей волне

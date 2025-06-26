@@ -27,4 +27,7 @@ text = "Drone"
 text = "Tower"
 
 [node name="BuildBarracksBtn" type="Button" parent="BottomPanel/HBoxContainer"]
-text = "Barracks" 
+text = "Barracks"
+
+[node name="SummonCollectorBtn" type="Button" parent="BottomPanel/HBoxContainer"]
+text = "Collector" 

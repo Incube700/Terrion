@@ -30,4 +30,6 @@ shape = SubResource("CircleShape2D_tower_detection")
 wait_time = 2.0
 
 [node name="HealthBar" parent="." instance=ExtResource("2")]
-position = Vector2(0, -35) 
+position = Vector2(0, -35)
+
+[node name="NavigationRegion2D" type="NavigationRegion2D" parent="."] 

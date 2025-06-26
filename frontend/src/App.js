@@ -476,6 +476,8 @@ function GameCanvas() {
               <div>Бараки: {gameState.buildings.filter(b => b.team === 'player' && b.type === 'barracks').length}</div>
             </div>
           </div>
+
+          <Button id="SummonCollectorBtn">Collector</Button>
         </div>
       </div>
     </div>
