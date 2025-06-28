@@ -1,8 +1,10 @@
 extends CharacterBody3D
 
 @export var team: String = "player"
+@export var unit_type: String = "soldier" # soldier, tank, drone
 @export var speed: float = 100.0
 @export var health: int = 100
+@export var max_health: int = 100
 @export var damage: int = 20
 @export var target_pos: Vector3
 var battle_manager = null
@@ -13,19 +15,48 @@ var attack_timer: float = 0.0
 var target: Node = null
 
 @onready var attack_area: Area3D = $AttackArea
+@onready var health_bar: ColorRect = $HealthBar
+@onready var mesh: MeshInstance3D = $MeshInstance3D
 
 func _ready():
+	# Тип и параметры
+	if unit_type == "soldier":
+		mesh.mesh = preload("res://scenes/Unit.tscn").get_subresource("CapsuleMesh_soldier")
+		speed = 100
+		health = 100
+		max_health = 100
+		damage = 20
+	elif unit_type == "tank":
+		mesh.mesh = preload("res://scenes/Unit.tscn").get_subresource("BoxMesh_tank")
+		speed = 60
+		health = 200
+		max_health = 200
+		damage = 40
+	elif unit_type == "drone":
+		mesh.mesh = preload("res://scenes/Unit.tscn").get_subresource("SphereMesh_drone")
+		speed = 160
+		health = 60
+		max_health = 60
+		damage = 10
+	# Цвет по типу и команде
+	mesh.material_override = StandardMaterial3D.new()
+	if team == "player":
+		if unit_type == "soldier":
+			mesh.material_override.albedo_color = Color(0.2, 0.6, 1, 1)
+		elif unit_type == "tank":
+			mesh.material_override.albedo_color = Color(0.2, 0.5, 0.2, 1)
+		elif unit_type == "drone":
+			mesh.material_override.albedo_color = Color(0.5, 0.8, 1, 1)
+	else:
+		if unit_type == "soldier":
+			mesh.material_override.albedo_color = Color(1, 0.2, 0.2, 1)
+		elif unit_type == "tank":
+			mesh.material_override.albedo_color = Color(0.5, 0.2, 0.2, 1)
+		elif unit_type == "drone":
+			mesh.material_override.albedo_color = Color(0.6, 0.2, 0.8, 1)
 	attack_area.body_entered.connect(_on_attack_area_body_entered)
 	attack_area.body_exited.connect(_on_attack_area_body_exited)
 	update_health_display()
-	# Цвет юнита по команде
-	var mesh = $MeshInstance3D
-	if team == "player":
-		mesh.material_override = StandardMaterial3D.new()
-		mesh.material_override.albedo_color = Color(0.2, 0.6, 1, 1)
-	else:
-		mesh.material_override = StandardMaterial3D.new()
-		mesh.material_override.albedo_color = Color(1, 0.2, 0.2, 1)
 
 func _physics_process(delta):
 	if health <= 0:
@@ -76,3 +107,7 @@ func take_damage(amount: int):
 	health -= amount
 	if health <= 0:
 		queue_free() 
+
+func update_health_display():
+	if health_bar:
+		health_bar.scale.x = float(health) / float(max_health) 

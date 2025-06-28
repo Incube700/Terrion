@@ -10,6 +10,8 @@ layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 
 [node name="TopPanel" type="HBoxContainer" parent="UI"]
 layout_mode = 0
@@ -48,10 +50,25 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "Солдат"
 
+[node name="TankButton" type="Button" parent="UI/BottomPanel"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Танк"
+
+[node name="DroneButton" type="Button" parent="UI/BottomPanel"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Дрон"
+
 [node name="TowerButton" type="Button" parent="UI/BottomPanel"]
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Башня"
+
+[node name="BarracksButton" type="Button" parent="UI/BottomPanel"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Барак"
 
 [node name="RightPanel" type="VBoxContainer" parent="UI"]
 layout_mode = 0

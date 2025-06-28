@@ -52,6 +52,17 @@ func _ready():
 	energy_timer.timeout.connect(_on_energy_timer)
 	add_child(energy_timer)
 
+	# Добавить зелёное поле (трава)
+	var field = MeshInstance3D.new()
+	var plane = PlaneMesh.new()
+	plane.size = Vector2(20, 30)
+	field.mesh = plane
+	field.transform.origin = Vector3(0, 0, 0)
+	var field_mat = StandardMaterial3D.new()
+	field_mat.albedo_color = Color(0.2, 0.7, 0.2, 1.0) # зелёная трава
+	field.set_surface_override_material(0, field_mat)
+	add_child(field)
+
 	# Добавить горизонтальную линию (разделение поля)
 	var line = MeshInstance3D.new()
 	var box = BoxMesh.new()
@@ -81,20 +92,9 @@ func _ready():
 	enemy_core.set_surface_override_material(0, enemy_mat)
 	add_child(enemy_core)
 
-	# Добавить зелёное поле (трава)
-	var field = MeshInstance3D.new()
-	var plane = PlaneMesh.new()
-	plane.size = Vector2(20, 30)
-	field.mesh = plane
-	field.transform.origin = Vector3(0, 0, 0)
-	var field_mat = StandardMaterial3D.new()
-	field_mat.albedo_color = Color(0.2, 0.7, 0.2, 1.0) # зелёная трава
-	field.set_surface_override_material(0, field_mat)
-	add_child(field)
-
-	# Добавить стартовый спавнер игрока
+	# Добавить стартовый башенный спавнер игрока
 	place_spawner("player", "tower", Vector3(-4, 0, -10))
-	# Добавить стартовый спавнер врага
+	# Добавить стартовый башенный спавнер врага
 	place_spawner("enemy", "tower", Vector3(4, 0, 10))
 
 func _on_start_battle():
@@ -218,12 +218,12 @@ func is_valid_build_position(pos: Vector3) -> bool:
 	return true
 
 # Drag&drop: спавн юнита
-func _on_spawn_unit_drag(screen_pos):
+func _on_spawn_unit_drag(unit_type, screen_pos):
 	if not battle_started or player_energy < 10:
 		return
 	var pos = get_mouse_map_position(screen_pos)
 	if is_valid_unit_position(pos):
-		spawn_unit_at_pos("player", pos)
+		spawn_unit_at_pos("player", pos, unit_type)
 		player_energy -= 10
 		if battle_ui:
 			battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy)
@@ -234,7 +234,10 @@ func _on_build_structure_drag(screen_pos):
 		return
 	var pos = get_mouse_map_position(screen_pos)
 	if is_valid_build_position(pos):
-		place_spawner("player", "tower", pos)
+		var build_type = "tower"
+		if battle_ui and battle_ui.drag_type == "barracks":
+			build_type = "barracks"
+		place_spawner("player", build_type, pos)
 		player_energy -= 10
 		if battle_ui:
 			battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy)
@@ -256,11 +259,15 @@ func is_valid_unit_position(pos: Vector3) -> bool:
 			return false
 	return true
 
-func spawn_unit_at_pos(team, pos):
+func spawn_unit_at_pos(team, pos, unit_type="soldier"):
 	var unit = unit_scene.instantiate()
 	unit.team = team
+	unit.unit_type = unit_type
 	unit.global_position = pos
-	unit.target_pos = Vector3(0, 0, 13) # Враг сверху
+	if team == "player":
+		unit.target_pos = Vector3(0, 0, 13) # Враг сверху
+	else:
+		unit.target_pos = Vector3(0, 0, -13) # Игрок снизу
 	unit.battle_manager = self
 	add_child(unit)
 
