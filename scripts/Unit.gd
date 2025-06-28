@@ -17,6 +17,15 @@ var target: Node = null
 func _ready():
 	attack_area.body_entered.connect(_on_attack_area_body_entered)
 	attack_area.body_exited.connect(_on_attack_area_body_exited)
+	update_health_display()
+	# Цвет юнита по команде
+	var mesh = $MeshInstance3D
+	if team == "player":
+		mesh.material_override = StandardMaterial3D.new()
+		mesh.material_override.albedo_color = Color(0.2, 0.6, 1, 1)
+	else:
+		mesh.material_override = StandardMaterial3D.new()
+		mesh.material_override.albedo_color = Color(1, 0.2, 0.2, 1)
 
 func _physics_process(delta):
 	if health <= 0:

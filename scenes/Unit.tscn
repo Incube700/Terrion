@@ -2,7 +2,9 @@
 
 [ext_resource type="Script" uid="uid://cfxirrjn55vup" path="res://scripts/Unit.gd" id="1"]
 
-[sub_resource type="SphereMesh" id="SphereMesh_h85lg"]
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_soldier"]
+radius = 0.4
+height = 1.2
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_fqlnf"]
 
@@ -12,7 +14,8 @@
 script = ExtResource("1")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
-mesh = SubResource("SphereMesh_h85lg")
+mesh = SubResource("CapsuleMesh_soldier")
+material_override = null
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 shape = SubResource("SphereShape3D_fqlnf")

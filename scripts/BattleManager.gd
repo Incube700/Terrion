@@ -25,9 +25,6 @@ var building_preview = null
 var can_build_here = false
 var building_cost = 30
 
-var preview_material_valid := preload("res://materials/preview_valid.tres")
-var preview_material_invalid := preload("res://materials/preview_invalid.tres")
-
 func _ready():
 	# Найти все линии и спавнеры (ищем Lane1, Lane2, Lane3 как дочерние узлы Battle)
 	lanes = [
@@ -266,5 +263,21 @@ func spawn_unit_at_pos(team, pos):
 	unit.target_pos = Vector3(0, 0, 13) # Враг сверху
 	unit.battle_manager = self
 	add_child(unit)
+
+# Добавляю функцию update_ui, если её нет
+func update_ui():
+	if battle_ui:
+		battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy)
+
+# Добавляю функцию place_spawner, если её нет
+func place_spawner(team: String, spawner_type: String, position: Vector3):
+	var spawner_scene = preload("res://scenes/Spawner.tscn")
+	var spawner = spawner_scene.instantiate()
+	spawner.team = team
+	spawner.spawner_type = spawner_type
+	spawner.global_position = position
+	add_child(spawner)
+	spawner.add_to_group("spawners")
+	return spawner
 
 # ... остальной код ... 
