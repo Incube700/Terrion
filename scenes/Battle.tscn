@@ -1,10 +1,13 @@
-[gd_scene load_steps=3 format=3 uid="uid://c3ulqq1esmyry"]
+[gd_scene load_steps=5 format=3 uid="uid://c3ulqq1esmyry"]
 
+[ext_resource type="Script" uid="uid://bqwwtcxqbv7d0" path="res://scripts/BattleManager.gd" id="1_0448q"]
 [ext_resource type="PackedScene" uid="uid://w4a73o27fi3f" path="res://scenes/Core.tscn" id="1_bdmed"]
+[ext_resource type="PackedScene" uid="uid://dtc7liy2o51dv" path="res://scenes/BattleUI.tscn" id="3_2rusm"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_iyvxb"]
 
 [node name="Battle" type="Node3D"]
+script = ExtResource("1_0448q")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
 transform = Transform3D(30, 0, 0, 0, 30, 0, 0, 0, 30, 0, 0, 0)
@@ -17,3 +20,5 @@ transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 25,
 current = true
 
 [node name="Core" parent="." instance=ExtResource("1_bdmed")]
+
+[node name="BattleUI" parent="." instance=ExtResource("3_2rusm")]
