@@ -1,26 +1,14 @@
-name: GPT Assistant
+import openai
+import os
 
-import openai, os
-from dotenv import load_dotenv
-
-load_dotenv(".openai.env")
 openai.api_key = os.getenv("OPENAI_API_KEY")
-on:
-  workflow_dispatch:
 
-jobs:
-  gpt_assistant_job:
-    runs-on: ubuntu-latest
-    env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+response = openai.ChatCompletion.create(
+    model="gpt-3.5-turbo",
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Привет, кто ты?"}
+    ]
+)
 
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.11
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Run GPT Assistant
-        run: python scripts/gpt_assistant.py
+print(response.choices[0].message['content'])
