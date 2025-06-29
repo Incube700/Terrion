@@ -1,25 +1,31 @@
-# scripts/gpt_assistant.py
+import openai, os
+from dotenv import load_dotenv
 
-from openai import OpenAI
-import os
+load_dotenv(".openai.env")
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Получаем ключ из переменной окружения
-api_key = os.environ.get("OPENAI_API_KEY")
-if not api_key:
-    raise ValueError("OPENAI_API_KEY is not set in environment variables.")
+def load_file(path):
+    with open(path, 'r', encoding='utf-8') as f:
+        return f.read()
 
-# Инициализируем клиента
-client = OpenAI(api_key=api_key)
+readme = load_file("README.md")
+context = load_file("AI_CONTEXT.md")
 
-# Формируем сообщение
-response = client.chat.completions.create(
-    model="gpt-4",  # можно заменить на gpt-3.5-turbo при необходимости
-    messages=[
-        {"role": "system", "content": "Ты ассистент, помогающий вести проект разработки RTS-игры 'TERRION'."},
-        {"role": "user", "content": "Составь список задач на следующую неделю для улучшения боевой системы."}
-    ]
+prompt = f"""Ты — ИИ-архитектор игры. Вот описание проекта и текущие задачи:
+
+README:
+{readme}
+
+Контекст:
+{context}
+
+Что ты можешь предложить улучшить или реализовать следующим шагом?
+"""
+
+response = openai.ChatCompletion.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": prompt}]
 )
 
-# Выводим ответ
-print("Ответ от GPT:")
-print(response.choices[0].message.content)
+with open("AI_RESPONSES.md", "a", encoding="utf-8") as f:
+    f.write("\n\n---\n\n" + response.choices[0].message.content + "\n")
