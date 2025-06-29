@@ -22,3 +22,22 @@ jobs:
 
       - name: Run GPT Assistant
         run: python scripts/gpt_assistant.py
+        steps:
+      - name: Read README.md
+    run: |
+      echo "📘 Читаю TODO из README.md:"
+      grep 'TODO' README.md > todos.txt
+      echo "Вопрос к GPT:\n\n$(cat todos.txt)" > prompt.txt
+
+      - name: Ask GPT what to do run: |
+      python -c "
+import openai
+openai.api_key = '${{ secrets.OPENAI_API_KEY }}'
+prompt = open('prompt.txt').read()
+response = openai.ChatCompletion.create(
+  model='gpt-4',
+  messages=[{'role': 'user', 'content': prompt}]
+)
+print(response['choices'][0]['message']['content'])
+"
+
