@@ -1,5 +1,10 @@
 name: GPT Assistant
 
+import openai, os
+from dotenv import load_dotenv
+
+load_dotenv(".openai.env")
+openai.api_key = os.getenv("OPENAI_API_KEY")
 on:
   workflow_dispatch:
 
