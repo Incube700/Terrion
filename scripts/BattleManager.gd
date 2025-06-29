@@ -51,6 +51,8 @@ func _ready():
 		battle_ui.start_battle.connect(_on_start_battle)
 		battle_ui.spawn_unit.connect(_on_spawn_unit_drag)
 		battle_ui.build_structure.connect(_on_build_structure_drag)
+		battle_ui.spawn_soldier.connect(_on_spawn_soldier)
+		battle_ui.build_tower.connect(_on_build_tower)
 	# Запустить таймеры спавна
 	for spawner in player_spawners + enemy_spawners:
 		spawner.get_node("SpawnTimer").autostart = true
@@ -111,6 +113,7 @@ func _ready():
 	init_enemy_ai()
 
 func _on_start_battle():
+	print("Битва началась!")
 	battle_started = true
 	if battle_ui:
 		battle_ui.start_button.hide()
@@ -466,5 +469,20 @@ func _on_enemy_ai_spawn():
 	# Автоматический спавн базовых юнитов
 	if enemy_energy >= 20:
 		spawn_enemy_unit("soldier")
+
+# ... остальной код ... 
+
+func _on_spawn_soldier():
+	print("Кнопка спавна солдата нажата!")
+	# Спавн юнита-солдата на первой линии, стартовая позиция игрока
+	var lane = lanes[0]
+	var start_pos = lane.get_node("Start").global_position if lane.has_node("Start") else lane.global_position
+	spawn_unit_at_pos("player", start_pos, "soldier")
+
+func _on_build_tower():
+	print("Кнопка постройки башни нажата!")
+	# Строим башню рядом с базой игрока (слева от центра поля)
+	var build_pos = Vector3(-6, 0, -12)
+	place_spawner("player", "tower", build_pos)
 
 # ... остальной код ... 
