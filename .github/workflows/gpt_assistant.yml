@@ -1,28 +1,43 @@
 name: GPT Assistant
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
   gpt_assistant_job:
     runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
 
-    - name: Install dependencies
-      run: pip install openai
+      - name: Install dependencies
+        run: pip install openai
 
-    - name: Run GPT Assistant
-      env:
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      run: |
-        python scripts/gpt_assistant.py
+      - name: Run GPT Assistant
+        run: python scripts/gpt_assistant.py
+        steps:
+      - name: Read README.md
+    run: |
+      echo "📘 Читаю TODO из README.md:"
+      grep 'TODO' README.md > todos.txt
+      echo "Вопрос к GPT:\n\n$(cat todos.txt)" > prompt.txt
+
+      - name: Ask GPT what to do run: |
+      python -c "
+import openai
+openai.api_key = '${{ secrets.OPENAI_API_KEY }}'
+prompt = open('prompt.txt').read()
+response = openai.ChatCompletion.create(
+  model='gpt-4',
+  messages=[{'role': 'user', 'content': prompt}]
+)
+print(response['choices'][0]['message']['content'])
+"
+

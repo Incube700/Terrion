@@ -1,0 +1,42 @@
+name: GPT Code Reviewer
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Get changed files
+        id: files
+        run: |
+          git diff --name-only ${{ github.event.before }} ${{ github.sha }} > changed.txt
+
+      - name: Run GPT review
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          FILES=$(cat changed.txt)
+          for FILE in $FILES; do
+            echo "📄 Reviewing $FILE"
+            CONTENT=$(cat $FILE)
+            echo "Review this code and suggest improvements:\n$CONTENT" > prompt.txt
+
+            python3 - <<EOF
+import openai
+openai.api_key = '${OPENAI_API_KEY}'
+with open('prompt.txt', 'r') as f:
+    prompt = f.read()
+response = openai.ChatCompletion.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": prompt}]
+)
+print("🧠 GPT says:\n", response['choices'][0]['message']['content'])
+EOF
+
+          done
