@@ -1,6 +1,6 @@
 [gd_scene load_steps=5 format=3 uid="uid://c2x1syensys3f"]
 
-[ext_resource type="Script" uid="uid://cfxirrjn55vup" path="res://scripts/Unit.gd" id="1"]
+[ext_resource type="Script" uid="uid://deyoaqtsho07o" path="res://scripts/Unit.gd" id="1"]
 
 [sub_resource type="CapsuleMesh" id="CapsuleMesh_soldier"]
 radius = 0.4

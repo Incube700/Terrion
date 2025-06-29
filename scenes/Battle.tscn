@@ -1,0 +1,15 @@
+[gd_scene load_steps=2 format=3 uid="uid://c3ulqq1esmyry"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_iyvxb"]
+
+[node name="Battle" type="Node3D"]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(30, 0, 0, 0, 30, 0, 0, 0, 30, 0, 0, 0)
+mesh = SubResource("PlaneMesh_iyvxb")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 25, 0)
+current = true
