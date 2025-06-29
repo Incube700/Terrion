@@ -38,16 +38,8 @@ var enemy_current_drones = 0
 var enemy_ai: Node = null
 
 func _ready():
-	# Найти все линии и спавнеры (ищем Lane1, Lane2, Lane3 как дочерние узлы Battle)
-	lanes = [
-		get_node("Lane1"),
-		get_node("Lane2"),
-		get_node("Lane3")
-	]
-	for lane in lanes:
-		player_spawners.append(lane.get_node("PlayerSpawner" + str(lanes.find(lane)+1)))
-		enemy_spawners.append(lane.get_node("EnemySpawner" + str(lanes.find(lane)+1)))
-	battle_ui = get_node("BattleUI")
+	# Получаем UI
+	battle_ui = get_node_or_null("BattleUI")
 	if battle_ui:
 		battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy)
 		battle_ui.start_battle.connect(_on_start_battle)
@@ -55,78 +47,60 @@ func _ready():
 		battle_ui.build_structure_drag.connect(_on_build_structure_drag)
 		battle_ui.spawn_soldier.connect(_on_spawn_soldier)
 		battle_ui.build_tower.connect(_on_build_tower)
-	# Запустить таймеры спавна
-	for spawner in player_spawners + enemy_spawners:
-		spawner.get_node("SpawnTimer").autostart = true
-		spawner.get_node("SpawnTimer").start()
-	# Запустить таймер энергии
-	var energy_timer = Timer.new()
-	energy_timer.wait_time = energy_tick_time
-	energy_timer.autostart = true
-	energy_timer.timeout.connect(_on_energy_timer)
-	add_child(energy_timer)
 
-	# Добавить зелёное поле (трава)
-	var field = MeshInstance3D.new()
-	var plane = PlaneMesh.new()
-	plane.size = Vector2(20, 30)
-	field.mesh = plane
-	field.transform.origin = Vector3(0, 0, 0)
-	var field_mat = StandardMaterial3D.new()
-	field_mat.albedo_color = Color(0.2, 0.7, 0.2, 1.0) # зелёная трава
-	field.set_surface_override_material(0, field_mat)
-	add_child(field)
-
-	# Добавить горизонтальную линию (разделение поля)
-	var line = MeshInstance3D.new()
-	var box = BoxMesh.new()
-	box.size = Vector3(20, 0.1, 0.2)
-	line.mesh = box
-	line.transform.origin = Vector3(0, 0.05, 0)
-	var line_mat = StandardMaterial3D.new()
-	line_mat.albedo_color = Color(1,1,1,1)
-	line.set_surface_override_material(0, line_mat)
-	add_child(line)
-
-	# Добавить ядро игрока (синее)
-	var player_core = MeshInstance3D.new()
-	player_core.mesh = SphereMesh.new()
-	player_core.transform.origin = Vector3(0, 0.5, -13)
-	var player_mat = StandardMaterial3D.new()
-	player_mat.albedo_color = Color(0.2, 0.6, 1, 1)
-	player_core.set_surface_override_material(0, player_mat)
-	add_child(player_core)
-
-	# Добавить ядро врага (красное)
-	var enemy_core = MeshInstance3D.new()
-	enemy_core.mesh = SphereMesh.new()
-	enemy_core.transform.origin = Vector3(0, 0.5, 13)
-	var enemy_mat = StandardMaterial3D.new()
-	enemy_mat.albedo_color = Color(1, 0.2, 0.2, 1)
-	enemy_core.set_surface_override_material(0, enemy_mat)
-	add_child(enemy_core)
-
-	# Добавить стартовый башенный спавнер игрока
-	place_spawner("player", "tower", Vector3(-4, 0, -10))
-	# Добавить стартовый башенный спавнер врага
-	place_spawner("enemy", "tower", Vector3(4, 0, 10))
+	# Создаём ядра и стартовые спавнеры
+	create_cores_and_spawners()
 
 	# Инициализация AI врага
 	init_enemy_ai()
 
-	enemy_ai = load("res://scripts/EnemyAI.gd").new(self)
-	add_child(enemy_ai)
+	# Не запускаем бой сразу — ждём нажатия Start Battle
+	battle_started = false
 	update_hud()
+
+func create_cores_and_spawners():
+	# Удаляем старые ядра, если есть
+	for node in get_children():
+		if node.name == "PlayerCore" or node.name == "EnemyCore":
+			node.queue_free()
+
+	# Создаём ядро игрока (синее)
+	var player_core_scene = preload("res://scenes/Core.tscn")
+	var player_core = player_core_scene.instantiate()
+	player_core.name = "PlayerCore"
+	player_core.position = Vector3(0, 0.5, -13)
+	add_child(player_core)
+
+	# Создаём ядро врага (красное)
+	var enemy_core_scene = preload("res://scenes/Core.tscn")
+	var enemy_core = enemy_core_scene.instantiate()
+	enemy_core.name = "EnemyCore"
+	enemy_core.position = Vector3(0, 0.5, 13)
+	add_child(enemy_core)
+
+	# Создаём стартовые спавнеры игрока и врага
+	create_start_spawner("player", Vector3(-4, 0, -10))
+	create_start_spawner("enemy", Vector3(4, 0, 10))
+
+func create_start_spawner(team: String, position: Vector3):
+	var spawner_scene = preload("res://scenes/Spawner.tscn")
+	var spawner = spawner_scene.instantiate()
+	spawner.position = position
+	spawner.name = team.capitalize() + "StartSpawner"
+	spawner.set("team", team)
+	add_child(spawner)
+	spawner.add_to_group("spawners")
 
 func _on_start_battle():
 	print("Битва началась!")
 	battle_started = true
 	if battle_ui:
 		battle_ui.start_button.hide()
-	# Запустить таймеры спавна
-	for spawner in player_spawners + enemy_spawners:
-		spawner.get_node("SpawnTimer").autostart = true
-		spawner.get_node("SpawnTimer").start()
+	# Запустить таймеры спавна только после старта боя
+	for spawner in get_tree().get_nodes_in_group("spawners"):
+		if spawner.has_node("SpawnTimer"):
+			spawner.get_node("SpawnTimer").autostart = true
+			spawner.get_node("SpawnTimer").start()
 
 func _on_energy_timer():
 	if not battle_started:
