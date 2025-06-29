@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Therion"
-run/main_scene="res://scenes/Battle.tscn"
+run/main_scene="uid://dtc7liy2o51dv"
 config/features=PackedStringArray("4.4", "Mobile")
 config/icon="res://icon.svg"
 

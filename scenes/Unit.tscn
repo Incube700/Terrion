@@ -23,3 +23,21 @@ shape = SubResource("SphereShape3D_fqlnf")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Area3D"]
 shape = SubResource("SphereShape3D_aa524")
+
+[node name="AttackArea" type="Area3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="AttackArea"]
+shape = SphereShape3D {
+    radius = 1.5
+}
+
+[node name="HealthBar" type="ColorRect" parent="."]
+anchor_left = 0.25
+anchor_top = 0.0
+anchor_right = 0.75
+anchor_bottom = 0.05
+offset_left = -0.5
+offset_top = -1.0
+offset_right = 0.5
+offset_bottom = -0.8
+color = Color(0.2, 0.8, 0.2, 1)

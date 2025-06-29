@@ -2,10 +2,10 @@ extends Node
 
 # BattleManager — управляет логикой боя, ресурсами, победой/поражением
 
-var player_energy = 0
-var enemy_energy = 0
-var energy_gain_per_tick = 5
-var energy_tick_time = 2.0
+var player_energy = 100  # Начальная энергия игрока
+var enemy_energy = 100   # Начальная энергия врага
+var energy_gain_per_tick = 10  # Прирост энергии за тик
+var energy_tick_time = 1.0     # Время между тиками энергии
 
 var player_base_hp = 100
 var enemy_base_hp = 100
@@ -24,6 +24,16 @@ var is_building_mode = false
 var building_preview = null
 var can_build_here = false
 var building_cost = 30
+
+# AI система для врага
+var enemy_ai_timer: Timer
+var enemy_decision_timer: Timer
+var enemy_max_soldiers = 3
+var enemy_max_tanks = 2
+var enemy_max_drones = 2
+var enemy_current_soldiers = 0
+var enemy_current_tanks = 0
+var enemy_current_drones = 0
 
 func _ready():
 	# Найти все линии и спавнеры (ищем Lane1, Lane2, Lane3 как дочерние узлы Battle)
@@ -96,6 +106,9 @@ func _ready():
 	place_spawner("player", "tower", Vector3(-4, 0, -10))
 	# Добавить стартовый башенный спавнер врага
 	place_spawner("enemy", "tower", Vector3(4, 0, 10))
+
+	# Инициализация AI врага
+	init_enemy_ai()
 
 func _on_start_battle():
 	battle_started = true
@@ -270,6 +283,7 @@ func spawn_unit_at_pos(team, pos, unit_type="soldier"):
 		unit.target_pos = Vector3(0, 0, -13) # Игрок снизу
 	unit.battle_manager = self
 	add_child(unit)
+	unit.add_to_group("units")  # Добавляем в группу для подсчета
 
 # Добавляю функцию update_ui, если её нет
 func update_ui():
@@ -286,5 +300,171 @@ func place_spawner(team: String, spawner_type: String, position: Vector3):
 	add_child(spawner)
 	spawner.add_to_group("spawners")
 	return spawner
+
+# ... остальной код ... 
+
+func init_enemy_ai():
+	# Таймер для принятия решений AI
+	enemy_decision_timer = Timer.new()
+	enemy_decision_timer.wait_time = 3.0  # Решение каждые 3 секунды
+	enemy_decision_timer.autostart = true
+	enemy_decision_timer.timeout.connect(_on_enemy_ai_decision)
+	add_child(enemy_decision_timer)
+	
+	# Таймер для спавна юнитов врага
+	enemy_ai_timer = Timer.new()
+	enemy_ai_timer.wait_time = 5.0  # Спавн каждые 5 секунд
+	enemy_ai_timer.autostart = true
+	enemy_ai_timer.timeout.connect(_on_enemy_ai_spawn)
+	add_child(enemy_ai_timer)
+
+func _on_enemy_ai_decision():
+	if not battle_started:
+		return
+	
+	print("AI врага принимает решение...")
+	
+	# Подсчитываем текущих юнитов врага
+	count_enemy_units()
+	
+	# Логика принятия решений
+	var decision = make_enemy_decision()
+	execute_enemy_decision(decision)
+
+func count_enemy_units():
+	enemy_current_soldiers = 0
+	enemy_current_tanks = 0
+	enemy_current_drones = 0
+	
+	var units = get_tree().get_nodes_in_group("units")
+	for unit in units:
+		if unit.team == "enemy":
+			match unit.unit_type:
+				"soldier":
+					enemy_current_soldiers += 1
+				"tank":
+					enemy_current_tanks += 1
+				"drone":
+					enemy_current_drones += 1
+	
+	print("Вражеские юниты: солдаты=", enemy_current_soldiers, 
+		  ", танки=", enemy_current_tanks, 
+		  ", дроны=", enemy_current_drones)
+
+func make_enemy_decision() -> Dictionary:
+	var decision = {
+		"action": "none",
+		"unit_type": "",
+		"position": Vector3.ZERO
+	}
+	
+	# Если мало солдат - создаем солдат
+	if enemy_current_soldiers < enemy_max_soldiers and enemy_energy >= 20:
+		decision.action = "spawn"
+		decision.unit_type = "soldier"
+		return decision
+	
+	# Если есть солдаты, но мало танков - создаем танк
+	if enemy_current_soldiers > 0 and enemy_current_tanks < enemy_max_tanks and enemy_energy >= 50:
+		decision.action = "spawn"
+		decision.unit_type = "tank"
+		return decision
+	
+	# Если есть танки, но мало дронов - создаем дрон
+	if enemy_current_tanks > 0 and enemy_current_drones < enemy_max_drones and enemy_energy >= 35:
+		decision.action = "spawn"
+		decision.unit_type = "drone"
+		return decision
+	
+	# Если много ресурсов - строим башню
+	if enemy_energy >= 60:
+		decision.action = "build"
+		decision.unit_type = "tower"
+		return decision
+	
+	return decision
+
+func execute_enemy_decision(decision: Dictionary):
+	match decision.action:
+		"spawn":
+			spawn_enemy_unit(decision.unit_type)
+		"build":
+			build_enemy_structure(decision.unit_type)
+		"none":
+			print("AI врага: нет действий")
+
+func spawn_enemy_unit(unit_type: String):
+	var cost = get_unit_cost(unit_type)
+	if enemy_energy < cost:
+		print("AI врага: недостаточно энергии для ", unit_type)
+		return
+	
+	# Выбираем случайную позицию на вражеской стороне
+	var spawn_pos = get_random_enemy_spawn_position()
+	
+	spawn_unit_at_pos("enemy", spawn_pos, unit_type)
+	enemy_energy -= cost
+	
+	print("AI врага создал ", unit_type, " за ", cost, " энергии")
+	
+	if battle_ui:
+		battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy)
+
+func build_enemy_structure(structure_type: String):
+	var cost = get_structure_cost(structure_type)
+	if enemy_energy < cost:
+		print("AI врага: недостаточно энергии для постройки ", structure_type)
+		return
+	
+	# Выбираем позицию для постройки на вражеской стороне
+	var build_pos = get_random_enemy_build_position()
+	
+	place_spawner("enemy", structure_type, build_pos)
+	enemy_energy -= cost
+	
+	print("AI врага построил ", structure_type, " за ", cost, " энергии")
+	
+	if battle_ui:
+		battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy)
+
+func get_unit_cost(unit_type: String) -> int:
+	match unit_type:
+		"soldier":
+			return 20
+		"tank":
+			return 50
+		"drone":
+			return 35
+		_:
+			return 20
+
+func get_structure_cost(structure_type: String) -> int:
+	match structure_type:
+		"tower":
+			return 60
+		"barracks":
+			return 80
+		_:
+			return 60
+
+func get_random_enemy_spawn_position() -> Vector3:
+	# Случайная позиция на вражеской стороне (z > 0)
+	var x = randf_range(-8.0, 8.0)
+	var z = randf_range(5.0, 12.0)
+	return Vector3(x, 0, z)
+
+func get_random_enemy_build_position() -> Vector3:
+	# Позиция для постройки на вражеской стороне
+	var x = randf_range(-6.0, 6.0)
+	var z = randf_range(8.0, 12.0)
+	return Vector3(x, 0, z)
+
+func _on_enemy_ai_spawn():
+	if not battle_started:
+		return
+	
+	# Автоматический спавн базовых юнитов
+	if enemy_energy >= 20:
+		spawn_enemy_unit("soldier")
 
 # ... остальной код ... 

@@ -96,17 +96,76 @@ func _on_attack_area_body_exited(body):
 		target = null
 
 func find_new_target():
-	# TODO: искать ближайшего врага в зоне
-	pass
+	# Ищем ближайшего врага в радиусе видимости
+	var enemies = get_tree().get_nodes_in_group("units")
+	var closest_enemy = null
+	var closest_distance = 999999.0
+	
+	for enemy in enemies:
+		if enemy.team != team and enemy.health > 0:
+			var distance = global_position.distance_to(enemy.global_position)
+			if distance < closest_distance and distance < 15.0:  # Радиус поиска 15 единиц
+				closest_enemy = enemy
+				closest_distance = distance
+	
+	if closest_enemy:
+		target = closest_enemy
+		print(team, " ", unit_type, " нашел цель: ", closest_enemy.team, " ", closest_enemy.unit_type)
 
 func attack():
 	if target and target.has_method("take_damage"):
 		target.take_damage(damage)
+		print(team, " ", unit_type, " атакует ", target.team, " ", target.unit_type, " урон: ", damage)
+		
+		# Визуальный эффект атаки
+		if mesh:
+			mesh.material_override.albedo_color = Color.WHITE
+			await get_tree().create_timer(0.1).timeout
+			# Возвращаем исходный цвет
+			if team == "player":
+				if unit_type == "soldier":
+					mesh.material_override.albedo_color = Color(0.2, 0.6, 1, 1)
+				elif unit_type == "tank":
+					mesh.material_override.albedo_color = Color(0.2, 0.5, 0.2, 1)
+				elif unit_type == "drone":
+					mesh.material_override.albedo_color = Color(0.5, 0.8, 1, 1)
+			else:
+				if unit_type == "soldier":
+					mesh.material_override.albedo_color = Color(1, 0.2, 0.2, 1)
+				elif unit_type == "tank":
+					mesh.material_override.albedo_color = Color(0.5, 0.2, 0.2, 1)
+				elif unit_type == "drone":
+					mesh.material_override.albedo_color = Color(0.6, 0.2, 0.8, 1)
 
 func take_damage(amount: int):
 	health -= amount
+	update_health_display()
+	
+	print(team, " ", unit_type, " получил урон: ", amount, " HP: ", health)
+	
+	# Визуальный эффект получения урона
+	if mesh:
+		mesh.material_override.albedo_color = Color.RED
+		await get_tree().create_timer(0.2).timeout
+		# Возвращаем исходный цвет
+		if team == "player":
+			if unit_type == "soldier":
+				mesh.material_override.albedo_color = Color(0.2, 0.6, 1, 1)
+			elif unit_type == "tank":
+				mesh.material_override.albedo_color = Color(0.2, 0.5, 0.2, 1)
+			elif unit_type == "drone":
+				mesh.material_override.albedo_color = Color(0.5, 0.8, 1, 1)
+		else:
+			if unit_type == "soldier":
+				mesh.material_override.albedo_color = Color(1, 0.2, 0.2, 1)
+			elif unit_type == "tank":
+				mesh.material_override.albedo_color = Color(0.5, 0.2, 0.2, 1)
+			elif unit_type == "drone":
+				mesh.material_override.albedo_color = Color(0.6, 0.2, 0.8, 1)
+	
 	if health <= 0:
-		queue_free() 
+		print(team, " ", unit_type, " уничтожен!")
+		queue_free()
 
 func update_health_display():
 	if health_bar:
