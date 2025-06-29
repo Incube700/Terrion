@@ -48,6 +48,28 @@ func _ready():
 		battle_ui.spawn_soldier.connect(_on_spawn_soldier)
 		battle_ui.build_tower.connect(_on_build_tower)
 
+	# Визуальное поле (трава)
+	var field = MeshInstance3D.new()
+	var plane = PlaneMesh.new()
+	plane.size = Vector2(20, 30)
+	field.mesh = plane
+	field.position = Vector3(0, 0, 0)
+	var field_mat = StandardMaterial3D.new()
+	field_mat.albedo_color = Color(0.2, 0.7, 0.2, 1.0)
+	field.set_surface_override_material(0, field_mat)
+	add_child(field)
+
+	# Белая линия (разделитель)
+	var line = MeshInstance3D.new()
+	var box = BoxMesh.new()
+	box.size = Vector3(20, 0.1, 0.2)
+	line.mesh = box
+	line.position = Vector3(0, 0.05, 0)
+	var line_mat = StandardMaterial3D.new()
+	line_mat.albedo_color = Color(1, 1, 1, 1)
+	line.set_surface_override_material(0, line_mat)
+	add_child(line)
+
 	# Создаём ядра и стартовые спавнеры
 	create_cores_and_spawners()
 
@@ -69,6 +91,14 @@ func create_cores_and_spawners():
 	var player_core = player_core_scene.instantiate()
 	player_core.name = "PlayerCore"
 	player_core.position = Vector3(0, 0.5, -13)
+	# Проверяем, что есть MeshInstance3D
+	if not player_core.has_node("MeshInstance3D"):
+		var mesh = MeshInstance3D.new()
+		mesh.mesh = SphereMesh.new()
+		var mat = StandardMaterial3D.new()
+		mat.albedo_color = Color(0.2, 0.6, 1, 1)
+		mesh.set_surface_override_material(0, mat)
+		player_core.add_child(mesh)
 	add_child(player_core)
 
 	# Создаём ядро врага (красное)
@@ -76,6 +106,13 @@ func create_cores_and_spawners():
 	var enemy_core = enemy_core_scene.instantiate()
 	enemy_core.name = "EnemyCore"
 	enemy_core.position = Vector3(0, 0.5, 13)
+	if not enemy_core.has_node("MeshInstance3D"):
+		var mesh = MeshInstance3D.new()
+		mesh.mesh = SphereMesh.new()
+		var mat = StandardMaterial3D.new()
+		mat.albedo_color = Color(1, 0.2, 0.2, 1)
+		mesh.set_surface_override_material(0, mat)
+		enemy_core.add_child(mesh)
 	add_child(enemy_core)
 
 	# Создаём стартовые спавнеры игрока и врага
@@ -94,8 +131,8 @@ func create_start_spawner(team: String, position: Vector3):
 func _on_start_battle():
 	print("Битва началась!")
 	battle_started = true
-	if battle_ui:
-		battle_ui.start_button.hide()
+	if battle_ui and battle_ui.has_node("Panel/StartButton"):
+		battle_ui.get_node("Panel/StartButton").hide()
 	# Запустить таймеры спавна только после старта боя
 	for spawner in get_tree().get_nodes_in_group("spawners"):
 		if spawner.has_node("SpawnTimer"):
