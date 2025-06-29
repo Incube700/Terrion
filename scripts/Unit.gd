@@ -21,19 +21,16 @@ var target: Node = null
 func _ready():
 	# Тип и параметры
 	if unit_type == "soldier":
-		mesh.mesh = preload("res://scenes/Unit.tscn").get_subresource("CapsuleMesh_soldier")
 		speed = 100
 		health = 100
 		max_health = 100
 		damage = 20
 	elif unit_type == "tank":
-		mesh.mesh = preload("res://scenes/Unit.tscn").get_subresource("BoxMesh_tank")
 		speed = 60
 		health = 200
 		max_health = 200
 		damage = 40
 	elif unit_type == "drone":
-		mesh.mesh = preload("res://scenes/Unit.tscn").get_subresource("SphereMesh_drone")
 		speed = 160
 		health = 60
 		max_health = 60
@@ -170,3 +167,4 @@ func take_damage(amount: int):
 func update_health_display():
 	if health_bar:
 		health_bar.scale.x = float(health) / float(max_health) 
+ 

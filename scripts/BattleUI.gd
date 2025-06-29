@@ -17,3 +17,4 @@ func _on_spawn_soldier_button_pressed():
 
 func _on_build_tower_button_pressed():
 	emit_signal("build_tower") 
+ 

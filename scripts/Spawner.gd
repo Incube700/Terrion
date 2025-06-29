@@ -56,3 +56,4 @@ func _on_spawn_timer_timeout():
 		if battle_manager:
 			battle_manager.spawn_unit_at_pos(team, global_position + Vector3(0, 0, 1), "soldier")
 	# TODO: добавить выбор типа юнита и расширение логики 
+ 

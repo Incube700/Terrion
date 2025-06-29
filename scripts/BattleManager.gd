@@ -35,6 +35,8 @@ var enemy_current_soldiers = 0
 var enemy_current_tanks = 0
 var enemy_current_drones = 0
 
+var enemy_ai: Node = null
+
 func _ready():
 	# Найти все линии и спавнеры (ищем Lane1, Lane2, Lane3 как дочерние узлы Battle)
 	lanes = [
@@ -112,6 +114,10 @@ func _ready():
 	# Инициализация AI врага
 	init_enemy_ai()
 
+	enemy_ai = load("res://scripts/EnemyAI.gd").new(self)
+	add_child(enemy_ai)
+	update_hud()
+
 func _on_start_battle():
 	print("Битва началась!")
 	battle_started = true
@@ -171,7 +177,7 @@ func _on_build_pressed():
 func create_building_preview():
 	if building_preview:
 		building_preview.queue_free()
-	var preview = preload("res://scenes/Spawner.tscn").instantiate()
+	var preview = unit_scene.instantiate()
 	preview.modulate = Color(0.5, 1, 0.5, 0.5) # зелёный по умолчанию
 	preview.name = "BuildingPreview"
 	preview.set_physics_process(false)
@@ -276,17 +282,23 @@ func is_valid_unit_position(pos: Vector3) -> bool:
 	return true
 
 func spawn_unit_at_pos(team, pos, unit_type="soldier"):
+	if not can_spawn_unit(team, unit_type):
+		print("Недостаточно энергии или превышен лимит!")
+		return
 	var unit = unit_scene.instantiate()
 	unit.team = team
 	unit.unit_type = unit_type
 	unit.global_position = pos
 	if team == "player":
-		unit.target_pos = Vector3(0, 0, 13) # Враг сверху
+		unit.target_pos = Vector3(0, 0, 13)
+		player_energy -= 20
 	else:
-		unit.target_pos = Vector3(0, 0, -13) # Игрок снизу
+		unit.target_pos = Vector3(0, 0, -13)
+		enemy_energy -= 20
 	unit.battle_manager = self
 	add_child(unit)
-	unit.add_to_group("units")  # Добавляем в группу для подсчета
+	unit.add_to_group("units")
+	update_hud()
 
 # Добавляю функцию update_ui, если её нет
 func update_ui():
@@ -295,14 +307,20 @@ func update_ui():
 
 # Добавляю функцию place_spawner, если её нет
 func place_spawner(team: String, spawner_type: String, position: Vector3):
-	var spawner_scene = preload("res://scenes/Spawner.tscn")
-	var spawner = spawner_scene.instantiate()
+	if not can_build_structure(team, spawner_type):
+		print("Недостаточно энергии для постройки!")
+		return
+	var spawner = unit_scene.instantiate()
 	spawner.team = team
 	spawner.spawner_type = spawner_type
 	spawner.global_position = position
 	add_child(spawner)
 	spawner.add_to_group("spawners")
-	return spawner
+	if team == "player":
+		player_energy -= 60
+	else:
+		enemy_energy -= 60
+	update_hud()
 
 # ... остальной код ... 
 
@@ -486,3 +504,31 @@ func _on_build_tower():
 	place_spawner("player", "tower", build_pos)
 
 # ... остальной код ... 
+
+func update_hud():
+	var battle_ui = get_node_or_null("BattleUI")
+	if battle_ui:
+		battle_ui.get_node("PlayerHUD").text = "Player HP: %d | Energy: %d" % [player_base_hp, player_energy]
+		battle_ui.get_node("EnemyHUD").text = "Enemy HP: %d | Energy: %d" % [enemy_base_hp, enemy_energy]
+
+func can_spawn_unit(team, unit_type):
+	if team == "player":
+		if player_energy < 20:
+			return false
+		# Можно добавить лимиты
+	else:
+		if enemy_energy < 20:
+			return false
+	return true
+
+func can_build_structure(team, structure_type):
+	if team == "player":
+		if player_energy < 60:
+			return false
+	else:
+		if enemy_energy < 60:
+			return false
+	return true
+
+# ... остальной код ... 
+ 
