@@ -1,4 +1,6 @@
-[gd_scene load_steps=2 format=3 uid="uid://c3ulqq1esmyry"]
+[gd_scene load_steps=3 format=3 uid="uid://c3ulqq1esmyry"]
+
+[ext_resource type="PackedScene" uid="uid://w4a73o27fi3f" path="res://scenes/Core.tscn" id="1_bdmed"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_iyvxb"]
 
@@ -13,3 +15,5 @@ mesh = SubResource("PlaneMesh_iyvxb")
 [node name="Camera3D" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 25, 0)
 current = true
+
+[node name="Core" parent="." instance=ExtResource("1_bdmed")]

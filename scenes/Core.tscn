@@ -1,12 +1,10 @@
-[gd_scene format=3]
+[gd_scene load_steps=2 format=3 uid="uid://w4a73o27fi3f"]
+
+[sub_resource type="SphereMesh" id="SphereMesh_8b33j"]
+radius = 0.8
+height = 2.99
 
 [node name="Core" type="Node3D"]
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
-mesh = SphereMesh {
-    radius = 0.8
-}
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
-surface_material_override/0 = StandardMaterial3D {
-    albedo_color = Color(0.8, 0.8, 0.8, 1)
-} 
+mesh = SubResource("SphereMesh_8b33j")

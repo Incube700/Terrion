@@ -51,8 +51,8 @@ func _ready():
 	if battle_ui:
 		battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy)
 		battle_ui.start_battle.connect(_on_start_battle)
-		battle_ui.spawn_unit.connect(_on_spawn_unit_drag)
-		battle_ui.build_structure.connect(_on_build_structure_drag)
+		battle_ui.spawn_unit_drag.connect(_on_spawn_unit_drag)
+		battle_ui.build_structure_drag.connect(_on_build_structure_drag)
 		battle_ui.spawn_soldier.connect(_on_spawn_soldier)
 		battle_ui.build_tower.connect(_on_build_tower)
 	# Запустить таймеры спавна
@@ -241,28 +241,23 @@ func is_valid_build_position(pos: Vector3) -> bool:
 
 # Drag&drop: спавн юнита
 func _on_spawn_unit_drag(unit_type, screen_pos):
-	if not battle_started or player_energy < 10:
+	if not battle_started or player_energy < 20:
 		return
 	var pos = get_mouse_map_position(screen_pos)
 	if is_valid_unit_position(pos):
 		spawn_unit_at_pos("player", pos, unit_type)
-		player_energy -= 10
-		if battle_ui:
-			battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy)
+		player_energy -= 20
+		update_hud()
 
 # Drag&drop: строительство здания
 func _on_build_structure_drag(screen_pos):
-	if not battle_started or player_energy < 10:
+	if not battle_started or player_energy < 60:
 		return
 	var pos = get_mouse_map_position(screen_pos)
 	if is_valid_build_position(pos):
-		var build_type = "tower"
-		if battle_ui and battle_ui.drag_type == "barracks":
-			build_type = "barracks"
-		place_spawner("player", build_type, pos)
-		player_energy -= 10
-		if battle_ui:
-			battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy)
+		place_spawner("player", "tower", pos)
+		player_energy -= 60
+		update_hud()
 
 func is_valid_unit_position(pos: Vector3) -> bool:
 	# Только на своей половине, не на зданиях, не вне поля
@@ -506,10 +501,8 @@ func _on_build_tower():
 # ... остальной код ... 
 
 func update_hud():
-	var battle_ui = get_node_or_null("BattleUI")
 	if battle_ui:
-		battle_ui.get_node("PlayerHUD").text = "Player HP: %d | Energy: %d" % [player_base_hp, player_energy]
-		battle_ui.get_node("EnemyHUD").text = "Enemy HP: %d | Energy: %d" % [enemy_base_hp, enemy_energy]
+		battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy)
 
 func can_spawn_unit(team, unit_type):
 	if team == "player":
