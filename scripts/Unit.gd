@@ -175,3 +175,4 @@ func update_health_display():
 		if health_bar and health_bar is Label:
 			health_bar.text = str(health) + "/" + str(max_health)
  
+ 
