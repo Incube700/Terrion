@@ -19,7 +19,12 @@ mesh = SubResource("CapsuleMesh_soldier")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 shape = SubResource("SphereShape3D_fqlnf")
 
-[node name="Area3D" type="Area3D" parent="."]
+[node name="AttackArea" type="Area3D" parent="."]
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Area3D"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="AttackArea"]
 shape = SubResource("SphereShape3D_aa524")
+
+[node name="HealthBar" type="Label" parent="."]
+offset_top = -40.0
+offset_bottom = -40.0
+text = "100"

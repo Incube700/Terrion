@@ -15,7 +15,7 @@ var attack_timer: float = 0.0
 var target: Node = null
 
 @onready var attack_area: Area3D = $AttackArea
-@onready var health_bar: ColorRect = $HealthBar
+@onready var health_bar: Label = $HealthBar
 @onready var mesh: MeshInstance3D = $MeshInstance3D
 
 func _ready():
@@ -51,9 +51,14 @@ func _ready():
 			mesh.material_override.albedo_color = Color(0.5, 0.2, 0.2, 1)
 		elif unit_type == "drone":
 			mesh.material_override.albedo_color = Color(0.6, 0.2, 0.8, 1)
-	attack_area.body_entered.connect(_on_attack_area_body_entered)
-	attack_area.body_exited.connect(_on_attack_area_body_exited)
-	update_health_display()
+	# Безопасно подключаем AttackArea
+	if has_node("AttackArea"):
+		var attack_area = get_node("AttackArea")
+		attack_area.body_entered.connect(_on_attack_area_body_entered)
+		attack_area.body_exited.connect(_on_attack_area_body_exited)
+	# Безопасно обновляем HealthBar
+	if has_node("HealthBar"):
+		update_health_display()
 
 func _physics_process(delta):
 	if health <= 0:
@@ -165,6 +170,8 @@ func take_damage(amount: int):
 		queue_free()
 
 func update_health_display():
-	if health_bar:
-		health_bar.scale.x = float(health) / float(max_health) 
+	if has_node("HealthBar"):
+		var health_bar = get_node("HealthBar")
+		if health_bar and health_bar is Label:
+			health_bar.text = str(health) + "/" + str(max_health)
  
