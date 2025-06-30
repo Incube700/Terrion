@@ -10,6 +10,8 @@ var drag_type = ""
 var is_dragging = false
 var drag_start_pos = Vector2.ZERO
 
+@onready var spawner_panel = $SpawnerPanel
+
 func _ready():
 	$Panel/StartButton.pressed.connect(_on_start_button_pressed)
 	$Panel/SpawnSoldierButton.pressed.connect(_on_spawn_soldier_button_pressed)
@@ -18,6 +20,10 @@ func _ready():
 	# Подключаем drag&drop для кнопок
 	$Panel/SpawnSoldierButton.gui_input.connect(_on_spawn_button_input)
 	$Panel/BuildTowerButton.gui_input.connect(_on_build_button_input)
+
+	if spawner_panel:
+		spawner_panel.connect("spawner_drag_start", Callable(self, "_on_spawner_drag_start"))
+		spawner_panel.connect("spawner_drag_end", Callable(self, "_on_spawner_drag_end"))
 
 func _on_start_button_pressed():
 	emit_signal("start_battle")
@@ -67,5 +73,15 @@ func _input(event):
 		if event is InputEventMouseMotion:
 			# Можно добавить визуальную обратную связь при drag
 			pass 
+
+func _on_spawner_drag_start(spawner_type):
+	# Можно добавить визуализацию призрака спавнера
+	print("[UI] Начат drag спавнера: ", spawner_type)
+
+func _on_spawner_drag_end(spawner_type, global_pos):
+	print("[UI] Завершен drag спавнера: ", spawner_type, " в точке ", global_pos)
+	# Пробрасываем в BattleManager (например, через сигнал или напрямую)
+	if get_parent().has_method("on_spawner_drop"):
+		get_parent().on_spawner_drop(spawner_type, global_pos)
  
  

@@ -60,7 +60,7 @@ func _ready():
 	# Визуальное поле (трава)
 	var field = MeshInstance3D.new()
 	var plane = PlaneMesh.new()
-	plane.size = Vector2(20, 30)
+	plane.size = Vector2(30, 50)
 	field.mesh = plane
 	field.position = Vector3(0, 0, 0)
 	var field_mat = StandardMaterial3D.new()
@@ -71,7 +71,7 @@ func _ready():
 	# Белая линия (разделитель)
 	var line = MeshInstance3D.new()
 	var box = BoxMesh.new()
-	box.size = Vector3(20, 0.1, 0.2)
+	box.size = Vector3(30, 0.1, 0.2)
 	line.mesh = box
 	line.position = Vector3(0, 0.05, 0)
 	var line_mat = StandardMaterial3D.new()
@@ -82,7 +82,7 @@ func _ready():
 	# Ядро игрока (синее)
 	var player_core = MeshInstance3D.new()
 	player_core.mesh = SphereMesh.new()
-	player_core.position = Vector3(0, 0.5, -13)
+	player_core.position = Vector3(0, 0.5, -20)
 	var player_mat = StandardMaterial3D.new()
 	player_mat.albedo_color = Color(0.2, 0.6, 1, 1)
 	player_core.set_surface_override_material(0, player_mat)
@@ -91,15 +91,15 @@ func _ready():
 	# Ядро врага (красное)
 	var enemy_core = MeshInstance3D.new()
 	enemy_core.mesh = SphereMesh.new()
-	enemy_core.position = Vector3(0, 0.5, 13)
+	enemy_core.position = Vector3(0, 0.5, 20)
 	var enemy_mat = StandardMaterial3D.new()
 	enemy_mat.albedo_color = Color(1, 0.2, 0.2, 1)
 	enemy_core.set_surface_override_material(0, enemy_mat)
 	add_child(enemy_core)
 
 	# Создаём стартовые спавнеры игрока и врага
-	create_start_spawner("player", Vector3(-4, 0, -10))
-	create_start_spawner("enemy", Vector3(4, 0, 10))
+	create_start_spawner("player", Vector3(-4, 0, -15))
+	create_start_spawner("enemy", Vector3(4, 0, 15))
 
 	# Инициализация AI врага и энергетического таймера
 	init_enemy_ai()
@@ -107,7 +107,7 @@ func _ready():
 
 	# Не запускаем бой сразу — ждём нажатия Start Battle
 	battle_started = false
-	update_hud()
+	update_ui()
 	
 	print("🏁 BattleManager готов! Нажмите Start Battle для начала игры.")
 
@@ -129,7 +129,7 @@ func create_cores_and_spawners():
 	var player_core_scene = preload("res://scenes/Core.tscn")
 	var player_core = player_core_scene.instantiate()
 	player_core.name = "PlayerCore"
-	player_core.position = Vector3(0, 0.5, -13)
+	player_core.position = Vector3(0, 0.5, -20)
 	# Проверяем, что есть MeshInstance3D
 	if not player_core.has_node("MeshInstance3D"):
 		var mesh = MeshInstance3D.new()
@@ -144,7 +144,7 @@ func create_cores_and_spawners():
 	var enemy_core_scene = preload("res://scenes/Core.tscn")
 	var enemy_core = enemy_core_scene.instantiate()
 	enemy_core.name = "EnemyCore"
-	enemy_core.position = Vector3(0, 0.5, 13)
+	enemy_core.position = Vector3(0, 0.5, 20)
 	if not enemy_core.has_node("MeshInstance3D"):
 		var mesh = MeshInstance3D.new()
 		mesh.mesh = SphereMesh.new()
@@ -155,8 +155,8 @@ func create_cores_and_spawners():
 	add_child(enemy_core)
 
 	# Создаём стартовые спавнеры игрока и врага
-	create_start_spawner("player", Vector3(-4, 0, -10))
-	create_start_spawner("enemy", Vector3(4, 0, 10))
+	create_start_spawner("player", Vector3(-4, 0, -15))
+	create_start_spawner("enemy", Vector3(4, 0, 15))
 
 func create_start_spawner(team: String, position: Vector3):
 	var spawner = spawner_scene.instantiate()
@@ -198,8 +198,8 @@ func _on_start_battle():
 	
 	# Создаем тестовых юнитов для проверки
 	print("🧪 Создаем тестовых юнитов...")
-	spawn_unit_at_pos("player", Vector3(-2, 0, -8), "soldier")
-	spawn_unit_at_pos("enemy", Vector3(2, 0, 8), "soldier")
+	spawn_unit_at_pos("player", Vector3(-2, 0, -12), "soldier")
+	spawn_unit_at_pos("enemy", Vector3(2, 0, 12), "soldier")
 
 func _on_energy_timer():
 	if not battle_started:
@@ -290,7 +290,7 @@ func _unhandled_input(event):
 				if is_valid_build_position(pos):
 					place_spawner("player", "spawner", pos)
 					player_energy -= 30
-					update_hud()
+					update_ui()
 	
 	# Запуск игры по клавише SPACE, если UI не работает
 	if event is InputEventKey and event.pressed:
@@ -312,16 +312,14 @@ func get_mouse_map_position(screen_pos):
 	return Vector3.ZERO
 
 func is_valid_build_position(pos: Vector3) -> bool:
-	# Только на своей половине, не на других зданиях, не вне поля
-	var map_width = 20.0
-	var map_height = 30.0
+	var map_width = 30.0
+	var map_height = 50.0
 	if pos.z > 0:
 		return false
 	if pos.x < -map_width/2 or pos.x > map_width/2:
 		return false
 	if pos.z < -map_height/2 or pos.z > 0:
 		return false
-	# Проверка коллизий с другими зданиями (спавнерами)
 	var spawners = get_tree().get_nodes_in_group("spawners")
 	for s in spawners:
 		if s.global_position.distance_to(pos) < 1.5:
@@ -329,16 +327,14 @@ func is_valid_build_position(pos: Vector3) -> bool:
 	return true
 
 func is_valid_enemy_build_position(pos: Vector3) -> bool:
-	# Только на вражеской половине, не на других зданиях, не вне поля
-	var map_width = 20.0
-	var map_height = 30.0
+	var map_width = 30.0
+	var map_height = 50.0
 	if pos.z < 0:
 		return false
 	if pos.x < -map_width/2 or pos.x > map_width/2:
 		return false
 	if pos.z < 0 or pos.z > map_height/2:
 		return false
-	# Проверка коллизий с другими зданиями (спавнерами)
 	var spawners = get_tree().get_nodes_in_group("spawners")
 	for s in spawners:
 		if s.global_position.distance_to(pos) < 2.0:
@@ -353,7 +349,7 @@ func _on_spawn_unit_drag(unit_type, screen_pos):
 	if is_valid_unit_position(pos):
 		spawn_unit_at_pos("player", pos, unit_type)
 		player_energy -= 20
-		update_hud()
+		update_ui()
 
 # Drag&drop: строительство здания
 func _on_build_structure_drag(screen_pos):
@@ -363,19 +359,17 @@ func _on_build_structure_drag(screen_pos):
 	if is_valid_build_position(pos):
 		place_spawner("player", "tower", pos)
 		player_energy -= 60
-		update_hud()
+		update_ui()
 
 func is_valid_unit_position(pos: Vector3) -> bool:
-	# Только на своей половине, не на зданиях, не вне поля
-	var map_width = 20.0
-	var map_height = 30.0
+	var map_width = 30.0
+	var map_height = 50.0
 	if pos.z > 0:
 		return false
 	if pos.x < -map_width/2 or pos.x > map_width/2:
 		return false
 	if pos.z < -map_height/2 or pos.z > 0:
 		return false
-	# Не на зданиях
 	var spawners = get_tree().get_nodes_in_group("spawners")
 	for s in spawners:
 		if s.global_position.distance_to(pos) < 2.5:
@@ -386,24 +380,20 @@ func spawn_unit_at_pos(team, pos, unit_type="soldier"):
 	if not can_spawn_unit(team, unit_type):
 		print("❌ Недостаточно энергии или превышен лимит!")
 		return
-	
 	print("🔨 Создаем юнита: ", team, " ", unit_type, " в позиции ", pos)
 	var unit = unit_scene.instantiate()
+	add_child(unit)
 	unit.team = team
 	unit.unit_type = unit_type
 	unit.global_position = pos
 	if team == "player":
-		unit.target_pos = Vector3(0, 0, 13)
+		unit.target_pos = Vector3(0, 0, 20)
 	else:
-		unit.target_pos = Vector3(0, 0, -13)
+		unit.target_pos = Vector3(0, 0, -20)
 	unit.battle_manager = self
-	add_child(unit)
 	unit.add_to_group("units")
-	
 	print("✅ Юнит создан успешно: ", unit.name, " команда: ", unit.team)
 	print("🎯 Цель юнита: ", unit.target_pos)
-	
-	# Проверяем, что юнит добавлен в группу
 	var units_in_group = get_tree().get_nodes_in_group("units")
 	print("📊 Всего юнитов в группе: ", units_in_group.size())
 
@@ -417,16 +407,13 @@ func place_spawner(team: String, spawner_type: String, position: Vector3):
 	if not can_build_structure(team, spawner_type):
 		print("Недостаточно энергии для постройки!")
 		return
-	
 	var spawner = spawner_scene.instantiate()
+	add_child(spawner)
 	spawner.team = team
 	spawner.spawner_type = spawner_type
 	spawner.global_position = position
 	spawner.name = team.capitalize() + spawner_type.capitalize() + str(randi())
-	add_child(spawner)
 	spawner.add_to_group("spawners")
-	
-	# Не снимаем энергию здесь - это делается в функциях-вызывающих
 	print("Построен спавнер: ", team, " ", spawner_type, " в позиции ", position)
 
 func init_enemy_ai():
@@ -655,7 +642,7 @@ func get_structure_cost(structure_type: String) -> int:
 func get_random_enemy_spawn_position() -> Vector3:
 	# Случайная позиция на вражеской стороне (z > 0)
 	var x = randf_range(-8.0, 8.0)
-	var z = randf_range(5.0, 12.0)
+	var z = randf_range(8.0, 18.0)
 	return Vector3(x, 0, z)
 
 func get_random_enemy_build_position() -> Vector3:
@@ -665,7 +652,7 @@ func get_random_enemy_build_position() -> Vector3:
 	
 	while attempts < max_attempts:
 		var x = randf_range(-6.0, 6.0)
-		var z = randf_range(3.0, 12.0)
+		var z = randf_range(5.0, 18.0)
 		var pos = Vector3(x, 0, z)
 		
 		if is_valid_enemy_build_position(pos):
@@ -674,7 +661,7 @@ func get_random_enemy_build_position() -> Vector3:
 		attempts += 1
 	
 	# Если не нашли подходящую позицию, возвращаем базовую
-	return Vector3(randf_range(-4.0, 4.0), 0, 8.0)
+	return Vector3(randf_range(-4.0, 4.0), 0, 12.0)
 
 func _on_enemy_ai_spawn():
 	if not battle_started:
@@ -688,24 +675,22 @@ func _on_spawn_soldier():
 	print("Кнопка спавна солдата нажата!")
 	if battle_started and player_energy >= 20:
 		# Спавн юнита-солдата рядом с игроком
-		var spawn_pos = Vector3(randf_range(-4.0, 4.0), 0, -8.0)
+		var spawn_pos = Vector3(randf_range(-4.0, 4.0), 0, -12.0)
 		spawn_unit_at_pos("player", spawn_pos, "soldier")
 		player_energy -= 20
-		update_hud()
+		update_ui()
 
 func _on_build_tower():
 	print("Кнопка постройки башни нажата!")
 	if battle_started and player_energy >= 60:
 		# Строим башню рядом с базой игрока
-		var build_pos = Vector3(randf_range(-6.0, 6.0), 0, -10.0)
+		var build_pos = Vector3(randf_range(-6.0, 6.0), 0, -15.0)
 		if is_valid_build_position(build_pos):
 			place_spawner("player", "tower", build_pos)
 			player_energy -= 60
-			update_hud()
+			update_ui()
 
-func update_hud():
-	if battle_ui:
-		battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy)
+
 
 func can_spawn_unit(team, unit_type):
 	var cost = get_unit_cost(unit_type)
@@ -720,5 +705,26 @@ func can_build_structure(team, structure_type):
 		return player_energy >= cost
 	else:
 		return enemy_energy >= cost
+
+func on_spawner_drop(spawner_type, global_pos):
+	if not battle_started:
+		print("[DragDrop] Битва не начата, нельзя строить спавнеры!")
+		return
+	
+	var cost = get_structure_cost(spawner_type)
+	if player_energy < cost:
+		print("[DragDrop] Недостаточно энергии для постройки ", spawner_type)
+		return
+	
+	# Преобразуем экранные координаты в 3D-позицию на поле
+	var pos = get_mouse_map_position(global_pos)
+	print("[DragDrop] Попытка построить спавнер '", spawner_type, "' в точке ", pos)
+	if is_valid_build_position(pos):
+		place_spawner("player", spawner_type, pos)
+		player_energy -= cost
+		update_ui()
+		print("[DragDrop] Спавнер '", spawner_type, "' успешно построен!")
+	else:
+		print("[DragDrop] Нельзя построить спавнер в этой позиции!")
  
  

@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://dtc7liy2o51dv"]
+[gd_scene load_steps=3 format=3 uid="uid://dtc7liy2o51dv"]
 
 [ext_resource type="Script" uid="uid://biagfnmt23k5" path="res://scripts/BattleUI.gd" id="1"]
+[ext_resource type="PackedScene" uid="uid://bwiruao8f573s" path="res://scenes/SpawnerPanel.tscn" id="2"]
 
 [node name="BattleUI" type="CanvasLayer"]
 script = ExtResource("1")
@@ -49,3 +50,9 @@ anchor_top = 0.9
 anchor_right = 0.99
 anchor_bottom = 0.99
 text = "Enemy HP: 100 | Energy: 100"
+
+[node name="SpawnerPanel" parent="." instance=ExtResource("2")]
+anchors_preset = 15
+anchor_top = 0.0
+grow_horizontal = 2
+grow_vertical = 2
