@@ -70,8 +70,27 @@ func _ready():
 	line.set_surface_override_material(0, line_mat)
 	add_child(line)
 
-	# Создаём ядра и стартовые спавнеры
-	create_cores_and_spawners()
+	# Ядро игрока (синее)
+	var player_core = MeshInstance3D.new()
+	player_core.mesh = SphereMesh.new()
+	player_core.position = Vector3(0, 0.5, -13)
+	var player_mat = StandardMaterial3D.new()
+	player_mat.albedo_color = Color(0.2, 0.6, 1, 1)
+	player_core.set_surface_override_material(0, player_mat)
+	add_child(player_core)
+
+	# Ядро врага (красное)
+	var enemy_core = MeshInstance3D.new()
+	enemy_core.mesh = SphereMesh.new()
+	enemy_core.position = Vector3(0, 0.5, 13)
+	var enemy_mat = StandardMaterial3D.new()
+	enemy_mat.albedo_color = Color(1, 0.2, 0.2, 1)
+	enemy_core.set_surface_override_material(0, enemy_mat)
+	add_child(enemy_core)
+
+	# Создаём стартовые спавнеры игрока и врага
+	create_start_spawner("player", Vector3(-4, 0, -10))
+	create_start_spawner("enemy", Vector3(4, 0, 10))
 
 	# Инициализация AI врага
 	init_enemy_ai()
