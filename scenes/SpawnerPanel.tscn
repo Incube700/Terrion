@@ -1,0 +1,38 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource path="res://scripts/SpawnerPanel.gd" type="Script" id=1]
+
+[node name="SpawnerPanel" type="Control"]
+script = ExtResource( 1 )
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 0.0
+margin_top = -80.0
+margin_right = 0.0
+margin_bottom = 0.0
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+anchor_left = 0.25
+anchor_right = 0.75
+anchor_top = 1.0
+anchor_bottom = 1.0
+margin_left = 0.0
+margin_top = -80.0
+margin_right = 0.0
+margin_bottom = 0.0
+
+[node name="OrbitalDropButton" type="TextureButton" parent="HBoxContainer"]
+rect_min_size = Vector2(64, 64)
+hint_tooltip = "Orbital Drop Pod"
+
+[node name="EnergyGenButton" type="TextureButton" parent="HBoxContainer"]
+rect_min_size = Vector2(64, 64)
+hint_tooltip = "Energy Generator"
+
+[node name="ShieldGenButton" type="TextureButton" parent="HBoxContainer"]
+rect_min_size = Vector2(64, 64)
+hint_tooltip = "Shield Generator"
+
+[node name="TechLabButton" type="TextureButton" parent="HBoxContainer"]
+rect_min_size = Vector2(64, 64)
+hint_tooltip = "Tech Lab" 
