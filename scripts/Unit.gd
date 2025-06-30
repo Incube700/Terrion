@@ -53,14 +53,13 @@ func _ready():
 			mesh.material_override.albedo_color = Color(0.6, 0.2, 0.8, 1)
 	# Безопасно подключаем AttackArea
 	if has_node("AttackArea"):
-		var attack_area = get_node("AttackArea")
 		attack_area.body_entered.connect(_on_attack_area_body_entered)
 		attack_area.body_exited.connect(_on_attack_area_body_exited)
 	# Безопасно обновляем HealthBar
 	if has_node("HealthBar"):
 		update_health_display()
 
-func _physics_process(delta):
+func _physics_process(_delta):
 	if health <= 0:
 		queue_free()
 		return
@@ -69,21 +68,21 @@ func _physics_process(delta):
 			battle_manager.unit_reached_base(self)
 		queue_free()
 		return
-	attack_timer += delta
+	attack_timer += _delta
 	if target and is_instance_valid(target):
 		var dist = global_position.distance_to(target.global_position)
 		if dist > attack_range:
-			move_towards_target(delta)
+			move_towards_target()
 		else:
 			if attack_timer > attack_cooldown:
 				attack()
 				attack_timer = 0.0
 	else:
-		move_towards_target(delta)
+		move_towards_target()
 		find_new_target()
 	# TODO: если дошёл до конца линии — нанести урон базе противника
 
-func move_towards_target(delta):
+func move_towards_target():
 	if target_pos:
 		var dir = (target_pos - global_position).normalized()
 		velocity = dir * speed
@@ -171,8 +170,8 @@ func take_damage(amount: int):
 
 func update_health_display():
 	if has_node("HealthBar"):
-		var health_bar = get_node("HealthBar")
-		if health_bar and health_bar is Label:
-			health_bar.text = str(health) + "/" + str(max_health)
+		var health_display = get_node("HealthBar")
+		if health_display and health_display is Label:
+			health_display.text = str(health) + "/" + str(max_health)
  
  

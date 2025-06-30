@@ -41,15 +41,21 @@ var enemy_ai: EnemyAI = null
 var ai_difficulty: String = "normal"
 
 func _ready():
+	print("🎮 BattleManager инициализация...")
+	
 	# Получаем UI
 	battle_ui = get_node_or_null("BattleUI")
 	if battle_ui:
+		print("✅ BattleUI найден")
 		battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy)
 		battle_ui.start_battle.connect(_on_start_battle)
 		battle_ui.spawn_unit_drag.connect(_on_spawn_unit_drag)
 		battle_ui.build_structure_drag.connect(_on_build_structure_drag)
 		battle_ui.spawn_soldier.connect(_on_spawn_soldier)
 		battle_ui.build_tower.connect(_on_build_tower)
+		print("🔗 UI сигналы подключены")
+	else:
+		print("❌ BattleUI не найден!")
 
 	# Визуальное поле (трава)
 	var field = MeshInstance3D.new()
@@ -102,6 +108,8 @@ func _ready():
 	# Не запускаем бой сразу — ждём нажатия Start Battle
 	battle_started = false
 	update_hud()
+	
+	print("🏁 BattleManager готов! Нажмите Start Battle для начала игры.")
 
 func init_energy_timer():
 	# Таймер для автоматического пополнения энергии
@@ -159,22 +167,39 @@ func create_start_spawner(team: String, position: Vector3):
 	spawner.add_to_group("spawners")
 
 func _on_start_battle():
-	print("Битва началась!")
+	print("🚀 Битва началась!")
 	battle_started = true
+	
+	# Скрываем кнопку старта
 	if battle_ui and battle_ui.has_node("Panel/StartButton"):
 		battle_ui.get_node("Panel/StartButton").hide()
+		print("✅ Кнопка Start скрыта")
+	else:
+		print("⚠️ Кнопка Start не найдена")
 	
 	# Запустить таймеры спавна только после старта боя
-	for spawner in get_tree().get_nodes_in_group("spawners"):
+	var spawners = get_tree().get_nodes_in_group("spawners")
+	print("📍 Найдено спавнеров: ", spawners.size())
+	for spawner in spawners:
 		if spawner.has_node("SpawnTimer"):
 			spawner.get_node("SpawnTimer").autostart = true
 			spawner.get_node("SpawnTimer").start()
+			print("⏰ Запущен таймер спавнера: ", spawner.name)
+		else:
+			print("❌ Спавнер без таймера: ", spawner.name)
 	
 	# Запускаем AI врага
 	if enemy_decision_timer:
 		enemy_decision_timer.start()
+		print("🤖 AI таймер решений запущен")
 	if enemy_ai_timer:
 		enemy_ai_timer.start()
+		print("🤖 AI таймер спавна запущен")
+	
+	# Создаем тестовых юнитов для проверки
+	print("🧪 Создаем тестовых юнитов...")
+	spawn_unit_at_pos("player", Vector3(-2, 0, -8), "soldier")
+	spawn_unit_at_pos("enemy", Vector3(2, 0, 8), "soldier")
 
 func _on_energy_timer():
 	if not battle_started:
@@ -266,6 +291,12 @@ func _unhandled_input(event):
 					place_spawner("player", "spawner", pos)
 					player_energy -= 30
 					update_hud()
+	
+	# Запуск игры по клавише SPACE, если UI не работает
+	if event is InputEventKey and event.pressed:
+		if event.keycode == KEY_SPACE and not battle_started:
+			print("🚀 Запуск игры по клавише SPACE")
+			_on_start_battle()
 
 func get_mouse_map_position(screen_pos):
 	var camera = get_viewport().get_camera_3d()
@@ -353,8 +384,10 @@ func is_valid_unit_position(pos: Vector3) -> bool:
 
 func spawn_unit_at_pos(team, pos, unit_type="soldier"):
 	if not can_spawn_unit(team, unit_type):
-		print("Недостаточно энергии или превышен лимит!")
+		print("❌ Недостаточно энергии или превышен лимит!")
 		return
+	
+	print("🔨 Создаем юнита: ", team, " ", unit_type, " в позиции ", pos)
 	var unit = unit_scene.instantiate()
 	unit.team = team
 	unit.unit_type = unit_type
@@ -367,8 +400,12 @@ func spawn_unit_at_pos(team, pos, unit_type="soldier"):
 	add_child(unit)
 	unit.add_to_group("units")
 	
-	# Не снимаем энергию здесь - это делается в функциях-вызывающих
-	print("Создан юнит: ", team, " ", unit_type, " в позиции ", pos)
+	print("✅ Юнит создан успешно: ", unit.name, " команда: ", unit.team)
+	print("🎯 Цель юнита: ", unit.target_pos)
+	
+	# Проверяем, что юнит добавлен в группу
+	var units_in_group = get_tree().get_nodes_in_group("units")
+	print("📊 Всего юнитов в группе: ", units_in_group.size())
 
 # Добавляю функцию update_ui, если её нет
 func update_ui():

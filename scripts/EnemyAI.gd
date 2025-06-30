@@ -276,7 +276,7 @@ func calculate_unit_priority(unit_type: String, threat: float, control: float) -
 	
 	return base_priority
 
-func calculate_build_priority(structure_type: String, threat: float, control: float) -> int:
+func calculate_build_priority(structure_type: String, threat: float, _control: float) -> int:
 	var base_priority = 0
 	var enemy_spawners = battlefield_analysis.get("enemy_spawners", {})
 	
@@ -312,7 +312,7 @@ func calculate_build_priority(structure_type: String, threat: float, control: fl
 	
 	return base_priority
 
-func get_optimal_spawn_position(unit_type: String) -> Vector3:
+func get_optimal_spawn_position(_unit_type: String) -> Vector3:
 	# Выбираем оптимальную позицию для спавна в зависимости от стратегии
 	match current_strategy:
 		"rush":
