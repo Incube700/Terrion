@@ -71,3 +71,42 @@ text = "Enemy HP: 100 | Energy: 100"
 anchors_preset = 15
 anchor_top = 0.0
 grow_vertical = 2
+
+[node name="AbilityPanel" type="Panel" parent="."]
+anchors_preset = -1
+anchor_left = 0.0
+anchor_top = 0.15
+anchor_right = 1.0
+anchor_bottom = 0.25
+
+[node name="FireballButton" type="Button" parent="AbilityPanel"]
+layout_mode = 0
+anchor_left = 0.02
+anchor_top = 0.1
+anchor_right = 0.18
+anchor_bottom = 0.9
+text = "Fireball (Q)"
+
+[node name="HealButton" type="Button" parent="AbilityPanel"]
+layout_mode = 0
+anchor_left = 0.2
+anchor_top = 0.1
+anchor_right = 0.36
+anchor_bottom = 0.9
+text = "Heal Wave (W)"
+
+[node name="ShieldButton" type="Button" parent="AbilityPanel"]
+layout_mode = 0
+anchor_left = 0.38
+anchor_top = 0.1
+anchor_right = 0.54
+anchor_bottom = 0.9
+text = "Shield (E)"
+
+[node name="LightningButton" type="Button" parent="AbilityPanel"]
+layout_mode = 0
+anchor_left = 0.56
+anchor_top = 0.1
+anchor_right = 0.72
+anchor_bottom = 0.9
+text = "Lightning (R)"

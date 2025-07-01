@@ -45,6 +45,9 @@ var ai_difficulty: String = "normal"
 # Система территорий
 var territory_system: TerritorySystem = null
 
+# Система способностей
+var ability_system: AbilitySystem = null
+
 func _ready():
 	print("🎮 BattleManager инициализация...")
 	
@@ -60,6 +63,7 @@ func _ready():
 		battle_ui.build_tower.connect(_on_build_tower)
 		battle_ui.spawn_elite_soldier.connect(_on_spawn_elite_soldier)
 		battle_ui.spawn_crystal_mage.connect(_on_spawn_crystal_mage)
+		battle_ui.use_ability.connect(_on_use_ability)
 		print("🔗 UI сигналы подключены")
 	else:
 		print("❌ BattleUI не найден!")
@@ -114,6 +118,9 @@ func _ready():
 	
 	# Инициализация системы территорий
 	init_territory_system()
+	
+	# Инициализация системы способностей
+	init_ability_system()
 
 	# Не запускаем бой сразу — ждём нажатия Start Battle
 	battle_started = false
@@ -135,6 +142,13 @@ func init_territory_system():
 	territory_system.battle_manager = self
 	add_child(territory_system)
 	print("🏰 Система территорий инициализирована")
+
+func init_ability_system():
+	# Создаем систему способностей
+	ability_system = AbilitySystem.new()
+	ability_system.battle_manager = self
+	add_child(ability_system)
+	print("✨ Система способностей инициализирована")
 
 func create_cores_and_spawners():
 	# Удаляем старые ядра, если есть
@@ -309,11 +323,42 @@ func _unhandled_input(event):
 					player_energy -= 30
 					update_ui()
 	
+	# Правый клик для способностей
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+		if battle_started and ability_system:
+			var pos = get_mouse_map_position(event.position)
+			# Используем огненный шар как базовую способность
+			if ability_system.can_use_ability("player", "fireball"):
+				ability_system.use_ability("player", "fireball", pos)
+				update_ui()
+			else:
+				print("❌ Нельзя использовать Fireball")
+	
 	# Запуск игры по клавише SPACE, если UI не работает
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_SPACE and not battle_started:
 			print("🚀 Запуск игры по клавише SPACE")
 			_on_start_battle()
+		# Горячие клавиши для способностей
+		elif battle_started and ability_system:
+			var pos = get_mouse_world_position()
+			match event.keycode:
+				KEY_Q:  # Fireball
+					if ability_system.can_use_ability("player", "fireball"):
+						ability_system.use_ability("player", "fireball", pos)
+						update_ui()
+				KEY_W:  # Heal Wave
+					if ability_system.can_use_ability("player", "heal_wave"):
+						ability_system.use_ability("player", "heal_wave", pos)
+						update_ui()
+				KEY_E:  # Shield Barrier
+					if ability_system.can_use_ability("player", "shield_barrier"):
+						ability_system.use_ability("player", "shield_barrier", pos)
+						update_ui()
+				KEY_R:  # Lightning Storm
+					if ability_system.can_use_ability("player", "lightning_storm"):
+						ability_system.use_ability("player", "lightning_storm", pos)
+						update_ui()
 
 func get_mouse_map_position(screen_pos):
 	var camera = get_viewport().get_camera_3d()
@@ -327,6 +372,10 @@ func get_mouse_map_position(screen_pos):
 	if result and result.has("position"):
 		return result.position
 	return Vector3.ZERO
+
+func get_mouse_world_position() -> Vector3:
+	var mouse_pos = get_viewport().get_mouse_position()
+	return get_mouse_map_position(mouse_pos)
 
 func is_valid_build_position(pos: Vector3) -> bool:
 	var map_width = 30.0
@@ -567,6 +616,11 @@ func execute_advanced_ai_decision(decision: Dictionary):
 			spawn_enemy_unit_at_position(decision.unit_type, decision.position)
 		"build":
 			build_enemy_structure_at_position(decision.structure_type, decision.position)
+		"ability":
+			if ability_system and ability_system.can_use_ability("enemy", decision.ability_type):
+				ability_system.use_ability("enemy", decision.ability_type, decision.position)
+				update_ui()
+				print("🤖 AI использует способность: ", decision.ability_type)
 		"none":
 			print("AI врага: нет стратегических действий (приоритет: ", decision.priority, ")")
 
@@ -745,6 +799,14 @@ func _on_spawn_crystal_mage():
 		var spawn_pos = Vector3(randf_range(-4.0, 4.0), 0, -12.0)
 		spawn_unit_at_pos("player", spawn_pos, "crystal_mage")
 		update_ui()
+
+func _on_use_ability(ability_name: String, position: Vector3):
+	print("Кнопка способности ", ability_name, " нажата!")
+	if battle_started and ability_system and ability_system.can_use_ability("player", ability_name):
+		ability_system.use_ability("player", ability_name, position)
+		update_ui()
+	else:
+		print("❌ Нельзя использовать ", ability_name)
 
 
 

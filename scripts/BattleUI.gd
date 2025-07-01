@@ -7,6 +7,7 @@ signal spawn_elite_soldier
 signal spawn_crystal_mage
 signal spawn_unit_drag(unit_type, screen_pos)
 signal build_structure_drag(screen_pos)
+signal use_ability(ability_name, position)
 
 var drag_type = ""
 var is_dragging = false
@@ -20,6 +21,12 @@ func _ready():
 	$Panel/BuildTowerButton.pressed.connect(_on_build_tower_button_pressed)
 	$Panel/EliteSoldierButton.pressed.connect(_on_elite_soldier_button_pressed)
 	$Panel/CrystalMageButton.pressed.connect(_on_crystal_mage_button_pressed)
+	
+	# Подключаем кнопки способностей
+	$AbilityPanel/FireballButton.pressed.connect(_on_fireball_button_pressed)
+	$AbilityPanel/HealButton.pressed.connect(_on_heal_button_pressed)
+	$AbilityPanel/ShieldButton.pressed.connect(_on_shield_button_pressed)
+	$AbilityPanel/LightningButton.pressed.connect(_on_lightning_button_pressed)
 	
 	# Подключаем drag&drop для кнопок
 	$Panel/SpawnSoldierButton.gui_input.connect(_on_spawn_button_input)
@@ -47,6 +54,22 @@ func _on_elite_soldier_button_pressed():
 func _on_crystal_mage_button_pressed():
 	# Спавн кристального мага
 	spawn_crystal_mage.emit()
+
+func _on_fireball_button_pressed():
+	# Используем огненный шар в центре поля
+	use_ability.emit("fireball", Vector3(0, 0, 0))
+
+func _on_heal_button_pressed():
+	# Используем лечение в центре поля
+	use_ability.emit("heal_wave", Vector3(0, 0, -10))
+
+func _on_shield_button_pressed():
+	# Используем щит в центре поля
+	use_ability.emit("shield_barrier", Vector3(0, 0, -10))
+
+func _on_lightning_button_pressed():
+	# Используем молниевую бурю в центре поля
+	use_ability.emit("lightning_storm", Vector3(0, 0, 0))
 
 func _on_spawn_button_input(event):
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:

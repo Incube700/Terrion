@@ -4,7 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://dtc7liy2o51dv" path="res://scenes/BattleUI.tscn" id="2"]
 
 [sub_resource type="NavigationMesh" id="NavigationMesh_1"]
-vertices = PackedFloat32Array(-15, 0.5, -25, 15, 0.5, -25, 15, 0.5, 25, -15, 0.5, 25)
+vertices = PackedVector3Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 polygons = [PackedInt32Array(0, 1, 2, 3)]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_1"]
