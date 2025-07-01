@@ -1,4 +1,4 @@
-name: GPT Code Reviewer
+name: GPT Assistant Review
 
 on:
   push:
@@ -6,9 +6,8 @@ on:
       - main
 
 jobs:
-  review:
+  gpt_review:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v3
 
@@ -23,20 +22,19 @@ jobs:
         run: |
           FILES=$(cat changed.txt)
           for FILE in $FILES; do
-            echo "📄 Reviewing $FILE"
+            echo "🧠 Reviewing $FILE"
             CONTENT=$(cat $FILE)
             echo "Review this code and suggest improvements:\n$CONTENT" > prompt.txt
 
             python3 - <<EOF
 import openai
-openai.api_key = '${OPENAI_API_KEY}'
-with open('prompt.txt', 'r') as f:
+openai.api_key = "${OPENAI_API_KEY}"
+with open("prompt.txt", "r") as f:
     prompt = f.read()
 response = openai.ChatCompletion.create(
     model="gpt-4",
     messages=[{"role": "user", "content": prompt}]
 )
-print("🧠 GPT says:\n", response['choices'][0]['message']['content'])
+print(response["choices"][0]["message"]["content"])
 EOF
-
           done
