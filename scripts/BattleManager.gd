@@ -4,6 +4,8 @@ extends Node
 
 var player_energy = 100  # Начальная энергия игрока
 var enemy_energy = 100   # Начальная энергия врага
+var player_crystals = 0  # Новый ресурс - кристаллы
+var enemy_crystals = 0   # Кристаллы врага
 var energy_gain_per_tick = 10  # Прирост энергии за тик
 var energy_tick_time = 1.0     # Время между тиками энергии
 
@@ -40,6 +42,9 @@ var enemy_current_drones = 0
 var enemy_ai: EnemyAI = null
 var ai_difficulty: String = "normal"
 
+# Система территорий
+var territory_system: TerritorySystem = null
+
 func _ready():
 	print("🎮 BattleManager инициализация...")
 	
@@ -53,6 +58,8 @@ func _ready():
 		battle_ui.build_structure_drag.connect(_on_build_structure_drag)
 		battle_ui.spawn_soldier.connect(_on_spawn_soldier)
 		battle_ui.build_tower.connect(_on_build_tower)
+		battle_ui.spawn_elite_soldier.connect(_on_spawn_elite_soldier)
+		battle_ui.spawn_crystal_mage.connect(_on_spawn_crystal_mage)
 		print("🔗 UI сигналы подключены")
 	else:
 		print("❌ BattleUI не найден!")
@@ -104,6 +111,9 @@ func _ready():
 	# Инициализация AI врага и энергетического таймера
 	init_enemy_ai()
 	init_energy_timer()
+	
+	# Инициализация системы территорий
+	init_territory_system()
 
 	# Не запускаем бой сразу — ждём нажатия Start Battle
 	battle_started = false
@@ -118,6 +128,13 @@ func init_energy_timer():
 	energy_timer.autostart = true
 	energy_timer.timeout.connect(_on_energy_timer)
 	add_child(energy_timer)
+
+func init_territory_system():
+	# Создаем систему территорий
+	territory_system = TerritorySystem.new()
+	territory_system.battle_manager = self
+	add_child(territory_system)
+	print("🏰 Система территорий инициализирована")
 
 func create_cores_and_spawners():
 	# Удаляем старые ядра, если есть
@@ -378,8 +395,12 @@ func is_valid_unit_position(pos: Vector3) -> bool:
 
 func spawn_unit_at_pos(team, pos, unit_type="soldier"):
 	if not can_spawn_unit(team, unit_type):
-		print("❌ Недостаточно энергии или превышен лимит!")
+		print("❌ Недостаточно ресурсов!")
 		return
+	
+	var energy_cost = get_unit_cost(unit_type)
+	var crystal_cost = get_unit_crystal_cost(unit_type)
+	
 	print("🔨 Создаем юнита: ", team, " ", unit_type, " в позиции ", pos)
 	var unit = unit_scene.instantiate()
 	add_child(unit)
@@ -388,8 +409,12 @@ func spawn_unit_at_pos(team, pos, unit_type="soldier"):
 	unit.global_position = pos
 	if team == "player":
 		unit.target_pos = Vector3(0, 0, 20)
+		player_energy -= energy_cost
+		player_crystals -= crystal_cost
 	else:
 		unit.target_pos = Vector3(0, 0, -20)
+		enemy_energy -= energy_cost
+		enemy_crystals -= crystal_cost
 	unit.battle_manager = self
 	unit.add_to_group("units")
 	print("✅ Юнит создан успешно: ", unit.name, " команда: ", unit.team)
@@ -400,7 +425,7 @@ func spawn_unit_at_pos(team, pos, unit_type="soldier"):
 # Добавляю функцию update_ui, если её нет
 func update_ui():
 	if battle_ui:
-		battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy)
+		battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy, player_crystals, enemy_crystals)
 
 # Добавляю функцию place_spawner, если её нет
 func place_spawner(team: String, spawner_type: String, position: Vector3):
@@ -476,8 +501,8 @@ func make_enemy_decision() -> Dictionary:
 	}
 	
 	# Анализируем ситуацию на поле боя
-	var player_units = get_player_unit_count()
-	var enemy_spawners = get_enemy_spawner_count()
+	var _player_units = get_player_unit_count()  # Для будущего использования
+	var enemy_spawners_count = get_enemy_spawner_count()
 	
 	# Если мало солдат - создаем солдат
 	if enemy_current_soldiers < enemy_max_soldiers and enemy_energy >= 20:
@@ -498,7 +523,7 @@ func make_enemy_decision() -> Dictionary:
 		return decision
 	
 	# Если много ресурсов и мало спавнеров - строим спавнер
-	if enemy_energy >= 60 and enemy_spawners < 3:
+	if enemy_energy >= 60 and enemy_spawners_count < 3:
 		decision.action = "build"
 		decision.unit_type = "spawner"
 		return decision
@@ -625,8 +650,25 @@ func get_unit_cost(unit_type: String) -> int:
 			return 50
 		"drone":
 			return 35
+		"elite_soldier":
+			return 30  # Требует энергию
+		"crystal_mage":
+			return 25  # Требует кристаллы
+		"heavy_tank":
+			return 80  # Требует много энергии
 		_:
 			return 20
+
+func get_unit_crystal_cost(unit_type: String) -> int:
+	match unit_type:
+		"crystal_mage":
+			return 15  # Требует кристаллы
+		"elite_soldier":
+			return 10  # Требует кристаллы
+		"heavy_tank":
+			return 20  # Требует кристаллы
+		_:
+			return 0
 
 func get_structure_cost(structure_type: String) -> int:
 	match structure_type:
@@ -690,14 +732,30 @@ func _on_build_tower():
 			player_energy -= 60
 			update_ui()
 
+func _on_spawn_elite_soldier():
+	print("Кнопка спавна элитного солдата нажата!")
+	if battle_started and can_spawn_unit("player", "elite_soldier"):
+		var spawn_pos = Vector3(randf_range(-4.0, 4.0), 0, -12.0)
+		spawn_unit_at_pos("player", spawn_pos, "elite_soldier")
+		update_ui()
+
+func _on_spawn_crystal_mage():
+	print("Кнопка спавна кристального мага нажата!")
+	if battle_started and can_spawn_unit("player", "crystal_mage"):
+		var spawn_pos = Vector3(randf_range(-4.0, 4.0), 0, -12.0)
+		spawn_unit_at_pos("player", spawn_pos, "crystal_mage")
+		update_ui()
+
 
 
 func can_spawn_unit(team, unit_type):
-	var cost = get_unit_cost(unit_type)
+	var energy_cost = get_unit_cost(unit_type)
+	var crystal_cost = get_unit_crystal_cost(unit_type)
+	
 	if team == "player":
-		return player_energy >= cost
+		return player_energy >= energy_cost and player_crystals >= crystal_cost
 	else:
-		return enemy_energy >= cost
+		return enemy_energy >= energy_cost and enemy_crystals >= crystal_cost
 
 func can_build_structure(team, structure_type):
 	var cost = get_structure_cost(structure_type)

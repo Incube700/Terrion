@@ -35,22 +35,52 @@ func _ready():
 		health = 60
 		max_health = 60
 		damage = 10
+	elif unit_type == "elite_soldier":
+		speed = 120
+		health = 150
+		max_health = 150
+		damage = 35
+	elif unit_type == "crystal_mage":
+		speed = 80
+		health = 80
+		max_health = 80
+		damage = 50  # Магический урон
+		attack_range = 5.0  # Дальняя атака
+	elif unit_type == "heavy_tank":
+		speed = 40
+		health = 400
+		max_health = 400
+		damage = 80
 	# Цвет по типу и команде
 	mesh.material_override = StandardMaterial3D.new()
 	if team == "player":
-		if unit_type == "soldier":
-			mesh.material_override.albedo_color = Color(0.2, 0.6, 1, 1)
-		elif unit_type == "tank":
-			mesh.material_override.albedo_color = Color(0.2, 0.5, 0.2, 1)
-		elif unit_type == "drone":
-			mesh.material_override.albedo_color = Color(0.5, 0.8, 1, 1)
+		match unit_type:
+			"soldier":
+				mesh.material_override.albedo_color = Color(0.2, 0.6, 1, 1)
+			"tank":
+				mesh.material_override.albedo_color = Color(0.2, 0.5, 0.2, 1)
+			"drone":
+				mesh.material_override.albedo_color = Color(0.5, 0.8, 1, 1)
+			"elite_soldier":
+				mesh.material_override.albedo_color = Color(0.0, 0.8, 1, 1)  # Ярко-голубой
+			"crystal_mage":
+				mesh.material_override.albedo_color = Color(0.8, 0.2, 1, 1)  # Пурпурный
+			"heavy_tank":
+				mesh.material_override.albedo_color = Color(0.1, 0.3, 0.1, 1)  # Темно-зеленый
 	else:
-		if unit_type == "soldier":
-			mesh.material_override.albedo_color = Color(1, 0.2, 0.2, 1)
-		elif unit_type == "tank":
-			mesh.material_override.albedo_color = Color(0.5, 0.2, 0.2, 1)
-		elif unit_type == "drone":
-			mesh.material_override.albedo_color = Color(0.6, 0.2, 0.8, 1)
+		match unit_type:
+			"soldier":
+				mesh.material_override.albedo_color = Color(1, 0.2, 0.2, 1)
+			"tank":
+				mesh.material_override.albedo_color = Color(0.5, 0.2, 0.2, 1)
+			"drone":
+				mesh.material_override.albedo_color = Color(0.6, 0.2, 0.8, 1)
+			"elite_soldier":
+				mesh.material_override.albedo_color = Color(1, 0.0, 0.0, 1)  # Ярко-красный
+			"crystal_mage":
+				mesh.material_override.albedo_color = Color(0.8, 0.0, 0.5, 1)  # Темно-пурпурный
+			"heavy_tank":
+				mesh.material_override.albedo_color = Color(0.3, 0.1, 0.1, 1)  # Темно-красный
 	# Безопасно подключаем AttackArea
 	if has_node("AttackArea"):
 		attack_area.body_entered.connect(_on_attack_area_body_entered)
@@ -68,6 +98,11 @@ func _physics_process(_delta):
 			battle_manager.unit_reached_base(self)
 		queue_free()
 		return
+	
+	# Проверяем захват территорий
+	if battle_manager and battle_manager.territory_system:
+		battle_manager.territory_system.check_territory_capture(global_position, team)
+	
 	attack_timer += _delta
 	if target and is_instance_valid(target):
 		var dist = global_position.distance_to(target.global_position)
@@ -80,7 +115,6 @@ func _physics_process(_delta):
 	else:
 		move_towards_target()
 		find_new_target()
-	# TODO: если дошёл до конца линии — нанести урон базе противника
 
 func move_towards_target():
 	if target_pos:

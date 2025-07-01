@@ -3,6 +3,8 @@ extends CanvasLayer
 signal start_battle
 signal spawn_soldier
 signal build_tower
+signal spawn_elite_soldier
+signal spawn_crystal_mage
 signal spawn_unit_drag(unit_type, screen_pos)
 signal build_structure_drag(screen_pos)
 
@@ -16,6 +18,8 @@ func _ready():
 	$Panel/StartButton.pressed.connect(_on_start_button_pressed)
 	$Panel/SpawnSoldierButton.pressed.connect(_on_spawn_soldier_button_pressed)
 	$Panel/BuildTowerButton.pressed.connect(_on_build_tower_button_pressed)
+	$Panel/EliteSoldierButton.pressed.connect(_on_elite_soldier_button_pressed)
+	$Panel/CrystalMageButton.pressed.connect(_on_crystal_mage_button_pressed)
 	
 	# Подключаем drag&drop для кнопок
 	$Panel/SpawnSoldierButton.gui_input.connect(_on_spawn_button_input)
@@ -35,6 +39,14 @@ func _on_spawn_soldier_button_pressed():
 func _on_build_tower_button_pressed():
 	# Обычный клик - строительство в случайном месте
 	build_tower.emit()
+
+func _on_elite_soldier_button_pressed():
+	# Спавн элитного солдата
+	spawn_elite_soldier.emit()
+
+func _on_crystal_mage_button_pressed():
+	# Спавн кристального мага
+	spawn_crystal_mage.emit()
 
 func _on_spawn_button_input(event):
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -64,9 +76,9 @@ func _on_build_button_input(event):
 			is_dragging = false
 			drag_type = ""
 
-func update_info(player_hp, player_energy, enemy_hp, enemy_energy):
-	$PlayerHUD.text = "Player HP: %d | Energy: %d" % [player_hp, player_energy]
-	$EnemyHUD.text = "Enemy HP: %d | Energy: %d" % [enemy_hp, enemy_energy]
+func update_info(player_hp, player_energy, enemy_hp, enemy_energy, player_crystals = 0, enemy_crystals = 0):
+	$PlayerHUD.text = "Player HP: %d | Energy: %d | Crystals: %d" % [player_hp, player_energy, player_crystals]
+	$EnemyHUD.text = "Enemy HP: %d | Energy: %d | Crystals: %d" % [enemy_hp, enemy_energy, enemy_crystals]
 
 func _input(event):
 	if is_dragging:
