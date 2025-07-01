@@ -1,0 +1,35 @@
+# Godot временные файлы
+.godot/
+.import/
+*.tmp
+
+# Сборки игры
+builds/
+*.apk
+*.exe
+*.dmg
+
+# IDE файлы
+.vscode/
+*.swp
+*.swo
+
+# Логи и отладка
+logs/
+*.log
+debug/
+
+# Зависимости
+node_modules/
+__pycache__/
+*.pyc
+
+# Системные файлы
+.DS_Store
+Thumbs.db
+
+# Временные файлы разработки
+temp/
+backup/
+*.bak
+*~ 

@@ -218,7 +218,7 @@ func use_faction_ability(race: Race, ability_name: String, position: Vector3, te
 	
 	return false
 
-func apply_faction_ability_effect(race: Race, ability_name: String, position: Vector3, team: String):
+func apply_faction_ability_effect(race: Race, ability_name: String, _position: Vector3, _team: String):
 	match race:
 		Race.HUMANS:
 			match ability_name:

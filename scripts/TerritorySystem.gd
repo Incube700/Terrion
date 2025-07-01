@@ -85,37 +85,50 @@ func create_territory(id: int, position: Vector3, type: TerritoryType) -> Dictio
 func create_territory_visual(territory: Dictionary):
 	var mesh_instance = MeshInstance3D.new()
 	var cylinder = CylinderMesh.new()
-	cylinder.top_radius = territory.control_radius
-	cylinder.bottom_radius = territory.control_radius
-	cylinder.height = 0.2
+	cylinder.top_radius = territory.control_radius * 1.2  # Увеличиваем радиус
+	cylinder.bottom_radius = territory.control_radius * 1.2
+	cylinder.height = 0.4  # Увеличиваем высоту для лучшей видимости
 	mesh_instance.mesh = cylinder
 	mesh_instance.position = territory.position
-	
-	# Материал в зависимости от типа территории
+
+	# Подпись (Label3D) - больше и ярче
+	var label = Label3D.new()
+	label.position = territory.position + Vector3(0, 2.0, 0)  # Выше над территорией
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.text = get_territory_label(territory.type)
+	label.modulate = Color(1, 1, 1, 1.0)  # Полная непрозрачность
+	label.font_size = 24  # Увеличиваем размер шрифта
+	label.outline_size = 4  # Добавляем контур для лучшей читаемости
+	label.outline_modulate = Color(0, 0, 0, 0.8)  # Черный контур
+	get_parent().add_child(label)
+
+	# Материал в зависимости от типа территории - делаем менее прозрачными
 	var material = StandardMaterial3D.new()
 	match territory.type:
 		TerritoryType.ENERGY_MINE:
-			material.albedo_color = Color(0.2, 0.8, 1.0, 0.5)  # Голубой
+			material.albedo_color = Color(0.2, 0.8, 1.0, 0.8)  # Голубой, менее прозрачный
 		TerritoryType.CRYSTAL_MINE:
-			material.albedo_color = Color(1.0, 0.2, 1.0, 0.5)  # Пурпурный
+			material.albedo_color = Color(1.0, 0.2, 1.0, 0.8)  # Пурпурный
 		TerritoryType.STRATEGIC_POINT:
-			material.albedo_color = Color(1.0, 1.0, 0.2, 0.5)  # Желтый
+			material.albedo_color = Color(1.0, 1.0, 0.2, 0.8)  # Желтый
 		TerritoryType.DEFENSIVE_TOWER:
-			material.albedo_color = Color(0.8, 0.2, 0.2, 0.5)  # Красный
+			material.albedo_color = Color(0.8, 0.2, 0.2, 0.8)  # Красный
 		TerritoryType.FACTORY:
-			material.albedo_color = Color(0.5, 0.5, 0.5, 0.5)  # Серый
+			material.albedo_color = Color(0.6, 0.6, 0.6, 0.8)  # Серый, ярче
 		TerritoryType.PORTAL:
-			material.albedo_color = Color(0.2, 1.0, 0.2, 0.5)  # Зеленый
+			material.albedo_color = Color(0.2, 1.0, 0.2, 0.8)  # Зеленый
 		TerritoryType.ANCIENT_ALTAR:
-			material.albedo_color = Color(1.0, 0.8, 0.2, 0.5)  # Золотой
+			material.albedo_color = Color(1.0, 0.8, 0.2, 0.9)  # Золотой, еще ярче
 		TerritoryType.BATTLEFIELD_SHRINE:
-			material.albedo_color = Color(0.8, 0.8, 1.0, 0.5)  # Светло-синий
+			material.albedo_color = Color(0.8, 0.8, 1.0, 0.8)  # Светло-синий
 		_:
-			material.albedo_color = Color(0.5, 0.5, 0.5, 0.5)  # Серый
-	
+			material.albedo_color = Color(0.6, 0.6, 0.6, 0.8)  # Серый
+
 	material.flags_transparent = true
+	# Добавляем свечение для лучшей видимости
+	material.emission_enabled = true
+	material.emission = Color(material.albedo_color.r * 0.3, material.albedo_color.g * 0.3, material.albedo_color.b * 0.3)
 	mesh_instance.set_surface_override_material(0, material)
-	
 	get_parent().add_child(mesh_instance)
 	territory_meshes.append(mesh_instance)
 
@@ -239,6 +252,22 @@ func update_territory_visual(territory: Dictionary):
 func get_territory_info() -> Array[Dictionary]:
 	return territories
 
+func force_capture_territory(territory_id: int, new_owner: String):
+	"""Принудительно захватывает территорию (для коллекторов)"""
+	if territory_id < 0 or territory_id >= territories.size():
+		return false
+		
+	var territory = territories[territory_id]
+	territory.owner = new_owner
+	territory.capture_progress = 0.0
+	
+	# Обновляем визуал
+	update_territory_visual(territory)
+	
+	territory_captured.emit(territory_id, new_owner)
+	print("🏳️ Территория ", territory_id, " принудительно захвачена командой ", new_owner)
+	return true
+
 func get_controlled_territories(team: String) -> int:
 	var count = 0
 	for territory in territories:
@@ -250,7 +279,6 @@ func get_controlled_territories(team: String) -> int:
 func auto_attack_enemies(territory: Dictionary):
 	# Находим всех врагов в радиусе и атакуем их
 	var enemy_team = "enemy" if territory.owner == "player" else "player"
-	var _attack_radius = 5.0  # Префикс _ для неиспользуемой переменной
 	
 	# Здесь будет логика поиска и атаки врагов
 	print("🔥 Defensive tower attacking ", enemy_team, " near territory ", territory.id)
@@ -284,6 +312,34 @@ func reduce_ability_cooldowns(territory: Dictionary):
 
 func heal_friendly_units(territory: Dictionary):
 	# Лечим дружественных юнитов в радиусе
-	var _heal_radius = 4.0  # Префикс _ для неиспользуемой переменной
-	var _heal_amount = 10   # Префикс _ для неиспользуемой переменной
 	print("💚 Battlefield shrine healing units for ", territory.owner)
+
+func get_territory_label(type):
+	match type:
+		TerritoryType.ENERGY_MINE:
+			return "⚡ ЭНЕРГИЯ\n+15/сек"
+		TerritoryType.CRYSTAL_MINE:
+			return "💎 КРИСТАЛЛЫ\n+10/сек"
+		TerritoryType.STRATEGIC_POINT:
+			return "🎯 БОНУС\n+5 энергии"
+		TerritoryType.DEFENSIVE_TOWER:
+			return "🏰 БАШНЯ\nАвтоатака"
+		TerritoryType.FACTORY:
+			return "🏭 ФАБРИКА\nСоздает юнитов"
+		TerritoryType.PORTAL:
+			return "🌀 ПОРТАЛ\nТелепорт"
+		TerritoryType.ANCIENT_ALTAR:
+			return "✨ АЛТАРЬ\nМощные бонусы"
+		TerritoryType.BATTLEFIELD_SHRINE:
+			return "💚 СВЯТИЛИЩЕ\nЛечение"
+		_:
+			return "❓ ТЕРРИТОРИЯ"
+
+func get_available_territories_for_team(team_name: String) -> Array[Dictionary]:
+	"""Возвращает территории, доступные для захвата командой"""
+	var available: Array[Dictionary] = []
+	for territory in territories:
+		if territory.owner == "neutral" or territory.owner != team_name:
+			if not territory.has("assigned_collector"):
+				available.append(territory)
+	return available

@@ -49,6 +49,8 @@ func _ready():
 				spawn_timer.wait_time = 3.0  # Быстрее спавнит
 			"tower":
 				spawn_timer.wait_time = 6.0  # Медленнее, но сильнее
+			"collector_facility":
+				spawn_timer.wait_time = 8.0  # Медленнее, коллекторы дорогие
 			_:
 				spawn_timer.wait_time = 4.0
 
@@ -81,6 +83,26 @@ func setup_appearance():
 					m.material_override.albedo_color = Color(0.3, 0.5, 0.8, 1)  # Синеватый
 				else:
 					m.material_override.albedo_color = Color(0.8, 0.3, 0.3, 1)  # Красноватый
+	
+	elif spawner_type == "collector_facility":
+		# Комплекс коллекторов - особая форма
+		var sphere = SphereMesh.new()
+		sphere.radius = 0.8
+		sphere.height = 1.6
+		mesh_instance.mesh = sphere
+		mesh_instance.material_override = StandardMaterial3D.new()
+		
+		# Зеленый цвет для коллекторов
+		if team == "player":
+			mesh_instance.material_override.albedo_color = Color(0.2, 1.0, 0.2, 1)  # Ярко-зеленый
+		else:
+			mesh_instance.material_override.albedo_color = Color(0.8, 0.8, 0.2, 1)  # Желто-зеленый
+		
+		# Добавляем свечение
+		mesh_instance.material_override.emission_enabled = true
+		mesh_instance.material_override.emission = Color(0.1, 0.5, 0.1)
+		
+		hide_barracks_meshes()
 		
 	else:  # spawner
 		var box = BoxMesh.new()
@@ -151,6 +173,9 @@ func get_spawn_unit_type() -> String:
 		"barracks":
 			# Бараки спавнят солдат
 			return "soldier"
+		"collector_facility":
+			# Комплекс коллекторов спавнит коллекторов
+			return "collector"
 		"spawner":
 			# Базовые спавнеры случайно выбирают тип
 			var types = ["soldier", "soldier", "tank"]  # Больше шансов на солдат
@@ -180,4 +205,3 @@ func get_spawner_info() -> Dictionary:
 		"unit_type": get_spawn_unit_type(),
 		"spawn_time": spawn_timer.wait_time if spawn_timer else 4.0
 	}
- 

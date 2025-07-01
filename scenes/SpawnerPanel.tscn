@@ -13,24 +13,104 @@ grow_vertical = 0
 script = ExtResource("1")
 
 [node name="HBoxContainer" type="HBoxContainer" parent="."]
+custom_minimum_size = Vector2(0, 80)
 layout_mode = 0
-anchor_left = 0.1
-anchor_top = 1.0
-anchor_right = 0.9
+anchor_left = 0.05
+anchor_top = 0.85
+anchor_right = 0.95
 anchor_bottom = 1.0
 
 [node name="OrbitalDropButton" type="TextureButton" parent="HBoxContainer"]
 modulate = Color(0.2, 0.6, 1, 1)
+custom_minimum_size = Vector2(100, 80)
 layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Орбитальный Десант (100 энергии) - быстрая высадка войск"
+
+[node name="OrbitalIcon" type="Label" parent="HBoxContainer/OrbitalDropButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "🚀
+ДЕСАНТ"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="EnergyGenButton" type="TextureButton" parent="HBoxContainer"]
 modulate = Color(0.2, 0.8, 0.8, 1)
+custom_minimum_size = Vector2(100, 80)
 layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Генератор Энергии (70 энергии) - увеличивает доходы"
+
+[node name="EnergyIcon" type="Label" parent="HBoxContainer/EnergyGenButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "⚡
+ЭНЕРГИЯ"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="ShieldGenButton" type="TextureButton" parent="HBoxContainer"]
 modulate = Color(0.5, 0.8, 1, 1)
+custom_minimum_size = Vector2(100, 80)
 layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Щитовой Генератор (90 энергии) - защищает базу"
+
+[node name="ShieldIcon" type="Label" parent="HBoxContainer/ShieldGenButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "🛡️
+ЩИТЫ"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="TechLabButton" type="TextureButton" parent="HBoxContainer"]
 modulate = Color(0.8, 0.8, 0.2, 1)
+custom_minimum_size = Vector2(100, 80)
 layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Техно-Лаборатория (120 энергии) - исследования и апгрейды"
+
+[node name="TechIcon" type="Label" parent="HBoxContainer/TechLabButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "🔬
+ТЕХНО"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CollectorFacilityButton" type="TextureButton" parent="HBoxContainer"]
+modulate = Color(0.2, 1, 0.2, 1)
+custom_minimum_size = Vector2(100, 80)
+layout_mode = 2
+size_flags_horizontal = 3
+tooltip_text = "Комплекс Коллекторов (50 энергии) - спавнит коллекторов для захвата территорий"
+
+[node name="CollectorIcon" type="Label" parent="HBoxContainer/CollectorFacilityButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "🏭
+КОЛЛЕКТОР"
+horizontal_alignment = 1
+vertical_alignment = 1

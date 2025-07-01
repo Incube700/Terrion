@@ -12,9 +12,10 @@ signal spawn_unit_drag(unit_type, screen_pos)
 signal build_structure_drag(screen_pos)
 signal use_ability(ability_name: String, position: Vector3)
 
-# Сигналы для командиров фракций
+# Сигналы для командиров фракций (используются в расширенной системе рас)
 signal summon_commander(position: Vector3)
 signal use_faction_ability(ability_name: String, position: Vector3)
+signal spawn_collector
 
 var drag_type = ""
 var is_dragging = false
@@ -26,26 +27,27 @@ func _ready():
 	print("📱 Интерфейс командира TERRION активирован")
 	
 	# Подключение основных команд
-	$Panel/StartButton.pressed.connect(_on_start_operation_pressed)
-	$Panel/SpawnSoldierButton.pressed.connect(_on_deploy_unit_pressed)
-	$Panel/BuildTowerButton.pressed.connect(_on_construct_facility_pressed)
-	$Panel/EliteSoldierButton.pressed.connect(_on_deploy_specialist_pressed)
-	$Panel/CrystalMageButton.pressed.connect(_on_deploy_technician_pressed)
+	$Panel/MainButtonContainer/StartButton.pressed.connect(_on_start_operation_pressed)
+	$Panel/MainButtonContainer/SpawnSoldierButton.pressed.connect(_on_deploy_unit_pressed)
+	$Panel/MainButtonContainer/BuildTowerButton.pressed.connect(_on_construct_facility_pressed)
+	$Panel/MainButtonContainer/EliteSoldierButton.pressed.connect(_on_deploy_specialist_pressed)
+	$Panel/MainButtonContainer/CrystalMageButton.pressed.connect(_on_deploy_technician_pressed)
+	$Panel/MainButtonContainer/CollectorButton.pressed.connect(_on_spawn_collector_pressed)
 	
 	# Подключение технологических способностей
-	if has_node("AbilityPanel"):
-		if $AbilityPanel.has_node("FireballButton"):
-			$AbilityPanel/FireballButton.pressed.connect(_on_plasma_strike_pressed)
-		if $AbilityPanel.has_node("HealButton"):
-			$AbilityPanel/HealButton.pressed.connect(_on_repair_wave_pressed)
-		if $AbilityPanel.has_node("ShieldButton"):
-			$AbilityPanel/ShieldButton.pressed.connect(_on_energy_barrier_pressed)
-		if $AbilityPanel.has_node("LightningButton"):
-			$AbilityPanel/LightningButton.pressed.connect(_on_ion_storm_pressed)
+	if has_node("AbilityPanel/AbilityContainer"):
+		if $AbilityPanel/AbilityContainer.has_node("FireballButton"):
+			$AbilityPanel/AbilityContainer/FireballButton.pressed.connect(_on_plasma_strike_pressed)
+		if $AbilityPanel/AbilityContainer.has_node("HealButton"):
+			$AbilityPanel/AbilityContainer/HealButton.pressed.connect(_on_repair_wave_pressed)
+		if $AbilityPanel/AbilityContainer.has_node("ShieldButton"):
+			$AbilityPanel/AbilityContainer/ShieldButton.pressed.connect(_on_energy_barrier_pressed)
+		if $AbilityPanel/AbilityContainer.has_node("LightningButton"):
+			$AbilityPanel/AbilityContainer/LightningButton.pressed.connect(_on_ion_storm_pressed)
 	
 	# Подключение drag&drop для мобильного управления
-	$Panel/SpawnSoldierButton.gui_input.connect(_on_unit_button_input)
-	$Panel/BuildTowerButton.gui_input.connect(_on_structure_button_input)
+	$Panel/MainButtonContainer/SpawnSoldierButton.gui_input.connect(_on_unit_button_input)
+	$Panel/MainButtonContainer/BuildTowerButton.gui_input.connect(_on_structure_button_input)
 
 	if spawner_panel:
 		spawner_panel.spawner_drag_start.connect(_on_spawner_drag_start)
@@ -56,21 +58,22 @@ func _ready():
 
 func update_button_texts():
 	"""Обновляет текст кнопок под космический лор"""
-	$Panel/StartButton.text = "Начать Операцию"
-	$Panel/SpawnSoldierButton.text = "Развернуть Войска"
-	$Panel/BuildTowerButton.text = "Построить Модуль"
-	$Panel/EliteSoldierButton.text = "Элитный Отряд"
-	$Panel/CrystalMageButton.text = "Техно-Специалист"
+	$Panel/MainButtonContainer/StartButton.text = "Начать Операцию"
+	$Panel/MainButtonContainer/SpawnSoldierButton.text = "Развернуть Войска"
+	$Panel/MainButtonContainer/BuildTowerButton.text = "Построить Модуль"
+	$Panel/MainButtonContainer/EliteSoldierButton.text = "Элитный Отряд"
+	$Panel/MainButtonContainer/CrystalMageButton.text = "Техно-Специалист"
+	$Panel/MainButtonContainer/CollectorButton.text = "🏃 Коллектор"
 	
-	if has_node("AbilityPanel"):
-		if $AbilityPanel.has_node("FireballButton"):
-			$AbilityPanel/FireballButton.text = "Плазменный Удар"
-		if $AbilityPanel.has_node("HealButton"):
-			$AbilityPanel/HealButton.text = "Волна Ремонта"
-		if $AbilityPanel.has_node("ShieldButton"):
-			$AbilityPanel/ShieldButton.text = "Энерго-Барьер"
-		if $AbilityPanel.has_node("LightningButton"):
-			$AbilityPanel/LightningButton.text = "Ионная Буря"
+	if has_node("AbilityPanel/AbilityContainer"):
+		if $AbilityPanel/AbilityContainer.has_node("FireballButton"):
+			$AbilityPanel/AbilityContainer/FireballButton.text = "Плазменный Удар"
+		if $AbilityPanel/AbilityContainer.has_node("HealButton"):
+			$AbilityPanel/AbilityContainer/HealButton.text = "Волна Ремонта"
+		if $AbilityPanel/AbilityContainer.has_node("ShieldButton"):
+			$AbilityPanel/AbilityContainer/ShieldButton.text = "Энерго-Барьер"
+		if $AbilityPanel/AbilityContainer.has_node("LightningButton"):
+			$AbilityPanel/AbilityContainer/LightningButton.text = "Ионная Буря"
 
 func _on_start_operation_pressed():
 	print("🚀 Командир начинает операцию")
@@ -92,17 +95,21 @@ func _on_deploy_technician_pressed():
 	print("🔧 Развертывание техно-специалиста")
 	spawn_crystal_mage.emit()
 
+func _on_spawn_collector_pressed():
+	print("🟢 Спавн Collector (сборщик ресурсов)")
+	spawn_collector.emit()
+
 func _on_plasma_strike_pressed():
 	print("🔥 Плазменный удар по вражеским позициям")
 	use_ability.emit("fireball", Vector3(0, 0, 0))
 
 func _on_repair_wave_pressed():
 	print("💚 Волна ремонта восстанавливает союзников")
-	use_ability.emit("heal_wave", Vector3(0, 0, -10))
+	use_ability.emit("heal_wave", Vector3(0, 0, 10))
 
 func _on_energy_barrier_pressed():
 	print("🛡️ Энергетический барьер защищает войска")
-	use_ability.emit("shield_barrier", Vector3(0, 0, -10))
+	use_ability.emit("shield_barrier", Vector3(0, 0, 10))
 
 func _on_ion_storm_pressed():
 	print("⚡ Ионная буря поражает врагов")
@@ -110,18 +117,18 @@ func _on_ion_storm_pressed():
 
 func update_ability_buttons(energy: int, crystals: int):
 	"""Обновляет состояние кнопок технологий"""
-	if has_node("AbilityPanel"):
-		update_button_state("AbilityPanel/FireballButton", energy >= 40, crystals >= 15)
-		update_button_state("AbilityPanel/HealButton", energy >= 30, crystals >= 10)
-		update_button_state("AbilityPanel/ShieldButton", energy >= 50, crystals >= 20)
-		update_button_state("AbilityPanel/LightningButton", energy >= 60, crystals >= 25)
+	if has_node("AbilityPanel/AbilityContainer"):
+		update_button_state("AbilityPanel/AbilityContainer/FireballButton", energy >= 40, crystals >= 15)
+		update_button_state("AbilityPanel/AbilityContainer/HealButton", energy >= 30, crystals >= 10)
+		update_button_state("AbilityPanel/AbilityContainer/ShieldButton", energy >= 50, crystals >= 20)
+		update_button_state("AbilityPanel/AbilityContainer/LightningButton", energy >= 60, crystals >= 25)
 
 func update_unit_buttons(energy: int, crystals: int):
 	"""Обновляет состояние кнопок развертывания войск"""
-	update_button_state("Panel/SpawnSoldierButton", energy >= 20, true)
-	update_button_state("Panel/EliteSoldierButton", energy >= 30, crystals >= 10)
-	update_button_state("Panel/CrystalMageButton", energy >= 25, crystals >= 15)
-	update_button_state("Panel/BuildTowerButton", energy >= 60, true)
+	update_button_state("Panel/MainButtonContainer/SpawnSoldierButton", energy >= 20, true)
+	update_button_state("Panel/MainButtonContainer/EliteSoldierButton", energy >= 30, crystals >= 10)
+	update_button_state("Panel/MainButtonContainer/CrystalMageButton", energy >= 25, crystals >= 15)
+	update_button_state("Panel/MainButtonContainer/BuildTowerButton", energy >= 60, true)
 
 func update_button_state(button_path: String, has_energy: bool, has_crystals: bool):
 	"""Визуальное отображение доступности команд"""
@@ -193,5 +200,3 @@ func _on_spawner_drag_end(spawner_type, global_pos):
 	# Передача команды в центральную систему управления
 	if get_parent().has_method("on_spawner_drop"):
 		get_parent().on_spawner_drop(spawner_type, global_pos)
- 
- 

@@ -68,6 +68,7 @@ func _ready():
 		battle_ui.spawn_elite_soldier.connect(_on_spawn_elite_soldier)
 		battle_ui.spawn_crystal_mage.connect(_on_spawn_crystal_mage)
 		battle_ui.use_ability.connect(_on_use_ability)
+		battle_ui.spawn_collector.connect(_on_spawn_collector)
 		
 		# Подключение системы фракций
 		battle_ui.summon_commander.connect(_on_summon_hero)
@@ -109,40 +110,115 @@ func create_battlefield():
 	field.set_surface_override_material(0, field_mat)
 	add_child(field)
 
+	# Зона игрока (синяя, внизу карты)
+	var player_zone = MeshInstance3D.new()
+	var player_plane = PlaneMesh.new()
+	player_plane.size = Vector2(30, 20)
+	player_zone.mesh = player_plane
+	player_zone.position = Vector3(0, 0.01, 15)  # Смещение к игроку (внизу экрана)
+	var player_zone_mat = StandardMaterial3D.new()
+	player_zone_mat.albedo_color = Color(0.2, 0.6, 1.0, 0.3)  # Синяя зона игрока
+	player_zone_mat.flags_transparent = true
+	player_zone.set_surface_override_material(0, player_zone_mat)
+	add_child(player_zone)
+
+	# Зона врага (красная, вверху карты)
+	var enemy_zone = MeshInstance3D.new()
+	var enemy_plane = PlaneMesh.new()
+	enemy_plane.size = Vector2(30, 20)
+	enemy_zone.mesh = enemy_plane
+	enemy_zone.position = Vector3(0, 0.01, -15)  # Смещение к врагу (вверху экрана)
+	var enemy_zone_mat = StandardMaterial3D.new()
+	enemy_zone_mat.albedo_color = Color(1.0, 0.2, 0.2, 0.3)  # Красная зона врага
+	enemy_zone_mat.flags_transparent = true
+	enemy_zone.set_surface_override_material(0, enemy_zone_mat)
+	add_child(enemy_zone)
+
 	# Демаркационная линия (граница территорий)
 	var line = MeshInstance3D.new()
 	var box = BoxMesh.new()
-	box.size = Vector3(30, 0.1, 0.2)
+	box.size = Vector3(30, 0.2, 0.5)  # Увеличиваем для лучшей видимости
 	line.mesh = box
-	line.position = Vector3(0, 0.05, 0)
+	line.position = Vector3(0, 0.1, 0)
 	var line_mat = StandardMaterial3D.new()
 	line_mat.albedo_color = Color(1, 1, 1, 1)  # Нейтральная зона
+	line_mat.emission_enabled = true
+	line_mat.emission = Color(0.3, 0.3, 0.3)  # Слабое свечение
 	line.set_surface_override_material(0, line_mat)
 	add_child(line)
 
+	# Подписи зон
+	var player_zone_label = Label3D.new()
+	player_zone_label.text = "ЗОНА ИГРОКА (СИНЯЯ)\nЮниты атакуют ВВЕРХ ↑"
+	player_zone_label.position = Vector3(0, 1.0, 22)  # Внизу экрана
+	player_zone_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	player_zone_label.font_size = 16
+	player_zone_label.modulate = Color(0.2, 0.6, 1, 1)
+	player_zone_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	add_child(player_zone_label)
+
+	var enemy_zone_label = Label3D.new()
+	enemy_zone_label.text = "ЗОНА ВРАГА (КРАСНАЯ)\nЮниты атакуют ВНИЗ ↓"
+	enemy_zone_label.position = Vector3(0, 1.0, -22)  # Вверху экрана
+	enemy_zone_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	enemy_zone_label.font_size = 16
+	enemy_zone_label.modulate = Color(1, 0.2, 0.2, 1)
+	enemy_zone_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	add_child(enemy_zone_label)
+
 func create_command_centers():
 	"""Создает командные центры фракций"""
-	# Командный центр игрока (синяя фракция)
+	# Командный центр игрока (синяя фракция) - ВНИЗУ карты
 	var player_core = MeshInstance3D.new()
-	player_core.mesh = SphereMesh.new()
-	player_core.position = Vector3(0, 0.5, -20)
+	var player_sphere = SphereMesh.new()
+	player_sphere.radius = 1.5  # Увеличиваем размер для лучшей видимости
+	player_sphere.height = 3.0
+	player_core.mesh = player_sphere
+	player_core.position = Vector3(0, 1.5, 20)  # Z = 20 означает НИЗ карты (ближе к камере = внизу экрана)
+	player_core.name = "PlayerCoreVisual"
 	var player_mat = StandardMaterial3D.new()
-	player_mat.albedo_color = Color(0.2, 0.6, 1, 1)  # Цвет фракции игрока
+	player_mat.albedo_color = Color(0.2, 0.6, 1, 1)  # СИНИЙ = ИГРОК
+	player_mat.emission_enabled = true
+	player_mat.emission = Color(0.1, 0.3, 0.5)  # Синее свечение
 	player_core.set_surface_override_material(0, player_mat)
 	add_child(player_core)
 
-	# Командный центр противника (красная фракция)
+	# Подпись для ядра игрока
+	var player_label = Label3D.new()
+	player_label.text = "ИГРОК (СИНИЙ)"
+	player_label.position = Vector3(0, 3.5, 20)
+	player_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	player_label.font_size = 20
+	player_label.modulate = Color(0.2, 0.6, 1, 1)
+	add_child(player_label)
+
+	# Командный центр противника (красная фракция) - ВВЕРХУ карты
 	var enemy_core = MeshInstance3D.new()
-	enemy_core.mesh = SphereMesh.new()
-	enemy_core.position = Vector3(0, 0.5, 20)
+	var enemy_sphere = SphereMesh.new()
+	enemy_sphere.radius = 1.5
+	enemy_sphere.height = 3.0
+	enemy_core.mesh = enemy_sphere
+	enemy_core.position = Vector3(0, 1.5, -20)  # Z = -20 означает ВЕРХ карты (дальше от камеры = вверху экрана)
+	enemy_core.name = "EnemyCoreVisual"
 	var enemy_mat = StandardMaterial3D.new()
-	enemy_mat.albedo_color = Color(1, 0.2, 0.2, 1)  # Цвет вражеской фракции
+	enemy_mat.albedo_color = Color(1, 0.2, 0.2, 1)  # КРАСНЫЙ = ВРАГ
+	enemy_mat.emission_enabled = true
+	enemy_mat.emission = Color(0.5, 0.1, 0.1)  # Красное свечение
 	enemy_core.set_surface_override_material(0, enemy_mat)
 	add_child(enemy_core)
 
+	# Подпись для ядра врага
+	var enemy_label = Label3D.new()
+	enemy_label.text = "ВРАГ (КРАСНЫЙ)"
+	enemy_label.position = Vector3(0, 3.5, -20)
+	enemy_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	enemy_label.font_size = 20
+	enemy_label.modulate = Color(1, 0.2, 0.2, 1)
+	add_child(enemy_label)
+
 	# Создание стартовых производственных модулей
-	create_start_spawner("player", Vector3(-4, 0, -15))
-	create_start_spawner("enemy", Vector3(4, 0, 15))
+	create_start_spawner("player", Vector3(-4, 0, 15))   # Игрок внизу экрана
+	create_start_spawner("enemy", Vector3(4, 0, -15))    # Враг вверху экрана
 
 func init_energy_timer():
 	# Таймер для автоматического пополнения энергии
@@ -184,11 +260,11 @@ func create_cores_and_spawners():
 		if node.name == "PlayerCore" or node.name == "EnemyCore":
 			node.queue_free()
 
-	# Создаём ядро игрока (синее)
+	# Создаём ядро игрока (синее) - внизу экрана
 	var player_core_scene = preload("res://scenes/Core.tscn")
 	var player_core = player_core_scene.instantiate()
 	player_core.name = "PlayerCore"
-	player_core.position = Vector3(0, 0.5, -20)
+	player_core.position = Vector3(0, 0.5, 20)  # Игрок внизу экрана
 	# Проверяем, что есть MeshInstance3D
 	if not player_core.has_node("MeshInstance3D"):
 		var mesh = MeshInstance3D.new()
@@ -199,11 +275,11 @@ func create_cores_and_spawners():
 		player_core.add_child(mesh)
 	add_child(player_core)
 
-	# Создаём ядро врага (красное)
+	# Создаём ядро врага (красное) - вверху экрана
 	var enemy_core_scene = preload("res://scenes/Core.tscn")
 	var enemy_core = enemy_core_scene.instantiate()
 	enemy_core.name = "EnemyCore"
-	enemy_core.position = Vector3(0, 0.5, 20)
+	enemy_core.position = Vector3(0, 0.5, -20)  # Враг вверху экрана
 	if not enemy_core.has_node("MeshInstance3D"):
 		var mesh = MeshInstance3D.new()
 		mesh.mesh = SphereMesh.new()
@@ -214,8 +290,8 @@ func create_cores_and_spawners():
 	add_child(enemy_core)
 
 	# Создаём стартовые спавнеры игрока и врага
-	create_start_spawner("player", Vector3(-4, 0, -15))
-	create_start_spawner("enemy", Vector3(4, 0, 15))
+	create_start_spawner("player", Vector3(-4, 0, 15))   # Игрок внизу экрана
+	create_start_spawner("enemy", Vector3(4, 0, -15))    # Враг вверху экрана
 
 func create_start_spawner(team: String, position: Vector3):
 	var spawner = spawner_scene.instantiate()
@@ -230,8 +306,8 @@ func _on_start_battle():
 	battle_started = true
 	
 	# Скрываем кнопку старта
-	if battle_ui and battle_ui.has_node("Panel/StartButton"):
-		battle_ui.get_node("Panel/StartButton").hide()
+	if battle_ui and battle_ui.has_node("Panel/MainButtonContainer/StartButton"):
+		battle_ui.get_node("Panel/MainButtonContainer/StartButton").hide()
 		print("✅ Кнопка Start скрыта")
 	else:
 		print("⚠️ Кнопка Start не найдена")
@@ -257,8 +333,8 @@ func _on_start_battle():
 	
 	# Создаем тестовых юнитов для проверки
 	print("🧪 Создаем тестовых юнитов...")
-	spawn_unit_at_pos("player", Vector3(-2, 0, -12), "soldier")
-	spawn_unit_at_pos("enemy", Vector3(2, 0, 12), "soldier")
+	spawn_unit_at_pos("player", Vector3(-2, 0, 12), "soldier")  # Игрок внизу экрана
+	spawn_unit_at_pos("enemy", Vector3(2, 0, -12), "soldier")   # Враг вверху экрана
 
 func _on_energy_timer():
 	if not battle_started:
@@ -408,11 +484,11 @@ func get_mouse_world_position() -> Vector3:
 func is_valid_build_position(pos: Vector3) -> bool:
 	var map_width = 30.0
 	var map_height = 50.0
-	if pos.z > 0:
+	if pos.z < 0:  # Игрок строит только на нижней половине (положительные Z)
 		return false
 	if pos.x < -map_width/2 or pos.x > map_width/2:
 		return false
-	if pos.z < -map_height/2 or pos.z > 0:
+	if pos.z > map_height/2 or pos.z < 0:
 		return false
 	var spawners = get_tree().get_nodes_in_group("spawners")
 	for s in spawners:
@@ -423,11 +499,11 @@ func is_valid_build_position(pos: Vector3) -> bool:
 func is_valid_enemy_build_position(pos: Vector3) -> bool:
 	var map_width = 30.0
 	var map_height = 50.0
-	if pos.z < 0:
+	if pos.z > 0:  # Враг строит только на верхней половине (отрицательные Z)
 		return false
 	if pos.x < -map_width/2 or pos.x > map_width/2:
 		return false
-	if pos.z < 0 or pos.z > map_height/2:
+	if pos.z > 0 or pos.z < -map_height/2:
 		return false
 	var spawners = get_tree().get_nodes_in_group("spawners")
 	for s in spawners:
@@ -458,11 +534,11 @@ func _on_build_structure_drag(screen_pos):
 func is_valid_unit_position(pos: Vector3) -> bool:
 	var map_width = 30.0
 	var map_height = 50.0
-	if pos.z > 0:
+	if pos.z < 0:  # Игрок размещает юнитов только на нижней половине (положительные Z)
 		return false
 	if pos.x < -map_width/2 or pos.x > map_width/2:
 		return false
-	if pos.z < -map_height/2 or pos.z > 0:
+	if pos.z > map_height/2 or pos.z < 0:
 		return false
 	var spawners = get_tree().get_nodes_in_group("spawners")
 	for s in spawners:
@@ -485,11 +561,11 @@ func spawn_unit_at_pos(team, pos, unit_type="soldier"):
 	unit.unit_type = unit_type
 	unit.global_position = pos
 	if team == "player":
-		unit.target_pos = Vector3(0, 0, 20)
+		unit.target_pos = Vector3(0, 0, -20)  # Игрок атакует вверх (к врагу)
 		player_energy -= energy_cost
 		player_crystals -= crystal_cost
 	else:
-		unit.target_pos = Vector3(0, 0, -20)
+		unit.target_pos = Vector3(0, 0, 20)   # Враг атакует вниз (к игроку)
 		enemy_energy -= energy_cost
 		enemy_crystals -= crystal_cost
 	unit.battle_manager = self
@@ -516,6 +592,11 @@ func place_spawner(team: String, spawner_type: String, position: Vector3):
 	spawner.global_position = position
 	spawner.name = team.capitalize() + spawner_type.capitalize() + str(randi())
 	spawner.add_to_group("spawners")
+	
+	# Специальная настройка для collector_facility
+	if spawner_type == "collector_facility":
+		spawner.unit_type = "collector"
+	
 	print("Построен спавнер: ", team, " ", spawner_type, " в позиции ", position)
 
 func init_enemy_ai():
@@ -582,31 +663,31 @@ func make_enemy_decision() -> Dictionary:
 	var enemy_spawners_count = get_enemy_spawner_count()
 	
 	# Если мало солдат - создаем солдат
-	if enemy_current_soldiers < enemy_max_soldiers and enemy_energy >= 20:
+	if enemy_current_soldiers < enemy_max_soldiers and enemy_energy >= get_unit_cost("soldier"):
 		decision.action = "spawn"
 		decision.unit_type = "soldier"
 		return decision
 	
 	# Если есть солдаты, но мало танков - создаем танк
-	if enemy_current_soldiers > 0 and enemy_current_tanks < enemy_max_tanks and enemy_energy >= 50:
+	if enemy_current_soldiers > 0 and enemy_current_tanks < enemy_max_tanks and enemy_energy >= get_unit_cost("tank"):
 		decision.action = "spawn"
 		decision.unit_type = "tank"
 		return decision
 	
 	# Если есть танки, но мало дронов - создаем дрон
-	if enemy_current_tanks > 0 and enemy_current_drones < enemy_max_drones and enemy_energy >= 35:
+	if enemy_current_tanks > 0 and enemy_current_drones < enemy_max_drones and enemy_energy >= get_unit_cost("drone"):
 		decision.action = "spawn"
 		decision.unit_type = "drone"
 		return decision
 	
 	# Если много ресурсов и мало спавнеров - строим спавнер
-	if enemy_energy >= 60 and enemy_spawners_count < 3:
+	if enemy_energy >= get_structure_cost("spawner") and enemy_spawners_count < 3:
 		decision.action = "build"
 		decision.unit_type = "spawner"
 		return decision
 	
 	# Если очень много ресурсов - строим башню
-	if enemy_energy >= 80:
+	if enemy_energy >= get_structure_cost("tower"):
 		decision.action = "build"
 		decision.unit_type = "tower"
 		return decision
@@ -651,6 +732,9 @@ func execute_advanced_ai_decision(decision: Dictionary):
 				print("🤖 AI использует способность: ", decision.ability_type)
 		"none":
 			print("AI врага: нет стратегических действий (приоритет: ", decision.priority, ")")
+	
+	# Дополнительная логика AI для коллекторов
+	ai_consider_collector_strategy()
 
 func spawn_enemy_unit(unit_type: String):
 	var cost = get_unit_cost(unit_type)
@@ -727,28 +811,32 @@ func build_enemy_structure_at_position(structure_type: String, position: Vector3
 func get_unit_cost(unit_type: String) -> int:
 	match unit_type:
 		"soldier":
-			return 20
+			return 25        # Базовый юнит - доступная цена
 		"tank":
-			return 50
+			return 60        # Танки дороже из-за высокого HP
 		"drone":
-			return 35
+			return 30        # Снижена цена для баланса
 		"elite_soldier":
-			return 30  # Требует энергию
+			return 35        # Премиум юнит
 		"crystal_mage":
-			return 25  # Требует кристаллы
+			return 30        # Снижена энергия, но нужны кристаллы
 		"heavy_tank":
-			return 80  # Требует много энергии
+			return 100       # Супертанк - очень дорого
+		"collector":
+			return 40        # Специализированный юнит
 		_:
-			return 20
+			return 25
 
 func get_unit_crystal_cost(unit_type: String) -> int:
 	match unit_type:
 		"crystal_mage":
-			return 15  # Требует кристаллы
+			return 12        # Снижено для баланса
 		"elite_soldier":
-			return 10  # Требует кристаллы
+			return 8         # Снижено для доступности
 		"heavy_tank":
-			return 20  # Требует кристаллы
+			return 15        # Снижено, но все еще дорого
+		"collector":
+			return 5         # Небольшая стоимость кристаллов
 		_:
 			return 0
 
@@ -760,23 +848,33 @@ func get_structure_cost(structure_type: String) -> int:
 			return 30
 		"barracks":
 			return 80
+		"collector_facility":
+			return 50  # Средняя стоимость для комплекса коллекторов
+		"orbital_drop":
+			return 100
+		"energy_generator":
+			return 70
+		"shield_generator":
+			return 90
+		"tech_lab":
+			return 120
 		_:
 			return 60
 
 func get_random_enemy_spawn_position() -> Vector3:
-	# Случайная позиция на вражеской стороне (z > 0)
+	# Случайная позиция на вражеской стороне (z < 0, вверху экрана)
 	var x = randf_range(-8.0, 8.0)
-	var z = randf_range(8.0, 18.0)
+	var z = randf_range(-18.0, -8.0)
 	return Vector3(x, 0, z)
 
 func get_random_enemy_build_position() -> Vector3:
-	# Позиция для постройки на вражеской стороне
+	# Позиция для постройки на вражеской стороне (вверху экрана)
 	var attempts = 0
 	var max_attempts = 10
 	
 	while attempts < max_attempts:
 		var x = randf_range(-6.0, 6.0)
-		var z = randf_range(5.0, 18.0)
+		var z = randf_range(-18.0, -5.0)
 		var pos = Vector3(x, 0, z)
 		
 		if is_valid_enemy_build_position(pos):
@@ -785,7 +883,7 @@ func get_random_enemy_build_position() -> Vector3:
 		attempts += 1
 	
 	# Если не нашли подходящую позицию, возвращаем базовую
-	return Vector3(randf_range(-4.0, 4.0), 0, 12.0)
+	return Vector3(randf_range(-4.0, 4.0), 0, -12.0)
 
 func _on_enemy_ai_spawn():
 	if not battle_started:
@@ -797,34 +895,33 @@ func _on_enemy_ai_spawn():
 
 func _on_spawn_soldier():
 	print("Кнопка спавна солдата нажата!")
-	if battle_started and player_energy >= 20:
-		# Спавн юнита-солдата рядом с игроком (снизу)
-		var spawn_pos = Vector3(randf_range(-4.0, 4.0), 0, -12.0)
+	if battle_started and can_spawn_unit("player", "soldier"):
+		# Спавн юнита-солдата рядом с игроком (внизу экрана)
+		var spawn_pos = Vector3(randf_range(-4.0, 4.0), 0, 12.0)
 		spawn_unit_at_pos("player", spawn_pos, "soldier")
-		player_energy -= 20
 		update_ui()
 
 func _on_build_tower():
 	print("Кнопка постройки башни нажата!")
-	if battle_started and player_energy >= 60:
-		# Строим башню рядом с базой игрока
-		var build_pos = Vector3(randf_range(-6.0, 6.0), 0, -15.0)
+	if battle_started and can_build_structure("player", "tower"):
+		# Строим башню рядом с базой игрока (внизу экрана)
+		var build_pos = Vector3(randf_range(-6.0, 6.0), 0, 15.0)
 		if is_valid_build_position(build_pos):
 			place_spawner("player", "tower", build_pos)
-			player_energy -= 60
+			player_energy -= get_structure_cost("tower")
 			update_ui()
 
 func _on_spawn_elite_soldier():
 	print("Кнопка спавна элитного солдата нажата!")
 	if battle_started and can_spawn_unit("player", "elite_soldier"):
-		var spawn_pos = Vector3(randf_range(-4.0, 4.0), 0, -12.0)
+		var spawn_pos = Vector3(randf_range(-4.0, 4.0), 0, 12.0)
 		spawn_unit_at_pos("player", spawn_pos, "elite_soldier")
 		update_ui()
 
 func _on_spawn_crystal_mage():
 	print("Кнопка спавна кристального мага нажата!")
 	if battle_started and can_spawn_unit("player", "crystal_mage"):
-		var spawn_pos = Vector3(randf_range(-4.0, 4.0), 0, -12.0)
+		var spawn_pos = Vector3(randf_range(-4.0, 4.0), 0, 12.0)
 		spawn_unit_at_pos("player", spawn_pos, "crystal_mage")
 		update_ui()
 
@@ -859,7 +956,7 @@ func on_spawner_drop(spawner_type, global_pos):
 	
 	var cost = get_structure_cost(spawner_type)
 	if player_energy < cost:
-		print("[DragDrop] Недостаточно энергии для постройки ", spawner_type)
+		print("[DragDrop] Недостаточно энергии для постройки ", spawner_type, " (нужно: ", cost, ", есть: ", player_energy, ")")
 		return
 	
 	# Преобразуем экранные координаты в 3D-позицию на поле
@@ -869,7 +966,7 @@ func on_spawner_drop(spawner_type, global_pos):
 		place_spawner("player", spawner_type, pos)
 		player_energy -= cost
 		update_ui()
-		print("[DragDrop] Спавнер '", spawner_type, "' успешно построен!")
+		print("[DragDrop] Спавнер '", spawner_type, "' успешно построен за ", cost, " энергии!")
 	else:
 		print("[DragDrop] Нельзя построить спавнер в этой позиции!")
 
@@ -898,5 +995,54 @@ func _on_use_race_ability(ability_name: String, position: Vector3):
 		print("✅ Расовая способность использована!")
 	else:
 		print("❌ Нельзя использовать расовую способность")
- 
- 
+
+func _on_spawn_collector():
+	print("🏃 Кнопка спавна коллектора нажата!")
+	if battle_started and can_spawn_unit("player", "collector"):
+		var spawn_pos = Vector3(randf_range(-4.0, 4.0), 0, 13.0)
+		spawn_unit_at_pos("player", spawn_pos, "collector")
+		update_ui()
+		print("✅ Коллектор отправлен для захвата территорий!")
+
+func ai_consider_collector_strategy():
+	"""AI проверяет стратегию захвата территорий"""
+	if not territory_system or enemy_energy < 50:
+		return
+	
+	# Проверяем, сколько территорий контролирует игрок
+	var player_territories = territory_system.get_controlled_territories("player")
+	var enemy_territories = territory_system.get_controlled_territories("enemy")
+	var available_territories = territory_system.get_available_territories_for_team("enemy")
+	
+	# Если игрок контролирует больше территорий или есть свободные - строим коллекторы
+	if (player_territories > enemy_territories or available_territories.size() > 0) and enemy_energy >= 50:
+		var collector_facilities = 0
+		var spawners = get_tree().get_nodes_in_group("spawners")
+		for spawner in spawners:
+			if spawner.team == "enemy" and spawner.spawner_type == "collector_facility":
+				collector_facilities += 1
+		
+		# Строим максимум 2 комплекса коллекторов
+		if collector_facilities < 2:
+			var build_pos = get_random_enemy_build_position()
+			if is_valid_enemy_build_position(build_pos):
+				place_spawner("enemy", "collector_facility", build_pos)
+				enemy_energy -= 50
+				update_ui()
+				print("🤖 AI построил комплекс коллекторов для захвата территорий")
+				return
+	
+	# Если у нас мало коллекторов на поле - спавним еще
+	var enemy_collectors = 0
+	var units = get_tree().get_nodes_in_group("units")
+	for unit in units:
+		if unit.team == "enemy" and unit.unit_type == "collector":
+			enemy_collectors += 1
+	
+	# Спавним коллекторов если их мало и есть доступные территории
+	if enemy_collectors < available_territories.size() and enemy_collectors < 3 and enemy_energy >= 40:
+		var spawn_pos = get_random_enemy_spawn_position()
+		spawn_unit_at_pos("enemy", spawn_pos, "collector")
+		enemy_energy -= 40
+		update_ui()
+		print("🤖 AI отправил коллектора на захват территории")
