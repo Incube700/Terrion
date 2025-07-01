@@ -70,8 +70,8 @@ func _ready():
 		battle_ui.use_ability.connect(_on_use_ability)
 		
 		# Подключение системы фракций
-		battle_ui.summon_hero.connect(_on_summon_hero)
-		battle_ui.use_race_ability.connect(_on_use_race_ability)
+		battle_ui.summon_commander.connect(_on_summon_hero)
+		battle_ui.use_faction_ability.connect(_on_use_race_ability)
 		
 		print("🔗 Системы управления подключены")
 	else:
@@ -798,7 +798,7 @@ func _on_enemy_ai_spawn():
 func _on_spawn_soldier():
 	print("Кнопка спавна солдата нажата!")
 	if battle_started and player_energy >= 20:
-		# Спавн юнита-солдата рядом с игроком
+		# Спавн юнита-солдата рядом с игроком (снизу)
 		var spawn_pos = Vector3(randf_range(-4.0, 4.0), 0, -12.0)
 		spawn_unit_at_pos("player", spawn_pos, "soldier")
 		player_energy -= 20
