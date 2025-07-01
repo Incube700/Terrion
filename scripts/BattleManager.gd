@@ -1,20 +1,21 @@
 extends Node
 
-# BattleManager — управляет логикой боя, ресурсами, победой/поражением
+# BattleManager — управляет логикой космических сражений между расами
+# В мире TERRION командиры фракций сражаются за контроль над территориями
 
-var player_energy = 100  # Начальная энергия игрока
-var enemy_energy = 100   # Начальная энергия врага
-var player_crystals = 0  # Новый ресурс - кристаллы
+var player_energy = 100  # Энергетические ресурсы командира
+var enemy_energy = 100   # Энергетические ресурсы противника
+var player_crystals = 0  # Квантовые кристаллы для продвинутых технологий
 var enemy_crystals = 0   # Кристаллы врага
-var energy_gain_per_tick = 10  # Прирост энергии за тик
-var energy_tick_time = 1.0     # Время между тиками энергии
+var energy_gain_per_tick = 10  # Автоматическая генерация энергии
+var energy_tick_time = 1.0     # Интервал пополнения ресурсов
 
-var player_base_hp = 100
-var enemy_base_hp = 100
+var player_base_hp = 100  # Прочность командного центра игрока
+var enemy_base_hp = 100   # Прочность командного центра врага
 
 var lanes = []
-var player_spawners = []
-var enemy_spawners = []
+var player_spawners = []  # Производственные модули игрока
+var enemy_spawners = []   # Производственные модули врага
 
 signal battle_finished(winner)
 
@@ -26,13 +27,13 @@ var battle_started = false
 var is_building_mode = false
 var building_preview = null
 var can_build_here = false
-var building_cost = 30
+var building_cost = 30  # Стоимость постройки модуля
 
-# AI система для врага
+# Система ИИ для вражеской фракции
 var enemy_ai_timer: Timer
 var enemy_decision_timer: Timer
 var energy_timer: Timer
-var enemy_max_soldiers = 3
+var enemy_max_soldiers = 3  # Лимиты юнитов для ИИ
 var enemy_max_tanks = 2
 var enemy_max_drones = 2
 var enemy_current_soldiers = 0
@@ -42,19 +43,22 @@ var enemy_current_drones = 0
 var enemy_ai: EnemyAI = null
 var ai_difficulty: String = "normal"
 
-# Система территорий
+# Система территориального контроля
 var territory_system: TerritorySystem = null
 
-# Система способностей
+# Система технологий и способностей
 var ability_system: AbilitySystem = null
 
+# Система рас и фракций
+var race_system: RaceSystem = null
+
 func _ready():
-	print("🎮 BattleManager инициализация...")
+	print("🚀 Командный центр TERRION инициализация...")
 	
-	# Получаем UI
+	# Подключение к интерфейсу командира
 	battle_ui = get_node_or_null("BattleUI")
 	if battle_ui:
-		print("✅ BattleUI найден")
+		print("✅ Интерфейс командира активен")
 		battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy)
 		battle_ui.start_battle.connect(_on_start_battle)
 		battle_ui.spawn_unit_drag.connect(_on_spawn_unit_drag)
@@ -64,69 +68,81 @@ func _ready():
 		battle_ui.spawn_elite_soldier.connect(_on_spawn_elite_soldier)
 		battle_ui.spawn_crystal_mage.connect(_on_spawn_crystal_mage)
 		battle_ui.use_ability.connect(_on_use_ability)
-		print("🔗 UI сигналы подключены")
+		
+		# Подключение системы фракций
+		battle_ui.summon_hero.connect(_on_summon_hero)
+		battle_ui.use_race_ability.connect(_on_use_race_ability)
+		
+		print("🔗 Системы управления подключены")
 	else:
-		print("❌ BattleUI не найден!")
+		print("❌ Интерфейс командира недоступен!")
 
-	# Визуальное поле (трава)
+	# Создание поля боя (территория конфликта)
+	create_battlefield()
+
+	# Создание командных центров фракций
+	create_command_centers()
+
+	# Инициализация систем
+	init_enemy_ai()
+	init_energy_timer()
+	init_territory_system()
+	init_ability_system()
+	init_race_system()
+
+	# Ожидание начала операции
+	battle_started = false
+	update_ui()
+	
+	print("⚡ Командный центр готов! Начните операцию для развертывания войск.")
+
+func create_battlefield():
+	"""Создает поле боя - территорию конфликта между фракциями"""
+	# Поверхность планеты (зеленая зона)
 	var field = MeshInstance3D.new()
 	var plane = PlaneMesh.new()
 	plane.size = Vector2(30, 50)
 	field.mesh = plane
 	field.position = Vector3(0, 0, 0)
 	var field_mat = StandardMaterial3D.new()
-	field_mat.albedo_color = Color(0.2, 0.7, 0.2, 1.0)
+	field_mat.albedo_color = Color(0.2, 0.7, 0.2, 1.0)  # Поверхность планеты
 	field.set_surface_override_material(0, field_mat)
 	add_child(field)
 
-	# Белая линия (разделитель)
+	# Демаркационная линия (граница территорий)
 	var line = MeshInstance3D.new()
 	var box = BoxMesh.new()
 	box.size = Vector3(30, 0.1, 0.2)
 	line.mesh = box
 	line.position = Vector3(0, 0.05, 0)
 	var line_mat = StandardMaterial3D.new()
-	line_mat.albedo_color = Color(1, 1, 1, 1)
+	line_mat.albedo_color = Color(1, 1, 1, 1)  # Нейтральная зона
 	line.set_surface_override_material(0, line_mat)
 	add_child(line)
 
-	# Ядро игрока (синее)
+func create_command_centers():
+	"""Создает командные центры фракций"""
+	# Командный центр игрока (синяя фракция)
 	var player_core = MeshInstance3D.new()
 	player_core.mesh = SphereMesh.new()
 	player_core.position = Vector3(0, 0.5, -20)
 	var player_mat = StandardMaterial3D.new()
-	player_mat.albedo_color = Color(0.2, 0.6, 1, 1)
+	player_mat.albedo_color = Color(0.2, 0.6, 1, 1)  # Цвет фракции игрока
 	player_core.set_surface_override_material(0, player_mat)
 	add_child(player_core)
 
-	# Ядро врага (красное)
+	# Командный центр противника (красная фракция)
 	var enemy_core = MeshInstance3D.new()
 	enemy_core.mesh = SphereMesh.new()
 	enemy_core.position = Vector3(0, 0.5, 20)
 	var enemy_mat = StandardMaterial3D.new()
-	enemy_mat.albedo_color = Color(1, 0.2, 0.2, 1)
+	enemy_mat.albedo_color = Color(1, 0.2, 0.2, 1)  # Цвет вражеской фракции
 	enemy_core.set_surface_override_material(0, enemy_mat)
 	add_child(enemy_core)
 
-	# Создаём стартовые спавнеры игрока и врага
+	# Создание стартовых производственных модулей
 	create_start_spawner("player", Vector3(-4, 0, -15))
 	create_start_spawner("enemy", Vector3(4, 0, 15))
-
-	# Инициализация AI врага и энергетического таймера
-	init_enemy_ai()
-	init_energy_timer()
-	
-	# Инициализация системы территорий
-	init_territory_system()
-	
-	# Инициализация системы способностей
-	init_ability_system()
-
-	# Не запускаем бой сразу — ждём нажатия Start Battle
-	battle_started = false
-	update_ui()
-	
-	print("🏁 BattleManager готов! Нажмите Start Battle для начала игры.")
 
 func init_energy_timer():
 	# Таймер для автоматического пополнения энергии
@@ -149,6 +165,18 @@ func init_ability_system():
 	ability_system.battle_manager = self
 	add_child(ability_system)
 	print("✨ Система способностей инициализирована")
+
+func init_race_system():
+	# Создаем систему рас
+	race_system = RaceSystem.new()
+	race_system.battle_manager = self
+	add_child(race_system)
+	
+	# Устанавливаем расы по умолчанию
+	race_system.set_player_race(RaceSystem.Race.HUMANS)
+	race_system.set_enemy_race(RaceSystem.Race.UNDEAD)  # Теперь против техно-зануд Некрополя
+	
+	print("🏛️ Система рас инициализирована")
 
 func create_cores_and_spawners():
 	# Удаляем старые ядра, если есть
@@ -808,8 +836,6 @@ func _on_use_ability(ability_name: String, position: Vector3):
 	else:
 		print("❌ Нельзя использовать ", ability_name)
 
-
-
 func can_spawn_unit(team, unit_type):
 	var energy_cost = get_unit_cost(unit_type)
 	var crystal_cost = get_unit_crystal_cost(unit_type)
@@ -846,5 +872,31 @@ func on_spawner_drop(spawner_type, global_pos):
 		print("[DragDrop] Спавнер '", spawner_type, "' успешно построен!")
 	else:
 		print("[DragDrop] Нельзя построить спавнер в этой позиции!")
+
+# Обработчики системы рас
+func _on_summon_hero(position: Vector3):
+	print("🦸 Кнопка призыва героя нажата!")
+	if not race_system or not battle_started:
+		return
+		
+	var player_race_value = race_system.player_race
+	if race_system.can_summon_hero(player_race_value, player_energy, player_crystals):
+		if race_system.summon_hero(player_race_value, position, "player"):
+			update_ui()
+			print("✅ Герой успешно призван!")
+	else:
+		print("❌ Недостаточно ресурсов для призыва героя")
+
+func _on_use_race_ability(ability_name: String, position: Vector3):
+	print("🎭 Расовая способность ", ability_name, " использована!")
+	if not race_system or not battle_started:
+		return
+		
+	var player_race_value = race_system.player_race
+	if race_system.use_race_ability(player_race_value, ability_name, position, "player"):
+		update_ui()
+		print("✅ Расовая способность использована!")
+	else:
+		print("❌ Нельзя использовать расовую способность")
  
  

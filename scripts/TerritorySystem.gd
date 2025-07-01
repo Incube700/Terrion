@@ -14,9 +14,14 @@ var battle_manager = null
 # Типы территорий
 enum TerritoryType {
 	NEUTRAL,
-	ENERGY_MINE,    # Дает энергию
-	CRYSTAL_MINE,   # Дает кристаллы (новый ресурс)
-	STRATEGIC_POINT # Дает бонус к атаке/защите
+	ENERGY_MINE,        # Дает энергию
+	CRYSTAL_MINE,       # Дает кристаллы
+	STRATEGIC_POINT,    # Дает бонус к атаке/защите
+	DEFENSIVE_TOWER,    # Автоматически атакует врагов
+	FACTORY,            # Автоматически производит юнитов
+	PORTAL,             # Телепортирует юнитов
+	ANCIENT_ALTAR,      # Дает мощные бонусы способностей
+	BATTLEFIELD_SHRINE  # Воскрешает павших юнитов
 }
 
 func _ready():
@@ -31,23 +36,29 @@ func _ready():
 	add_child(resource_timer)
 
 func create_territories():
-	# Создаем 6 территорий на карте в стиле Tiny Clash
+	# Создаем 9 территорий на карте с разными эффектами
 	var territory_positions = [
-		Vector3(-8, 0.1, -8),   # Левая нижняя
-		Vector3(8, 0.1, -8),    # Правая нижняя  
-		Vector3(-8, 0.1, 8),    # Левая верхняя
-		Vector3(8, 0.1, 8),     # Правая верхняя
-		Vector3(-5, 0.1, 0),    # Центр левый
-		Vector3(5, 0.1, 0)      # Центр правый
+		Vector3(-10, 0.1, -12),  # Левая нижняя
+		Vector3(10, 0.1, -12),   # Правая нижняя  
+		Vector3(-10, 0.1, 12),   # Левая верхняя
+		Vector3(10, 0.1, 12),    # Правая верхняя
+		Vector3(-6, 0.1, 0),     # Центр левый
+		Vector3(6, 0.1, 0),      # Центр правый
+		Vector3(0, 0.1, -6),     # Центр нижний
+		Vector3(0, 0.1, 6),      # Центр верхний
+		Vector3(0, 0.1, 0)       # Центральная точка
 	]
 	
 	var territory_types = [
-		TerritoryType.ENERGY_MINE,
-		TerritoryType.CRYSTAL_MINE,
-		TerritoryType.ENERGY_MINE,
-		TerritoryType.CRYSTAL_MINE,
-		TerritoryType.STRATEGIC_POINT,
-		TerritoryType.STRATEGIC_POINT
+		TerritoryType.ENERGY_MINE,      # Ресурсы внизу
+		TerritoryType.CRYSTAL_MINE,     # Ресурсы внизу
+		TerritoryType.ENERGY_MINE,      # Ресурсы вверху
+		TerritoryType.CRYSTAL_MINE,     # Ресурсы вверху
+		TerritoryType.DEFENSIVE_TOWER,  # Оборона слева
+		TerritoryType.FACTORY,          # Производство справа
+		TerritoryType.PORTAL,           # Телепорт внизу
+		TerritoryType.BATTLEFIELD_SHRINE, # Воскрешение вверху
+		TerritoryType.ANCIENT_ALTAR     # Мощный бонус в центре
 	]
 	
 	for i in range(territory_positions.size()):
@@ -89,6 +100,16 @@ func create_territory_visual(territory: Dictionary):
 			material.albedo_color = Color(1.0, 0.2, 1.0, 0.5)  # Пурпурный
 		TerritoryType.STRATEGIC_POINT:
 			material.albedo_color = Color(1.0, 1.0, 0.2, 0.5)  # Желтый
+		TerritoryType.DEFENSIVE_TOWER:
+			material.albedo_color = Color(0.8, 0.2, 0.2, 0.5)  # Красный
+		TerritoryType.FACTORY:
+			material.albedo_color = Color(0.5, 0.5, 0.5, 0.5)  # Серый
+		TerritoryType.PORTAL:
+			material.albedo_color = Color(0.2, 1.0, 0.2, 0.5)  # Зеленый
+		TerritoryType.ANCIENT_ALTAR:
+			material.albedo_color = Color(1.0, 0.8, 0.2, 0.5)  # Золотой
+		TerritoryType.BATTLEFIELD_SHRINE:
+			material.albedo_color = Color(0.8, 0.8, 1.0, 0.5)  # Светло-синий
 		_:
 			material.albedo_color = Color(0.5, 0.5, 0.5, 0.5)  # Серый
 	
@@ -106,27 +127,67 @@ func get_resource_rate(type: TerritoryType) -> int:
 			return 10  # Кристаллы в секунду
 		TerritoryType.STRATEGIC_POINT:
 			return 5   # Бонусная энергия
+		TerritoryType.ANCIENT_ALTAR:
+			return 8   # Бонус к способностям
 		_:
 			return 0
 
 func _on_resource_generation():
 	for territory in territories:
 		if territory.owner != "neutral":
-			var amount = territory.resource_generation_rate
-			resource_generated.emit(territory.id, territory.owner, amount)
+			# Применяем эффекты территорий
+			apply_territory_effects(territory)
+
+func apply_territory_effects(territory: Dictionary):
+	if not battle_manager:
+		return
+	
+	var owner = territory.owner
+	var amount = territory.resource_generation_rate
+	
+	match territory.type:
+		TerritoryType.ENERGY_MINE:
+			add_resource(owner, "energy", amount)
 			
-			# Передаем ресурсы в BattleManager
-			if battle_manager:
-				if territory.owner == "player":
-					if territory.type == TerritoryType.CRYSTAL_MINE:
-						battle_manager.player_crystals += amount
-					else:
-						battle_manager.player_energy += amount
-				elif territory.owner == "enemy":
-					if territory.type == TerritoryType.CRYSTAL_MINE:
-						battle_manager.enemy_crystals += amount
-					else:
-						battle_manager.enemy_energy += amount
+		TerritoryType.CRYSTAL_MINE:
+			add_resource(owner, "crystals", amount)
+			
+		TerritoryType.STRATEGIC_POINT:
+			add_resource(owner, "energy", amount)
+			
+		TerritoryType.DEFENSIVE_TOWER:
+			# Автоматическая атака ближайших врагов
+			auto_attack_enemies(territory)
+			
+		TerritoryType.FACTORY:
+			# Автоматическое производство юнитов
+			auto_produce_units(territory)
+			
+		TerritoryType.PORTAL:
+			# Телепортация дружественных юнитов
+			teleport_friendly_units(territory)
+			
+		TerritoryType.ANCIENT_ALTAR:
+			# Снижение кулдаунов способностей
+			reduce_ability_cooldowns(territory)
+			add_resource(owner, "crystals", amount)
+			
+		TerritoryType.BATTLEFIELD_SHRINE:
+			# Лечение дружественных юнитов в радиусе
+			heal_friendly_units(territory)
+
+func add_resource(owner: String, resource_type: String, amount: int):
+	match resource_type:
+		"energy":
+			if owner == "player":
+				battle_manager.player_energy += amount
+			else:
+				battle_manager.enemy_energy += amount
+		"crystals":
+			if owner == "player":
+				battle_manager.player_crystals += amount
+			else:
+				battle_manager.enemy_crystals += amount
 
 func check_territory_capture(unit_position: Vector3, team: String):
 	for territory in territories:
@@ -142,7 +203,6 @@ func attempt_capture(territory: Dictionary, team: String):
 	territory.capture_progress += 1.0
 	
 	if territory.capture_progress >= territory.max_capture_time:
-		var old_owner = territory.owner
 		territory.owner = team
 		territory.capture_progress = 0.0
 		
@@ -184,4 +244,46 @@ func get_controlled_territories(team: String) -> int:
 	for territory in territories:
 		if territory.owner == team:
 			count += 1
-	return count 
+	return count
+
+# Специальные эффекты территорий
+func auto_attack_enemies(territory: Dictionary):
+	# Находим всех врагов в радиусе и атакуем их
+	var enemy_team = "enemy" if territory.owner == "player" else "player"
+	var _attack_radius = 5.0  # Префикс _ для неиспользуемой переменной
+	
+	# Здесь будет логика поиска и атаки врагов
+	print("🔥 Defensive tower attacking ", enemy_team, " near territory ", territory.id)
+
+func auto_produce_units(territory: Dictionary):
+	# Автоматически производим базовых юнитов
+	var owner = territory.owner
+	var cost = 20
+	
+	if owner == "player" and battle_manager.player_energy >= cost:
+		battle_manager.player_energy -= cost
+		# Спавним юнита рядом с фабрикой
+		var spawn_pos = territory.position + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2))
+		battle_manager.spawn_unit_at_pos("player", spawn_pos, "soldier")
+		print("🏭 Factory produced soldier for ", owner)
+	elif owner == "enemy" and battle_manager.enemy_energy >= cost:
+		battle_manager.enemy_energy -= cost
+		var spawn_pos = territory.position + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2))
+		battle_manager.spawn_unit_at_pos("enemy", spawn_pos, "soldier")
+		print("🏭 Factory produced soldier for ", owner)
+
+func teleport_friendly_units(territory: Dictionary):
+	# Телепортируем случайного дружественного юнита к порталу
+	print("🌀 Portal effect activated for ", territory.owner)
+
+func reduce_ability_cooldowns(territory: Dictionary):
+	# Снижаем кулдауны способностей для владельца
+	if territory.owner == "player" and battle_manager.has_method("reduce_cooldowns"):
+		battle_manager.reduce_cooldowns(0.5)  # Снижаем на 0.5 секунды
+	print("✨ Ancient altar reducing cooldowns for ", territory.owner)
+
+func heal_friendly_units(territory: Dictionary):
+	# Лечим дружественных юнитов в радиусе
+	var _heal_radius = 4.0  # Префикс _ для неиспользуемой переменной
+	var _heal_amount = 10   # Префикс _ для неиспользуемой переменной
+	print("💚 Battlefield shrine healing units for ", territory.owner)

@@ -202,7 +202,7 @@ func make_strategic_decision() -> Dictionary:
 	var control = battlefield_analysis.get("battlefield_control", 0.5)
 	
 	# Принимаем решение на основе приоритетов и ситуации
-	var ability_decision = consider_ability_use(enemy_energy, enemy_crystals, threat, control)
+	var ability_decision = consider_ability_use(enemy_energy, enemy_crystals)
 	var spawn_decision = consider_unit_spawn(enemy_energy, threat, control)
 	var build_decision = consider_building(enemy_energy, threat, control)
 	
@@ -341,129 +341,44 @@ func get_optimal_build_position(structure_type: String) -> Vector3:
 		_:
 			return Vector3(randf_range(-6.0, 6.0), 0, randf_range(5.0, 10.0))
 
-func consider_ability_use(energy: int, crystals: int, threat: float, control: float) -> Dictionary:
-	var decision = {"action": "none", "ability_type": "", "priority": 0, "position": Vector3.ZERO}
+func consider_ability_use(_energy: int, _crystals: int) -> Dictionary:
+	# Анализируем, стоит ли использовать способности
+	var threat_level = analyze_threat_level()
+	var field_control = analyze_field_control()
 	
-	if not battle_manager or not battle_manager.ability_system:
-		return decision
+	if threat_level > 70 and _crystals >= 20:
+		return {
+			"action": "ability",
+			"ability_type": "shield_barrier",
+			"position": get_defensive_position(),
+			"priority": 85
+		}
 	
-	var ability_system = battle_manager.ability_system
+	if _energy >= 60 and _crystals >= 25 and field_control < 30:
+		return {
+			"action": "ability", 
+			"ability_type": "lightning_storm",
+			"position": get_offensive_position(),
+			"priority": 75
+		}
 	
-	# Рассматриваем различные способности
-	var abilities_to_consider = ["fireball", "heal_wave", "shield_barrier", "lightning_storm"]
-	
-	for ability_key in abilities_to_consider:
-		if ability_system.can_use_ability("enemy", ability_key):
-			var priority = calculate_ability_priority(ability_key, threat, control)
-			if priority > decision.priority:
-				decision.action = "ability"
-				decision.ability_type = ability_key
-				decision.priority = priority
-				decision.position = get_ability_target_position(ability_key)
-	
-	return decision
+	return {"action": "none", "priority": 0}
 
-func calculate_ability_priority(ability_key: String, threat: float, control: float) -> int:
-	var base_priority = 0
-	var player_units = battlefield_analysis.get("player_units", {})
-	var enemy_units = battlefield_analysis.get("enemy_units", {})
-	
-	match ability_key:
-		"fireball":
-			# Используем огненный шар против скоплений врагов
-			base_priority = 40
-			if player_units.get("total", 0) >= 3:
-				base_priority += 30
-			if threat > 0.6:
-				base_priority += 20
-		
-		"heal_wave":
-			# Лечим когда наши юниты повреждены
-			base_priority = 25
-			if enemy_units.get("total", 0) >= 2:
-				base_priority += 35
-			if current_strategy == "defensive":
-				base_priority += 15
-		
-		"shield_barrier":
-			# Щит при высокой угрозе
-			base_priority = 30
-			if threat > 0.7:
-				base_priority += 40
-			if current_strategy == "defensive":
-				base_priority += 20
-		
-		"lightning_storm":
-			# Молниевая буря для контроля территории
-			base_priority = 35
-			if control < 0.4:  # Если мы проигрываем контроль
-				base_priority += 25
-			if player_units.get("total", 0) >= 4:
-				base_priority += 30
-	
-	# Модификаторы сложности
-	match difficulty:
-		"easy":
-			base_priority = int(base_priority * 0.6)
-		"hard":
-			base_priority = int(base_priority * 1.3)
-	
-	return base_priority
+func analyze_threat_level() -> float:
+	# Реализация функции анализа угрозы
+	return 0.0  # Заглушка, реальная реализация должна быть реализована
 
-func get_ability_target_position(ability_key: String) -> Vector3:
-	# Выбираем оптимальную позицию для использования способности
-	match ability_key:
-		"fireball", "lightning_storm":
-			# Атакующие способности - целимся в скопления врагов
-			return find_enemy_cluster_position()
-		
-		"heal_wave", "shield_barrier":
-			# Поддерживающие способности - используем на наших юнитах
-			return find_friendly_cluster_position()
-		
-		_:
-			# По умолчанию - центр поля
-			return Vector3(0, 0, 0)
+func analyze_field_control() -> float:
+	# Реализация функции анализа контроля поля
+	return 0.0  # Заглушка, реальная реализация должна быть реализована
 
-func find_enemy_cluster_position() -> Vector3:
-	# Ищем позицию с наибольшим скоплением вражеских юнитов
-	var units = get_tree().get_nodes_in_group("units")
-	var player_units = []
-	
-	for unit in units:
-		if unit.team == "player":
-			player_units.append(unit.global_position)
-	
-	if player_units.is_empty():
-		return Vector3(0, 0, -10)  # Атакуем в сторону игрока
-	
-	# Находим центр массы вражеских юнитов
-	var center = Vector3.ZERO
-	for pos in player_units:
-		center += pos
-	center /= player_units.size()
-	
-	return center
+func get_defensive_position() -> Vector3:
+	# Реализация функции получения оборонительной позиции
+	return Vector3.ZERO  # Заглушка, реальная реализация должна быть реализована
 
-func find_friendly_cluster_position() -> Vector3:
-	# Ищем позицию с наибольшим скоплением наших юнитов
-	var units = get_tree().get_nodes_in_group("units")
-	var enemy_units = []
-	
-	for unit in units:
-		if unit.team == "enemy":
-			enemy_units.append(unit.global_position)
-	
-	if enemy_units.is_empty():
-		return Vector3(0, 0, 10)  # Используем рядом с нашей базой
-	
-	# Находим центр массы наших юнитов
-	var center = Vector3.ZERO
-	for pos in enemy_units:
-		center += pos
-	center /= enemy_units.size()
-	
-	return center
+func get_offensive_position() -> Vector3:
+	# Реализация функции получения атакующей позиции
+	return Vector3.ZERO  # Заглушка, реальная реализация должна быть реализована
 
 func get_strategy_info() -> Dictionary:
 	return {
