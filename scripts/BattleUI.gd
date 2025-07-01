@@ -22,19 +22,19 @@ func _ready():
 	$Panel/BuildTowerButton.gui_input.connect(_on_build_button_input)
 
 	if spawner_panel:
-		spawner_panel.connect("spawner_drag_start", Callable(self, "_on_spawner_drag_start"))
-		spawner_panel.connect("spawner_drag_end", Callable(self, "_on_spawner_drag_end"))
+		spawner_panel.spawner_drag_start.connect(_on_spawner_drag_start)
+		spawner_panel.spawner_drag_end.connect(_on_spawner_drag_end)
 
 func _on_start_button_pressed():
-	emit_signal("start_battle")
+	start_battle.emit()
 
 func _on_spawn_soldier_button_pressed():
 	# Обычный клик - спавн в случайном месте
-	emit_signal("spawn_soldier")
+	spawn_soldier.emit()
 
 func _on_build_tower_button_pressed():
 	# Обычный клик - строительство в случайном месте
-	emit_signal("build_tower")
+	build_tower.emit()
 
 func _on_spawn_button_input(event):
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -46,7 +46,7 @@ func _on_spawn_button_input(event):
 		else:
 			# Конец drag
 			if is_dragging and drag_type == "soldier":
-				emit_signal("spawn_unit_drag", "soldier", event.position)
+				spawn_unit_drag.emit("soldier", event.position)
 			is_dragging = false
 			drag_type = ""
 
@@ -60,7 +60,7 @@ func _on_build_button_input(event):
 		else:
 			# Конец drag
 			if is_dragging and drag_type == "tower":
-				emit_signal("build_structure_drag", event.position)
+				build_structure_drag.emit(event.position)
 			is_dragging = false
 			drag_type = ""
 

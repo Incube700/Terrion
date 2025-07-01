@@ -6,10 +6,10 @@ signal spawner_drag_end(spawner_type, global_pos)
 var dragging_type = null
 
 func _ready():
-	$HBoxContainer/OrbitalDropButton.connect("gui_input", Callable(self, "_on_orbital_drop_input"))
-	$HBoxContainer/EnergyGenButton.connect("gui_input", Callable(self, "_on_energy_gen_input"))
-	$HBoxContainer/ShieldGenButton.connect("gui_input", Callable(self, "_on_shield_gen_input"))
-	$HBoxContainer/TechLabButton.connect("gui_input", Callable(self, "_on_tech_lab_input"))
+	$HBoxContainer/OrbitalDropButton.gui_input.connect(_on_orbital_drop_input)
+	$HBoxContainer/EnergyGenButton.gui_input.connect(_on_energy_gen_input)
+	$HBoxContainer/ShieldGenButton.gui_input.connect(_on_shield_gen_input)
+	$HBoxContainer/TechLabButton.gui_input.connect(_on_tech_lab_input)
 
 func _on_orbital_drop_input(event):
 	_handle_drag(event, "orbital_drop")
@@ -27,8 +27,8 @@ func _handle_drag(event, spawner_type):
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			dragging_type = spawner_type
-			emit_signal("spawner_drag_start", spawner_type)
+			spawner_drag_start.emit(spawner_type)
 		else:
 			if dragging_type == spawner_type:
-				emit_signal("spawner_drag_end", spawner_type, get_global_mouse_position())
+				spawner_drag_end.emit(spawner_type, get_global_mouse_position())
 			dragging_type = null 

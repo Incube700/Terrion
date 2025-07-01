@@ -123,7 +123,7 @@ func _on_spawn_timer_timeout():
 		battle_manager.enemy_energy -= cost
 	
 	# Обновляем UI
-	battle_manager.update_hud()
+	battle_manager.update_ui()
 	
 	print("Спавнер ", team, " создал ", spawn_unit_type, " за ", cost, " энергии")
 

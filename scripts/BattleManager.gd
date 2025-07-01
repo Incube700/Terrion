@@ -211,7 +211,7 @@ func _on_energy_timer():
 
 # Заготовка: обработка победы/поражения
 func finish_battle(winner):
-	emit_signal("battle_finished", winner)
+	battle_finished.emit(winner)
 	print("Битва завершена! Победитель: ", winner)
 	# TODO: показать экран победы/поражения
 
