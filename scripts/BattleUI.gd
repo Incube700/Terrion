@@ -12,6 +12,7 @@ signal use_ability(ability_name: String, position: Vector3)
 var drag_type = ""
 var is_dragging = false
 var drag_start_pos = Vector2.ZERO
+var ghost_preview = null
 
 @onready var spawner_panel = $SpawnerPanel
 @onready var main_menu = $MainMenu
@@ -61,6 +62,9 @@ func _ready():
 		if $AbilityPanel/AbilityContainer.has_node("LightningButton"):
 			$AbilityPanel/AbilityContainer/LightningButton.pressed.connect(_on_ion_storm_pressed)
 	
+	# Создаем кнопку для расовых способностей
+	create_race_ability_button()
+	
 	# Подключение drag&drop для ВСЕХ кнопок
 	print("🔗 Подключаем drag&drop для всех кнопок...")
 	$Panel/MainButtonContainer/SpawnSoldierButton.gui_input.connect(_on_unit_button_input)
@@ -70,6 +74,9 @@ func _ready():
 	# Добавляем drag&drop для элитных юнитов (всегда)
 	$Panel/MainButtonContainer/EliteSoldierButton.gui_input.connect(_on_elite_soldier_button_input)
 	$Panel/MainButtonContainer/CrystalMageButton.gui_input.connect(_on_crystal_mage_button_input)
+	
+	# Добавляем новые здания в _ready после их создания
+	call_deferred("connect_new_building_inputs")
 	print("✅ Все drag&drop подключения готовы!")
 
 	if spawner_panel:
@@ -78,42 +85,71 @@ func _ready():
 	
 	# Обновление текста кнопок под новый лор
 	update_button_texts()
+	
+	# Подключаем новые здания после их создания
+	call_deferred("connect_new_building_inputs")
 
 	# Добавим инструкции управления
 	add_control_instructions()
 
 func update_button_texts():
-	# Обновляем текст кнопок на более понятный
-	$Panel/MainButtonContainer/SpawnSoldierButton.text = "⚔️ СОЛДАТ\n(20 энергии)"
-	$Panel/MainButtonContainer/BuildTowerButton.text = "🗼 БАШНЯ\n(60 энергии)" 
-	$Panel/MainButtonContainer/EliteSoldierButton.text = "🎖️ ЭЛИТНЫЙ\n(30⚡ + 10💎)"
-	$Panel/MainButtonContainer/CrystalMageButton.text = "🔮 МАГ\n(25⚡ + 15💎)"
-	$Panel/MainButtonContainer/CollectorButton.text = "🏃 КОЛЛЕКТОР\n(15 энергии)"
+	# Обновляем текст кнопок - теперь это ЗДАНИЯ-СПАВНЕРЫ
+	$Panel/MainButtonContainer/SpawnSoldierButton.text = "🏰 КАЗАРМЫ\n💰 80 энергии"
+	$Panel/MainButtonContainer/BuildTowerButton.text = "🗼 БАШНЯ\n💰 60 энергии" 
+	$Panel/MainButtonContainer/EliteSoldierButton.text = "🎖️ ТРЕНИРОВОЧНЫЙ ЛАГЕРЬ\n💰 120⚡ + 20💎"
+	$Panel/MainButtonContainer/CrystalMageButton.text = "🔮 МАГИЧЕСКАЯ АКАДЕМИЯ\n💰 100⚡ + 30💎"
+	$Panel/MainButtonContainer/CollectorButton.text = "🏃 ЦЕНТР КОЛЛЕКТОРОВ\n💰 90 энергии + 15💎"
 	
-	if has_node("AbilityPanel/AbilityContainer"):
-		if $AbilityPanel/AbilityContainer.has_node("FireballButton"):
-			$AbilityPanel/AbilityContainer/FireballButton.text = "🔥 ФАЕРБОЛЛ"
-		if $AbilityPanel/AbilityContainer.has_node("HealButton"):
-			$AbilityPanel/AbilityContainer/HealButton.text = "💚 ЛЕЧЕНИЕ"
-		if $AbilityPanel/AbilityContainer.has_node("ShieldButton"):
-			$AbilityPanel/AbilityContainer/ShieldButton.text = "🛡️ ЩИТ"
-		if $AbilityPanel/AbilityContainer.has_node("LightningButton"):
-			$AbilityPanel/AbilityContainer/LightningButton.text = "⚡ МОЛНИЯ"
+	# Добавляем новые здания
+	add_new_building_buttons()
+	
+	# Улучшаем стиль кнопок
+	improve_button_style($Panel/MainButtonContainer/SpawnSoldierButton, Color.CYAN)
+	improve_button_style($Panel/MainButtonContainer/BuildTowerButton, Color.ORANGE)
+	improve_button_style($Panel/MainButtonContainer/EliteSoldierButton, Color.GOLD)
+	improve_button_style($Panel/MainButtonContainer/CrystalMageButton, Color.MAGENTA)
+	improve_button_style($Panel/MainButtonContainer/CollectorButton, Color.GREEN)
+
+func add_new_building_buttons():
+	# Создаем новые кнопки для дополнительных зданий
+	var button_container = $Panel/MainButtonContainer
+	
+	# Мех завод для боевых роботов
+	var mech_factory_button = Button.new()
+	mech_factory_button.name = "MechFactoryButton"
+	mech_factory_button.text = "🤖 МЕХ ЗАВОД\n💰 150⚡ + 25💎\nПроизводит роботов"
+	mech_factory_button.size = Vector2(120, 80)
+	mech_factory_button.add_theme_font_size_override("font_size", 14)
+	mech_factory_button.pressed.connect(_on_mech_factory_pressed)
+	button_container.add_child(mech_factory_button)
+	improve_button_style(mech_factory_button, Color.STEEL_BLUE)
+	
+	# Дрон фабрика для летающих дронов
+	var drone_factory_button = Button.new()
+	drone_factory_button.name = "DroneFactoryButton"
+	drone_factory_button.text = "🛸 ДРОН ФАБРИКА\n💰 130⚡ + 20💎\nПроизводит дронов"
+	drone_factory_button.size = Vector2(120, 80)
+	drone_factory_button.add_theme_font_size_override("font_size", 14)
+	drone_factory_button.pressed.connect(_on_drone_factory_pressed)
+	button_container.add_child(drone_factory_button)
+	improve_button_style(drone_factory_button, Color.LIGHT_BLUE)
+	
+	print("🏭 Добавлены новые здания: Мех завод и Дрон фабрика")
 
 func _on_deploy_unit_pressed():
-	print("⚔️ ИНСТРУКЦИЯ: Зажмите и перетащите кнопку СОЛДАТ на карту для спавна!")
+	print("🏰 ИНСТРУКЦИЯ: Зажмите и перетащите кнопку КАЗАРМЫ на карту для постройки!")
 
 func _on_construct_facility_pressed():
-	print("🏗️ ИНСТРУКЦИЯ: Зажмите и перетащите кнопку БАШНЯ на карту для постройки!")
+	print("🗼 ИНСТРУКЦИЯ: Зажмите и перетащите кнопку БАШНЯ на карту для постройки!")
 
 func _on_deploy_specialist_pressed():
-	print("🎖️ ИНСТРУКЦИЯ: Зажмите и перетащите кнопку ЭЛИТНЫЙ на карту для спавна!")
+	print("🎖️ ИНСТРУКЦИЯ: Зажмите и перетащите кнопку ТРЕНИРОВОЧНЫЙ ЛАГЕРЬ на карту для постройки!")
 
 func _on_deploy_technician_pressed():
-	print("🔧 ИНСТРУКЦИЯ: Зажмите и перетащите кнопку МАГ на карту для спавна!")
+	print("🔮 ИНСТРУКЦИЯ: Зажмите и перетащите кнопку МАГИЧЕСКАЯ АКАДЕМИЯ на карту для постройки!")
 
 func _on_spawn_collector_pressed():
-	print("🏃 ИНСТРУКЦИЯ: Зажмите и перетащите кнопку КОЛЛЕКТОР на карту для спавна!")
+	print("🏃 ИНСТРУКЦИЯ: Зажмите и перетащите кнопку ЦЕНТР КОЛЛЕКТОРОВ на карту для постройки!")
 
 func _on_plasma_strike_pressed():
 	print("🔥 Плазменный удар по вражеским позициям")
@@ -161,43 +197,40 @@ func update_button_state(button_path: String, has_energy: bool, has_crystals: bo
 		button.disabled = not can_afford
 
 func _on_collector_button_input(event):
-	# Drag&drop для коллектора
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+	# Коллекторы спавнятся автоматически, не требуют drag&drop
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var collector_button = get_node("Panel/MainButtonContainer/CollectorButton")
-		if event.pressed:
-			# Начало drag-операции - меняем цвет кнопки
-			drag_type = "collector"
-			is_dragging = true
-			drag_start_pos = event.position
-			collector_button.modulate = Color.YELLOW  # Визуальная обратная связь
-			print("🏃 Начало drag коллектора - перетащите на карту")
-		else:
-			# Завершение drag - спавн коллектора
-			if is_dragging and drag_type == "collector":
-				print("🏃 Завершение drag коллектора на позиции: ", event.position)
-				spawn_unit_drag.emit("collector", event.position)
-			is_dragging = false
-			drag_type = ""
-			collector_button.modulate = Color.WHITE  # Возвращаем обычный цвет
+		
+		print("🏃 Спавн коллектора - автоматическое размещение на игровой половине")
+		
+		# Эмитируем сигнал для создания коллектора (BattleManager обработает автоматически)
+		spawn_unit_drag.emit("collector", Vector2.ZERO)  # Позиция не важна для коллекторов
+		
+		# Визуальная обратная связь
+		collector_button.modulate = Color.GREEN
+		await get_tree().create_timer(0.2).timeout
+		collector_button.modulate = Color.WHITE
 
 func _on_unit_button_input(event):
-	# Drag&drop для солдата
+	# Drag&drop для казарм
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		var soldier_button = get_node("Panel/MainButtonContainer/SpawnSoldierButton")
 		if event.pressed:
 			# Начало drag-операции - меняем цвет кнопки
-			drag_type = "soldier"
+			drag_type = "barracks"
 			is_dragging = true
 			drag_start_pos = event.position
 			soldier_button.modulate = Color.YELLOW  # Визуальная обратная связь
-			print("⚔️ Начало drag солдата - перетащите на карту")
+			create_ghost_preview("barracks")
+			print("🏰 Начало drag казарм - перетащите на карту")
 		else:
-			# Завершение drag - развертывание войск
-			if is_dragging and drag_type == "soldier":
-				print("⚔️ Завершение drag солдата на позиции: ", event.position)
-				spawn_unit_drag.emit("soldier", event.position)
+			# Завершение drag - строительство казарм
+			if is_dragging and drag_type == "barracks":
+				print("🏰 Завершение drag казарм на позиции: ", event.position)
+				build_structure_drag.emit(event.position)  # Строим здание
 			is_dragging = false
 			drag_type = ""
+			destroy_ghost_preview()
 			soldier_button.modulate = Color.WHITE  # Возвращаем обычный цвет
 
 func _on_structure_button_input(event):
@@ -210,6 +243,7 @@ func _on_structure_button_input(event):
 			is_dragging = true
 			drag_start_pos = event.position
 			tower_button.modulate = Color.YELLOW  # Визуальная обратная связь
+			create_ghost_preview("tower")
 			print("🏗️ Начало drag башни - перетащите на карту")
 		else:
 			# Завершение drag - строительство модуля
@@ -218,42 +252,47 @@ func _on_structure_button_input(event):
 				build_structure_drag.emit(event.position)
 			is_dragging = false
 			drag_type = ""
+			destroy_ghost_preview()
 			tower_button.modulate = Color.WHITE  # Возвращаем обычный цвет
 
 func _on_elite_soldier_button_input(event):
-	# Drag&drop для элитного солдата
+	# Drag&drop для тренировочного лагеря
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		var elite_button = get_node("Panel/MainButtonContainer/EliteSoldierButton")
 		if event.pressed:
-			drag_type = "elite_soldier"
+			drag_type = "training_camp"
 			is_dragging = true
 			drag_start_pos = event.position
 			elite_button.modulate = Color.YELLOW
-			print("🎖️ Начало drag элитного солдата - перетащите на карту")
+			create_ghost_preview("training_camp")
+			print("🎖️ Начало drag тренировочного лагеря - перетащите на карту")
 		else:
-			if is_dragging and drag_type == "elite_soldier":
-				print("🎖️ Завершение drag элитного солдата на позиции: ", event.position)
-				spawn_unit_drag.emit("elite_soldier", event.position)
+			if is_dragging and drag_type == "training_camp":
+				print("🎖️ Завершение drag тренировочного лагеря на позиции: ", event.position)
+				build_structure_drag.emit(event.position)  # Строим здание
 			is_dragging = false
 			drag_type = ""
+			destroy_ghost_preview()
 			elite_button.modulate = Color.WHITE
 
 func _on_crystal_mage_button_input(event):
-	# Drag&drop для кристального мага
+	# Drag&drop для магической академии
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		var mage_button = get_node("Panel/MainButtonContainer/CrystalMageButton")
 		if event.pressed:
-			drag_type = "crystal_mage"
+			drag_type = "magic_academy"
 			is_dragging = true
 			drag_start_pos = event.position
 			mage_button.modulate = Color.YELLOW
-			print("🔧 Начало drag техно-специалиста - перетащите на карту")
+			create_ghost_preview("magic_academy")
+			print("🔮 Начало drag магической академии - перетащите на карту")
 		else:
-			if is_dragging and drag_type == "crystal_mage":
-				print("🔧 Завершение drag техно-специалиста на позиции: ", event.position)
-				spawn_unit_drag.emit("crystal_mage", event.position)
+			if is_dragging and drag_type == "magic_academy":
+				print("🔮 Завершение drag магической академии на позиции: ", event.position)
+				build_structure_drag.emit(event.position)  # Строим здание
 			is_dragging = false
 			drag_type = ""
+			destroy_ghost_preview()
 			mage_button.modulate = Color.WHITE
 
 func update_info(player_hp, player_energy, enemy_hp, enemy_energy, player_crystals = 0, enemy_crystals = 0):
@@ -281,11 +320,20 @@ func get_hp_color(hp: int, max_hp: int) -> Color:
 		return Color.RED
 
 func _input(event):
-	# (documentation comment)
-	if is_dragging:
+	# Обновляем позицию призрачного предпросмотра
+	if is_dragging and ghost_preview:
 		if event is InputEventMouseMotion:
-			# Можно добавить визуальную обратную связь при drag
-			pass 
+			var mouse_pos = get_global_mouse_position()
+			ghost_preview.position = mouse_pos - ghost_preview.size / 2
+			
+			# Меняем цвет в зависимости от валидности позиции
+			var can_build = can_build_at_position(mouse_pos)
+			if can_build:
+				ghost_preview.color = get_building_color(drag_type)
+				ghost_preview.color.a = 0.7
+			else:
+				ghost_preview.color = Color.RED
+				ghost_preview.color.a = 0.5
 
 func _on_spawner_drag_start(spawner_type):
 	# (documentation comment)
@@ -332,6 +380,33 @@ func show_main_menu():
 	$PlayerHUD.visible = false
 	$EnemyHUD.visible = false
 
+func improve_button_style(button: Button, color: Color):
+	# Улучшаем визуальный стиль кнопок
+	if not button:
+		return
+		
+	# Устанавливаем цвет модуляции
+	button.modulate = color
+	
+	# Добавляем тему для размера шрифта
+	button.add_theme_font_size_override("font_size", 18)
+	
+	# Создаем отдельные функции для событий мыши (избегаем lambda capture)
+	var original_color = color
+	var hover_color = color.lightened(0.3)
+	
+	# Подключаем события без lambda
+	if not button.mouse_entered.is_connected(_on_button_hover):
+		button.mouse_entered.connect(_on_button_hover.bind(button, hover_color))
+	if not button.mouse_exited.is_connected(_on_button_unhover):
+		button.mouse_exited.connect(_on_button_unhover.bind(button, original_color))
+
+func _on_button_hover(button: Button, hover_color: Color):
+	button.modulate = hover_color
+
+func _on_button_unhover(button: Button, original_color: Color):
+	button.modulate = original_color
+
 func add_control_instructions():
 	# Создаем панель с инструкциями управления
 	var instructions = Label.new()
@@ -373,6 +448,141 @@ func show_game_interface():
 		instructions.visible = true
 	
 	print("🎮 Игровой интерфейс активирован")
- 
- 
- 
+
+func create_race_ability_button():
+	# Создаем кнопку для расовых способностей
+	if not has_node("AbilityPanel/AbilityContainer"):
+		return
+	
+	var ability_container = $AbilityPanel/AbilityContainer
+	
+	# Создаем кнопку ЭМИ-импульса
+	var emp_button = Button.new()
+	emp_button.name = "EMPButton"
+	emp_button.text = "⚡ ЭМИ-ИМПУЛЬС\n💥 Отключает здания"
+	emp_button.size = Vector2(140, 60)
+	emp_button.add_theme_font_size_override("font_size", 16)
+	
+	# Подключаем обработчик
+	emp_button.pressed.connect(_on_emp_pulse_pressed)
+	
+	# Добавляем в контейнер
+	ability_container.add_child(emp_button)
+	
+	# Стилизуем кнопку
+	improve_button_style(emp_button, Color.PURPLE)
+	
+	print("⚡ Кнопка ЭМИ-импульса создана")
+
+func _on_emp_pulse_pressed():
+	print("⚡ Активация ЭМИ-импульса!")
+	# Используем способность через правый клик или автоматически
+	use_ability.emit("emp_pulse", Vector3(0, 0, -10))  # Атакуем вражескую зону
+
+func create_ghost_preview(building_type: String):
+	# Создаем призрачный предпросмотр здания
+	ghost_preview = ColorRect.new()
+	ghost_preview.size = Vector2(60, 60)
+	ghost_preview.color = get_building_color(building_type)
+	ghost_preview.color.a = 0.5  # Полупрозрачность
+	ghost_preview.z_index = 100  # Поверх всего
+	
+	# Добавляем текст с типом здания
+	var label = Label.new()
+	label.text = get_building_emoji(building_type)
+	label.add_theme_font_size_override("font_size", 32)
+	label.anchors_preset = Control.PRESET_CENTER
+	ghost_preview.add_child(label)
+	
+	add_child(ghost_preview)
+	print("👻 Создан призрачный предпросмотр для ", building_type)
+
+func destroy_ghost_preview():
+	if ghost_preview:
+		ghost_preview.queue_free()
+		ghost_preview = null
+		print("👻 Призрачный предпросмотр удален")
+
+func get_building_color(building_type: String) -> Color:
+	match building_type:
+		"barracks": return Color.CYAN
+		"tower": return Color.ORANGE
+		"training_camp": return Color.GOLD
+		"magic_academy": return Color.MAGENTA
+		"mech_factory": return Color.STEEL_BLUE
+		"drone_factory": return Color.LIGHT_BLUE
+		_: return Color.WHITE
+
+func get_building_emoji(building_type: String) -> String:
+	match building_type:
+		"barracks": return "🏰"
+		"tower": return "🗼"
+		"training_camp": return "🎖️"
+		"magic_academy": return "🔮"
+		"mech_factory": return "🤖"
+		"drone_factory": return "🛸"
+		_: return "🏗️"
+
+func can_build_at_position(screen_pos: Vector2) -> bool:
+	# Простая проверка - можно строить только в нижней половине экрана (игрок)
+	var screen_size = get_viewport().get_visible_rect().size
+	return screen_pos.y > screen_size.y * 0.5
+
+func _on_mech_factory_pressed():
+	print("🤖 ИНСТРУКЦИЯ: Зажмите и перетащите кнопку МЕХ ЗАВОД на карту для постройки!")
+
+func _on_drone_factory_pressed():
+	print("🛸 ИНСТРУКЦИЯ: Зажмите и перетащите кнопку ДРОН ФАБРИКА на карту для постройки!")
+
+func _on_mech_factory_button_input(event):
+	# Drag&drop для мех завода
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		var mech_button = get_node("Panel/MainButtonContainer/MechFactoryButton")
+		if event.pressed:
+			drag_type = "mech_factory"
+			is_dragging = true
+			drag_start_pos = event.position
+			mech_button.modulate = Color.YELLOW
+			create_ghost_preview("mech_factory")
+			print("🤖 Начало drag мех завода - перетащите на карту")
+		else:
+			if is_dragging and drag_type == "mech_factory":
+				print("🤖 Завершение drag мех завода на позиции: ", event.position)
+				build_structure_drag.emit(event.position)
+			is_dragging = false
+			drag_type = ""
+			destroy_ghost_preview()
+			mech_button.modulate = Color.STEEL_BLUE
+
+func _on_drone_factory_button_input(event):
+	# Drag&drop для дрон фабрики
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		var drone_button = get_node("Panel/MainButtonContainer/DroneFactoryButton")
+		if event.pressed:
+			drag_type = "drone_factory"
+			is_dragging = true
+			drag_start_pos = event.position
+			drone_button.modulate = Color.YELLOW
+			create_ghost_preview("drone_factory")
+			print("🛸 Начало drag дрон фабрики - перетащите на карту")
+		else:
+			if is_dragging and drag_type == "drone_factory":
+				print("🛸 Завершение drag дрон фабрики на позиции: ", event.position)
+				build_structure_drag.emit(event.position)
+			is_dragging = false
+			drag_type = ""
+			destroy_ghost_preview()
+			drone_button.modulate = Color.LIGHT_BLUE
+
+func connect_new_building_inputs():
+	# Подключаем drag&drop для новых зданий после их создания
+	var mech_button = get_node_or_null("Panel/MainButtonContainer/MechFactoryButton")
+	var drone_button = get_node_or_null("Panel/MainButtonContainer/DroneFactoryButton")
+	
+	if mech_button:
+		mech_button.gui_input.connect(_on_mech_factory_button_input)
+		print("🤖 Мех завод подключен к drag&drop")
+	
+	if drone_button:
+		drone_button.gui_input.connect(_on_drone_factory_button_input)
+		print("🛸 Дрон фабрика подключена к drag&drop")

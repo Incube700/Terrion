@@ -16,7 +16,7 @@ var attack_timer: float = 0.0
 var target: Node = null
 
 # Специальные переменные для коллекторов
-var target_territory = null
+var target_crystal = null
 var is_capturing = false
 var capture_progress = 0.0
 var has_transformed = false
@@ -64,42 +64,42 @@ func _ready():
 			if current_mesh:
 				current_mesh.visible = true
 
-	# Тип и параметры (ЗАМЕДЛЕННАЯ СКОРОСТЬ для наблюдения за процессом)
+	# Тип и параметры (МАКСИМАЛЬНО МЕДЛЕННЫЕ СКОРОСТИ для глубокого тактического геймплея)
 	if unit_type == "soldier":
-		speed = 30           # Замедлил для наблюдения
-		health = 100
-		max_health = 100
+		speed = 8            # МАКСИМАЛЬНО МЕДЛЕННО (было 15)
+		health = 300         # Увеличено в 3 раза для тактики
+		max_health = 300
 		damage = 25
 	elif unit_type == "tank":
-		speed = 20           # Замедлил с 80 до 20
-		health = 250
-		max_health = 250
+		speed = 5            # МАКСИМАЛЬНО МЕДЛЕННО (было 10)
+		health = 800         # Увеличено в 3+ раза для тактики
+		max_health = 800
 		damage = 35
 	elif unit_type == "drone":
-		speed = 40           # Замедлил с 200 до 40
-		health = 80
-		max_health = 80
+		speed = 12           # МАКСИМАЛЬНО МЕДЛЕННО (было 20)
+		health = 240         # Увеличено в 3 раза для тактики
+		max_health = 240
 		damage = 15
 	elif unit_type == "elite_soldier":
-		speed = 35           # Замедлил с 170 до 35
-		health = 140
-		max_health = 140
+		speed = 10           # МАКСИМАЛЬНО МЕДЛЕННО (было 18)
+		health = 450         # Увеличено в 3+ раза для тактики
+		max_health = 450
 		damage = 40
 	elif unit_type == "crystal_mage":
-		speed = 25           # Замедлил с 120 до 25
-		health = 90
-		max_health = 90
+		speed = 6            # МАКСИМАЛЬНО МЕДЛЕННО (было 12)
+		health = 320         # Увеличено в 3+ раза для тактики
+		max_health = 320
 		damage = 45
 		attack_range = 5.0
 	elif unit_type == "heavy_tank":
-		speed = 15           # Замедлил с 60 до 15
-		health = 450
-		max_health = 450
+		speed = 4            # МАКСИМАЛЬНО МЕДЛЕННО (было 8)
+		health = 1200        # Увеличено в 2.7 раза для тактики
+		max_health = 1200
 		damage = 60
 	elif unit_type == "collector":
-		speed = 35           # Замедлил с 140 до 35
-		health = 100
-		max_health = 100
+		speed = 10           # МАКСИМАЛЬНО МЕДЛЕННО (было 18)
+		health = 280         # Увеличено почти в 3 раза для тактики
+		max_health = 280
 		damage = 0           # Не атакуют
 	# Цвет по команде (жёстко: игрок — синий, враг — красный)
 	if current_mesh:
@@ -112,6 +112,10 @@ func _ready():
 	if attack_area:
 		attack_area.body_entered.connect(_on_attack_area_body_entered)
 		attack_area.body_exited.connect(_on_attack_area_body_exited)
+	
+	# Создаем 3D HP бар
+	create_3d_health_bar()
+	
 	# Безопасно обновляем HealthBar
 	if health_bar and health_bar is Label:
 		update_health_display()
@@ -132,26 +136,42 @@ func _physics_process(_delta):
 		queue_free()
 		return
 	
-	# Проверяем захват территорий для обычных юнитов
-	if battle_manager and battle_manager.territory_system:
-		battle_manager.territory_system.check_territory_capture(global_position, team)
+	# Проверяем захват кристаллов для обычных юнитов
+	if battle_manager and battle_manager.crystal_system:
+		battle_manager.crystal_system.check_crystal_interaction(global_position, team, unit_type)
 	
 	attack_timer += _delta
+	
+	# ПРИОРИТЕТ 1: Если есть враг в зоне видимости - атакуем его
 	if target and is_instance_valid(target):
 		var dist = global_position.distance_to(target.global_position)
 		if dist > attack_range:
-			move_towards_target()
+			# Враг далеко - движемся к нему
+			move_towards_enemy()
 		else:
+			# Враг близко - атакуем
 			if attack_timer > attack_cooldown:
 				attack()
 				attack_timer = 0.0
 	else:
-		move_towards_target()
+		# ПРИОРИТЕТ 2: Нет врагов - ищем новых врагов
 		find_new_target()
+		
+		# ПРИОРИТЕТ 3: Если врагов нет - идем к вражескому ядру
+		if not target:
+			move_towards_target()
 
 func move_towards_target():
+	# Движение к вражескому ядру (основная цель)
 	if target_pos:
 		var dir = (target_pos - global_position).normalized()
+		velocity = dir * speed
+		move_and_slide()
+
+func move_towards_enemy():
+	# Движение к конкретному врагу (приоритетная цель)
+	if target and is_instance_valid(target):
+		var dir = (target.global_position - global_position).normalized()
 		velocity = dir * speed
 		move_and_slide()
 
@@ -166,9 +186,12 @@ func _on_attack_area_body_exited(body):
 func find_new_target():
 	# Ищем ближайшего врага в радиусе видимости
 	var enemies = get_tree().get_nodes_in_group("units")
+	var enemy_spawners = get_tree().get_nodes_in_group("spawners")
+	
 	var closest_enemy = null
 	var closest_distance = 999999.0
 	
+	# ПРИОРИТЕТ 1: Вражеские юниты
 	for enemy in enemies:
 		if enemy.team != team and enemy.health > 0:
 			var distance = global_position.distance_to(enemy.global_position)
@@ -176,9 +199,21 @@ func find_new_target():
 				closest_enemy = enemy
 				closest_distance = distance
 	
-	if closest_enemy:
+	# ПРИОРИТЕТ 2: Вражеские здания (если нет юнитов рядом)
+	if not closest_enemy:
+		for spawner in enemy_spawners:
+			if spawner.team != team and spawner.health > 0:
+				var distance = global_position.distance_to(spawner.global_position)
+				if distance < closest_distance and distance < 10.0:  # Меньший радиус для зданий
+					closest_enemy = spawner
+					closest_distance = distance
+	
+	if closest_enemy and target != closest_enemy:
 		target = closest_enemy
-		print(team, " ", unit_type, " нашел цель: ", closest_enemy.team, " ", closest_enemy.unit_type)
+		# Логируем только при смене цели, чтобы избежать спама
+		var target_type = "здание" if closest_enemy.has_method("get_spawner_info") else "юнит"
+		var enemy_team = closest_enemy.team if "team" in closest_enemy else "нейтральное"
+		print(team, " ", unit_type, " нашел новую цель (", target_type, "): ", enemy_team)
 
 func attack():
 	if target and target.has_method("take_damage"):
@@ -207,6 +242,7 @@ func attack():
 func take_damage(amount: int):
 	health -= amount
 	update_health_display()
+	update_3d_health_bar()
 	
 	print(team, " ", unit_type, " получил урон: ", amount, " HP: ", health)
 	
@@ -240,6 +276,10 @@ func take_damage(amount: int):
 		if battle_manager and battle_manager.statistics_system:
 			battle_manager.statistics_system.register_unit_killed(team, unit_type)
 		
+		# Проверяем условия победы после смерти юнита
+		if battle_manager:
+			battle_manager.call_deferred("check_victory_conditions")
+		
 		queue_free()
 
 func update_health_display():
@@ -247,8 +287,9 @@ func update_health_display():
 		if health_bar is Label:
 			if unit_type == "collector" and is_capturing:
 				# Показываем прогресс захвата для коллекторов
-				var progress_percent = int(capture_progress * 100 / 5.0)  # 5 секунд = 100%
-				health_bar.text = "🏰 " + str(progress_percent) + "%"
+				var capture_time = target_crystal.max_capture_time if target_crystal and target_crystal.has("max_capture_time") else 5.0
+				var progress_percent = int(capture_progress * 100 / capture_time)
+				health_bar.text = "💎 " + str(progress_percent) + "%"
 				health_bar.modulate = Color.ORANGE
 			else:
 				# Красивое отображение здоровья с эмодзи
@@ -288,14 +329,16 @@ func handle_collector_behavior(_delta):
 				attack_timer = 0.0
 		return
 	
-	# Если мы захватываем территорию
-	if is_capturing and target_territory:
+	# Если мы захватываем кристалл
+	if is_capturing and target_crystal:
 		capture_progress += _delta
 		update_health_display()
+		update_3d_health_bar()  # Обновляем 3D HP бар при захвате
 		
 		# Проверяем, завершен ли захват
-		if capture_progress >= 5.0:  # 5 секунд для захвата
-			complete_territory_capture()
+		var capture_time = target_crystal.max_capture_time if target_crystal.has("max_capture_time") else 5.0
+		if capture_progress >= capture_time:
+			complete_crystal_capture()
 		
 		# Можем защищаться во время захвата
 		attack_timer += _delta
@@ -306,21 +349,21 @@ func handle_collector_behavior(_delta):
 				attack_timer = 0.0
 		return
 	
-	# Ищем ближайшую свободную территорию
-	if not target_territory:
-		find_target_territory()
+	# Ищем ближайший свободный кристалл
+	if not target_crystal:
+		find_target_crystal()
 	
-	# Двигаемся к целевой территории
-	if target_territory:
-		var territory_pos = target_territory.position
-		var distance = global_position.distance_to(territory_pos)
+	# Двигаемся к целевому кристаллу
+	if target_crystal:
+		var crystal_pos = target_crystal.position
+		var distance = global_position.distance_to(crystal_pos)
 		
-		if distance < target_territory.control_radius:
+		if distance < target_crystal.control_radius:
 			# Начинаем захват
-			start_territory_capture()
+			start_crystal_capture()
 		else:
-			# Движемся к территории
-			var dir = (territory_pos - global_position).normalized()
+			# Движемся к кристаллу
+			var dir = (crystal_pos - global_position).normalized()
 			velocity = dir * speed
 			move_and_slide()
 	else:
@@ -328,47 +371,50 @@ func handle_collector_behavior(_delta):
 		if target_pos:
 			move_towards_target()
 
-func find_target_territory():
-	if not battle_manager or not battle_manager.territory_system:
+func find_target_crystal():
+	if not battle_manager or not battle_manager.crystal_system:
 		return
 		
-	var territories = battle_manager.territory_system.get_territory_info()
-	var best_territory = null
+	var crystals = battle_manager.crystal_system.get_crystal_info()
+	var best_crystal = null
 	var closest_distance = 999999.0
 	
-	for territory in territories:
-		# Ищем нейтральные или вражеские территории
-		if territory.owner == "neutral" or territory.owner != team:
-			# Проверяем, нет ли уже коллектора на этой территории
-			if not territory.has("assigned_collector"):
-				var distance = global_position.distance_to(territory.position)
+	for crystal in crystals:
+		# Ищем нейтральные или вражеские кристаллы
+		if crystal.owner == "neutral" or crystal.owner != team:
+			# Проверяем, нет ли уже коллектора на этом кристалле
+			if not crystal.has("assigned_collector"):
+				var distance = global_position.distance_to(crystal.position)
 				if distance < closest_distance:
 					closest_distance = distance
-					best_territory = territory
+					best_crystal = crystal
 	
-	if best_territory:
-		target_territory = best_territory
-		# Помечаем территорию как занятую
-		target_territory["assigned_collector"] = self
-		print("🎯 Коллектор ", team, " нацелился на территорию ", target_territory.id)
+	if best_crystal:
+		target_crystal = best_crystal
+		# Помечаем кристалл как занятый
+		target_crystal["assigned_collector"] = self
+		var crystal_type_name = get_crystal_type_name(target_crystal.type)
+		print("🎯 Коллектор ", team, " нацелился на кристалл ", target_crystal.id, " (", crystal_type_name, ")")
 
-func start_territory_capture():
+func start_crystal_capture():
 	is_capturing = true
 	capture_progress = 0.0
 	speed = 0  # Останавливаемся для захвата
-	print("⏳ Коллектор ", team, " начал захват территории ", target_territory.id)
+	var crystal_type_name = get_crystal_type_name(target_crystal.type)
+	print("⏳ Коллектор ", team, " начал захват кристалла ", target_crystal.id, " (", crystal_type_name, ")")
 
-func complete_territory_capture():
-	if not target_territory or not battle_manager or not battle_manager.territory_system:
+func complete_crystal_capture():
+	if not target_crystal or not battle_manager or not battle_manager.crystal_system:
 		return
 		
-	# Захватываем территорию
-	battle_manager.territory_system.force_capture_territory(target_territory.id, team)
+	# Захватываем кристалл
+	battle_manager.crystal_system.force_capture_crystal(target_crystal.id, team)
 	
 	# Превращаемся в турель
 	transform_to_turret()
 	
-	print("🏰 Коллектор ", team, " захватил территорию ", target_territory.id, " и превратился в турель!")
+	var crystal_type_name = get_crystal_type_name(target_crystal.type)
+	print("🏰 Коллектор ", team, " захватил кристалл ", target_crystal.id, " (", crystal_type_name, ") и превратился в турель!")
 
 func transform_to_turret():
 	has_transformed = true
@@ -420,6 +466,7 @@ func transform_to_turret():
 	add_to_group("turrets")
 	
 	update_health_display()
+	update_3d_health_bar()  # Обновляем 3D HP бар для турели
 
 func get_current_mesh() -> MeshInstance3D:
 	# (documentation comment)
@@ -434,6 +481,98 @@ func get_current_mesh() -> MeshInstance3D:
 	elif has_node("MeshInstance3D_Capsule"):
 		return get_node("MeshInstance3D_Capsule")
 	return null
- 
- 
- 
+
+func get_crystal_type_name(crystal_type: int) -> String:
+	# Безопасное получение имени типа кристалла
+	match crystal_type:
+		0: return "MAIN_CRYSTAL"
+		1: return "ENERGY_CRYSTAL"
+		2: return "TECH_CRYSTAL"
+		3: return "BIO_CRYSTAL"
+		4: return "PSI_CRYSTAL"
+		_: return "UNKNOWN"
+
+func create_3d_health_bar():
+	# Создаем контейнер для HP бара
+	var health_container = Node3D.new()
+	health_container.name = "HealthBarContainer"
+	health_container.position = Vector3(0, 2.5, 0)  # Над юнитом
+	add_child(health_container)
+	
+	# Фон HP бара (темный)
+	var background = MeshInstance3D.new()
+	var bg_mesh = BoxMesh.new()
+	bg_mesh.size = Vector3(2.0, 0.3, 0.1)
+	background.mesh = bg_mesh
+	background.material_override = StandardMaterial3D.new()
+	background.material_override.albedo_color = Color(0.2, 0.2, 0.2, 0.8)
+	background.material_override.flags_transparent = true
+	background.name = "HealthBarBackground"
+	health_container.add_child(background)
+	
+	# HP бар (цветной)
+	var health_bar_mesh = MeshInstance3D.new()
+	var hb_mesh = BoxMesh.new()
+	hb_mesh.size = Vector3(2.0, 0.25, 0.05)
+	health_bar_mesh.mesh = hb_mesh
+	health_bar_mesh.material_override = StandardMaterial3D.new()
+	health_bar_mesh.material_override.albedo_color = Color.GREEN
+	health_bar_mesh.material_override.emission_enabled = true
+	health_bar_mesh.material_override.emission = Color.GREEN * 0.3
+	health_bar_mesh.name = "HealthBar3D"
+	health_bar_mesh.position = Vector3(0, 0, 0.03)  # Чуть впереди фона
+	health_container.add_child(health_bar_mesh)
+	
+	# Текст HP (Label3D)
+	var health_label = Label3D.new()
+	health_label.text = str(health) + "/" + str(max_health)
+	health_label.font_size = 64
+	health_label.position = Vector3(0, 0.5, 0)
+	health_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	health_label.modulate = Color.WHITE
+	health_label.outline_size = 4
+	health_label.outline_modulate = Color.BLACK
+	health_label.name = "HealthLabel3D"
+	health_container.add_child(health_label)
+
+func update_3d_health_bar():
+	var health_container = get_node_or_null("HealthBarContainer")
+	if not health_container:
+		return
+		
+	var health_bar_3d = health_container.get_node_or_null("HealthBar3D")
+	var health_label_3d = health_container.get_node_or_null("HealthLabel3D")
+	
+	if health_bar_3d and health_label_3d:
+		# Обновляем размер HP бара
+		var health_percent = float(health) / float(max_health)
+		var new_scale_x = health_percent
+		health_bar_3d.scale.x = new_scale_x
+		
+		# Сдвигаем HP бар влево при уменьшении
+		var offset_x = -(1.0 - new_scale_x) * 1.0  # 1.0 - половина ширины бара
+		health_bar_3d.position.x = offset_x
+		
+		# Меняем цвет в зависимости от здоровья
+		if health_percent > 0.7:
+			health_bar_3d.material_override.albedo_color = Color.GREEN
+			health_bar_3d.material_override.emission = Color.GREEN * 0.3
+		elif health_percent > 0.4:
+			health_bar_3d.material_override.albedo_color = Color.YELLOW
+			health_bar_3d.material_override.emission = Color.YELLOW * 0.3
+		elif health_percent > 0.2:
+			health_bar_3d.material_override.albedo_color = Color.ORANGE
+			health_bar_3d.material_override.emission = Color.ORANGE * 0.3
+		else:
+			health_bar_3d.material_override.albedo_color = Color.RED
+			health_bar_3d.material_override.emission = Color.RED * 0.3
+		
+		# Обновляем текст
+		if unit_type == "collector" and is_capturing:
+			var capture_time = target_crystal.max_capture_time if target_crystal and target_crystal.has("max_capture_time") else 5.0
+			var progress_percent = int(capture_progress * 100 / capture_time)
+			health_label_3d.text = "💎 " + str(progress_percent) + "%"
+			health_label_3d.modulate = Color.ORANGE
+		else:
+			health_label_3d.text = str(health) + "/" + str(max_health)
+			health_label_3d.modulate = Color.WHITE

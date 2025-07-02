@@ -94,12 +94,12 @@ func create_territory_visual(territory: Dictionary):
 	label.position = territory.position + Vector3(0, 3, 0)  # Выше над территорией
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.font_size = 120  # УВЕЛИЧИЛ с 96 до 120 для максимальной читаемости
-	label.modulate = Color.WHITE
+	label.modulate = Color.BLACK  # ТЕМНЫЙ ТЕКСТ для читаемости
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.name = TerritoryType.keys()[territory.type] + "_Label"
-	# ТОЛСТЫЙ контур для читаемости на любом фоне
-	label.outline_size = 15  # Увеличил с 12 до 15
-	label.outline_modulate = Color.BLACK
+	# ЯРКИЙ БЕЛЫЙ контур для контраста
+	label.outline_size = 20  # Увеличил до 20 для максимального контраста
+	label.outline_modulate = Color.WHITE
 	get_parent().add_child(label)
 
 	# ЕДИНЫЕ ЦВЕТА для одинаковых типов территорий - яркие и контрастные
@@ -239,6 +239,10 @@ func attempt_capture(territory: Dictionary, team: String):
 		
 		territory_captured.emit(territory.id, team)
 		print("🏳️ Территория ", territory.id, " захвачена командой ", team)
+		
+		# Проверяем условия победы после захвата территории
+		if battle_manager:
+			battle_manager.call_deferred("check_victory_conditions")
 
 func update_territory_visual(territory: Dictionary):
 	var mesh_index = territory.id

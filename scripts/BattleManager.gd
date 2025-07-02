@@ -44,8 +44,8 @@ var enemy_current_drones = 0
 var enemy_ai: EnemyAI = null
 var ai_difficulty: String = "normal"
 
-# Система территориального контроля
-var territory_system: TerritorySystem = null
+# Система кристаллов (заменяет территории)
+var crystal_system: CrystalSystem = null
 
 # Система технологий и способностей
 var ability_system: AbilitySystem = null
@@ -65,6 +65,9 @@ var notification_system = null
 # Система статистики
 var statistics_system = null
 
+# Система расовых способностей
+var race_ability_system = null
+
 # Менеджер систем для безопасной инициализации
 var system_manager = null
 
@@ -73,6 +76,14 @@ var camera_speed = 20.0
 var zoom_speed = 5.0
 var is_mouse_dragging = false
 var last_mouse_position = Vector2.ZERO
+
+# Система управления юнитами мышью
+var selected_units = []  # Выбранные игроком юниты
+var selection_indicator = null  # Визуальный индикатор выбора
+
+# Переменные для drag&drop строительства
+var current_drag_building_type = ""
+var is_dragging_building = false
 
 func _ready():
 	# Получаем ссылку на камеру
@@ -125,7 +136,7 @@ func init_all_systems():
 	init_system_manager()  # Сначала инициализируем менеджер систем
 	init_enemy_ai()
 	init_energy_timer()
-	init_territory_system()
+	init_crystal_system()  # Включаем обратно после исправления ошибок
 	init_ability_system()
 	init_race_system()
 	# Остальные системы уже инициализированы через SystemManager
@@ -299,12 +310,18 @@ func init_energy_timer():
 	energy_timer.timeout.connect(_on_energy_timer)
 	add_child(energy_timer)
 
-func init_territory_system():
-	# Создаем систему территорий
-	territory_system = TerritorySystem.new()
-	territory_system.battle_manager = self
-	add_child(territory_system)
-	print("🏰 Система территорий инициализирована")
+func init_crystal_system():
+	# Создаем новую кристаллическую систему
+	crystal_system = CrystalSystem.new()
+	crystal_system.battle_manager = self
+	add_child(crystal_system)
+	
+	# Подключаем сигналы
+	crystal_system.crystal_captured.connect(_on_crystal_captured)
+	crystal_system.crystal_depleted.connect(_on_crystal_depleted)
+	# Убираем подключение к удаленному сигналу crystal_regenerated
+	
+	print("💎 Кристаллическая система инициализирована")
 
 func init_ability_system():
 	# Создаем систему способностей
@@ -371,6 +388,15 @@ func init_systems_directly():
 		statistics_system.battle_manager = self
 		add_child(statistics_system)
 		print("✅ StatisticsSystem загружена")
+	
+	# RaceAbilitySystem
+	var race_ability_script = load("res://scripts/RaceAbilitySystem.gd")
+	if race_ability_script:
+		race_ability_system = race_ability_script.new()
+		race_ability_system.name = "RaceAbilitySystem"
+		race_ability_system.set_battle_manager(self)
+		add_child(race_ability_system)
+		print("✅ RaceAbilitySystem загружена")
 	
 	print("🔧 Все системы инициализированы напрямую")
 
@@ -487,21 +513,52 @@ func _on_energy_timer():
 	enemy_energy += energy_gain_per_tick
 	if battle_ui:
 		battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy)
+	
+	# Периодически проверяем условия победы (каждую секунду)
+	check_victory_conditions()
 
-# Заготовка: обработка победы/поражения
-func finish_battle(winner):
-	battle_finished.emit(winner)
-	print("Битва завершена! Победитель: ", winner)
+# НОВАЯ ЛОГИКА ПОБЕДЫ
+func check_victory_conditions():
+	if not battle_started:
+		return
+		
+	# Условие 1: Уничтожение вражеского ядра (HP = 0)
+	if enemy_base_hp <= 0:
+		finish_battle("player")
+		return
+	elif player_base_hp <= 0:
+		finish_battle("enemy")
+		return
 	
-	# Завершаем статистику битвы
-	if statistics_system:
-		statistics_system.end_battle(winner)
+	# Условие 2: Уничтожение всех зданий противника
+	var player_spawner_count = get_team_spawner_count("player")
+	var enemy_spawner_count = get_team_spawner_count("enemy")
 	
-	# Показываем уведомление о победе/поражении
-	if notification_system:
-		notification_system.show_victory(winner)
+	# Игрок побеждает если у врага нет ядра или зданий
+	if enemy_base_hp <= 0 or (enemy_spawner_count == 0 and player_spawner_count > 0):
+		finish_battle("player")
+		return
 	
-	# TODO: показать экран победы/поражения
+	# Враг побеждает если у игрока нет ядра или зданий
+	if player_base_hp <= 0 or (player_spawner_count == 0 and enemy_spawner_count > 0):
+		finish_battle("enemy")
+		return
+
+func get_team_unit_count(team: String) -> int:
+	var count = 0
+	var units = get_tree().get_nodes_in_group("units")
+	for unit in units:
+		if unit.team == team:
+			count += 1
+	return count
+
+func get_team_spawner_count(team: String) -> int:
+	var count = 0
+	var all_spawners = get_tree().get_nodes_in_group("spawners")
+	for spawner in all_spawners:
+		if spawner.team == team:
+			count += 1
+	return count
 
 # Спавн юнита на линии
 func spawn_unit(team, lane_idx):
@@ -519,15 +576,40 @@ func spawn_unit(team, lane_idx):
 	unit.battle_manager = self
 	get_parent().add_child(unit)
 
+# ВОССТАНАВЛИВАЕМ ЛОГИКУ АТАКИ ЯДРА
 func unit_reached_base(unit):
+	# Юниты наносят урон вражескому ядру при достижении
 	if unit.team == "player":
 		enemy_base_hp -= unit.damage
+		print("💥 ", unit.unit_type, " атакует вражеское ядро! Урон: ", unit.damage, " HP ядра: ", enemy_base_hp)
 		if enemy_base_hp <= 0:
-			finish_battle("player")
+			print("🏆 Вражеское ядро уничтожено!")
 	elif unit.team == "enemy":
 		player_base_hp -= unit.damage
+		print("💥 Вражеский ", unit.unit_type, " атакует ваше ядро! Урон: ", unit.damage, " HP ядра: ", player_base_hp)
 		if player_base_hp <= 0:
-			finish_battle("enemy")
+			print("💀 Ваше ядро уничтожено!")
+	
+	# Обновляем UI
+	update_ui()
+	
+	# Проверяем условия победы после атаки ядра
+	call_deferred("check_victory_conditions")
+
+# Обработка победы/поражения
+func finish_battle(winner):
+	battle_finished.emit(winner)
+	print("Битва завершена! Победитель: ", winner)
+	
+	# Завершаем статистику битвы
+	if statistics_system:
+		statistics_system.end_battle(winner)
+	
+	# Показываем уведомление о победе/поражении
+	if notification_system:
+		notification_system.show_victory(winner)
+	
+	# TODO: показать экран победы/поражения
 
 # TODO: добавить обработку UI, победы, расширение логики по мере развития 
 
@@ -576,33 +658,40 @@ func _unhandled_input(event):
 					player_energy -= 30
 					update_ui()
 	
-	# Правый клик для способностей
+	# Правый клик для расовых способностей
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-		if battle_started and ability_system:
+		if battle_started and race_ability_system:
 			var pos = get_mouse_map_position(event.position)
-			# Используем огненный шар как базовую способность
-			if ability_system.can_use_ability("player", "fireball"):
-				ability_system.use_ability("player", "fireball", pos)
+			# Используем ЭМИ-импульс как базовую способность нежити
+			if race_ability_system.can_use_ability("player", "emp_pulse"):
+				race_ability_system.use_ability("player", "emp_pulse", pos)
 				update_ui()
 			else:
-				print("❌ Нельзя использовать Fireball")
+				print("❌ Нельзя использовать ЭМИ-импульс")
 
 func get_mouse_map_position(screen_pos):
 	var camera_to_use = battle_camera if battle_camera else get_viewport().get_camera_3d()
 	if not camera_to_use:
 		print("❌ Камера недоступна!")
 		return Vector3.ZERO
-		
+	
+	# Получаем луч от камеры через позицию мыши
 	var from = camera_to_use.project_ray_origin(screen_pos)
-	var to = from + camera_to_use.project_ray_normal(screen_pos) * 1000
-	var space_state = get_viewport().get_world_3d().direct_space_state
-	var query = PhysicsRayQueryParameters3D.new()
-	query.from = from
-	query.to = to
-	var result = space_state.intersect_ray(query)
-	if result and result.has("position"):
-		return result.position
-	return Vector3.ZERO
+	var direction = camera_to_use.project_ray_normal(screen_pos)
+	
+	# Пересечение луча с плоскостью y = 0 (поле боя)
+	var plane_y = 0.0
+	if direction.y == 0:
+		return Vector3.ZERO  # Луч параллелен плоскости
+	
+	var t = (plane_y - from.y) / direction.y
+	if t < 0:
+		return Vector3.ZERO  # Пересечение позади камеры
+	
+	var intersection = from + direction * t
+	
+	print("🎯 Экранная позиция: ", screen_pos, " → 3D позиция: ", intersection)
+	return intersection
 
 func get_mouse_world_position() -> Vector3:
 	var mouse_pos = get_viewport().get_mouse_position()
@@ -617,42 +706,71 @@ func is_valid_build_position(pos: Vector3) -> bool:
 		return false
 	if pos.z > map_height/2 or pos.z < 0:
 		return false
-	var spawners = get_tree().get_nodes_in_group("spawners")
-	for s in spawners:
+	var all_spawners = get_tree().get_nodes_in_group("spawners")
+	for s in all_spawners:
 		if s.global_position.distance_to(pos) < 1.5:
 			return false
 	return true
 
 func is_valid_enemy_build_position(pos: Vector3) -> bool:
-	var map_width = 40.0
-	var map_height = 60.0
-	if pos.z > 0:  # Враг строит только на верхней половине (отрицательные Z)
+	# Проверяет, можно ли строить в данной позиции для врага
+	# Враг может строить только в верхней половине карты (z < 0)
+	if pos.z > -5.0:
 		return false
-	if pos.x < -map_width/2 or pos.x > map_width/2:
-		return false
-	if pos.z > 0 or pos.z < -map_height/2:
-		return false
+	
+	# Проверяем расстояние до других зданий
+	var min_distance = 3.0
 	var spawners = get_tree().get_nodes_in_group("spawners")
-	for s in spawners:
-		if s.global_position.distance_to(pos) < 2.0:
+	for spawner in spawners:
+		if spawner.global_position.distance_to(pos) < min_distance:
 			return false
+	
 	return true
 
 # Drag&drop: спавн юнита
 func _on_spawn_unit_drag(unit_type, screen_pos):
+	print("🎮 === DRAG & DROP ЮНИТА ===")
+	print("1. Тип юнита: ", unit_type)
+	print("2. Позиция экрана: ", screen_pos)
+	print("3. Битва началась: ", battle_started)
+	
 	if not battle_started:
 		print("❌ Битва не началась!")
 		return
+	
+	# Специальная обработка для коллекторов - автоматическое размещение
+	if unit_type == "collector":
+		print("🏃 Коллектор: автоматическое размещение на игровой половине")
+		var spawn_pos = Vector3(randf_range(-4.0, 4.0), 0, randf_range(8.0, 18.0))
 		
+		var energy_cost = get_unit_cost(unit_type)
+		var crystal_cost = get_unit_crystal_cost(unit_type)
+		
+		if player_energy >= energy_cost and player_crystals >= crystal_cost:
+			spawn_unit_at_pos("player", spawn_pos, unit_type)
+			print("✅ Коллектор автоматически создан на позиции ", spawn_pos)
+			update_ui()
+		else:
+			print("❌ Недостаточно ресурсов для коллектора (нужно: ", energy_cost, " энергии, ", crystal_cost, " кристаллов)")
+		return
+	
+	# Обычная обработка для других юнитов (если понадобится в будущем)
 	var energy_cost = get_unit_cost(unit_type)
 	var crystal_cost = get_unit_crystal_cost(unit_type)
+	
+	print("4. Стоимость: ", energy_cost, " энергии, ", crystal_cost, " кристаллов")
+	print("5. Ресурсы игрока: ", player_energy, " энергии, ", player_crystals, " кристаллов")
 	
 	if player_energy < energy_cost or player_crystals < crystal_cost:
 		print("❌ Недостаточно ресурсов для ", unit_type, " (нужно: ", energy_cost, " энергии, ", crystal_cost, " кристаллов)")
 		return
 		
 	var pos = get_mouse_map_position(screen_pos)
-	print("🎯 Drag&Drop ", unit_type, " на позицию: ", pos)
+	print("6. 3D позиция на карте: ", pos)
+	
+	if pos == Vector3.ZERO:
+		print("❌ Не удалось определить позицию на карте!")
+		return
 	
 	if is_valid_unit_position(pos):
 		spawn_unit_at_pos("player", pos, unit_type)
@@ -660,16 +778,78 @@ func _on_spawn_unit_drag(unit_type, screen_pos):
 		update_ui()
 	else:
 		print("❌ Нельзя разместить ", unit_type, " в позиции ", pos)
+		print("   Причина: позиция вне игровой зоны или слишком близко к зданию")
 
-# Drag&drop: строительство здания
+# Drag&drop: строительство здания (определяем тип по drag_type из UI)
 func _on_build_structure_drag(screen_pos):
-	if not battle_started or player_energy < 60:
+	print("🏗️ === DRAG & DROP ЗДАНИЯ ===")
+	print("1. Позиция экрана: ", screen_pos)
+	print("2. Битва началась: ", battle_started)
+	
+	if not battle_started:
+		print("❌ Битва не началась!")
 		return
+	
+	# Определяем тип здания по drag_type из BattleUI
+	var building_type = "tower"  # По умолчанию башня
+	var building_cost = 60
+	var crystal_cost = 0
+	
+	# Получаем тип здания из UI (нужно будет передать из BattleUI)
+	if battle_ui and battle_ui.drag_type:
+		match battle_ui.drag_type:
+			"barracks":
+				building_type = "barracks"
+				building_cost = 80
+			"training_camp":
+				building_type = "training_camp"
+				building_cost = 120
+				crystal_cost = 20
+			"magic_academy":
+				building_type = "magic_academy"
+				building_cost = 100
+				crystal_cost = 30
+			"collector_facility":
+				building_type = "collector_facility"
+				building_cost = 90
+				crystal_cost = 15
+			"mech_factory":
+				building_type = "mech_factory"
+				building_cost = 150
+				crystal_cost = 25
+			"drone_factory":
+				building_type = "drone_factory"
+				building_cost = 130
+				crystal_cost = 20
+			_:
+				building_type = "tower"
+				building_cost = 60
+	
+	print("3. Тип здания: ", building_type)
+	print("4. Стоимость: ", building_cost, " энергии, ", crystal_cost, " кристаллов")
+	print("5. У игрока: ", player_energy, " энергии, ", player_crystals, " кристаллов")
+	
+	if player_energy < building_cost or player_crystals < crystal_cost:
+		print("❌ Недостаточно ресурсов для постройки ", building_type, "!")
+		return
+		
 	var pos = get_mouse_map_position(screen_pos)
+	print("6. 3D позиция на карте: ", pos)
+	
+	if pos == Vector3.ZERO:
+		print("❌ Не удалось определить позицию на карте!")
+		return
+		
 	if is_valid_build_position(pos):
-		place_spawner("player", "tower", pos)
-		player_energy -= 60
+		print("✅ Позиция валидна, строим ", building_type, "...")
+		place_spawner("player", building_type, pos)
+		player_energy -= building_cost
+		player_crystals -= crystal_cost
 		update_ui()
+		print("✅ ", building_type, " построено успешно!")
+	else:
+		print("❌ Нельзя построить ", building_type, " в позиции ", pos)
+		print("   Причина: вне игровой зоны или слишком близко к другому зданию")
 
 func is_valid_unit_position(pos: Vector3) -> bool:
 	var map_width = 40.0
@@ -680,8 +860,8 @@ func is_valid_unit_position(pos: Vector3) -> bool:
 		return false
 	if pos.z > map_height/2 or pos.z < 0:
 		return false
-	var spawners = get_tree().get_nodes_in_group("spawners")
-	for s in spawners:
+	var all_spawners = get_tree().get_nodes_in_group("spawners")
+	for s in all_spawners:
 		if s.global_position.distance_to(pos) < 2.5:
 			return false
 	return true
@@ -700,12 +880,13 @@ func spawn_unit_at_pos(team, pos, unit_type="soldier"):
 	unit.team = team
 	unit.unit_type = unit_type
 	unit.global_position = pos
+	# ПРАВИЛЬНАЯ ЛОГИКА: Юниты идут к вражескому ядру
 	if team == "player":
-		unit.target_pos = Vector3(0, 0, -20)  # Игрок атакует вверх (к врагу)
+		unit.target_pos = Vector3(0, 0, -25)  # Игрок атакует вражеское ядро (север)
 		player_energy -= energy_cost
 		player_crystals -= crystal_cost
 	else:
-		unit.target_pos = Vector3(0, 0, 20)   # Враг атакует вниз (к игроку)
+		unit.target_pos = Vector3(0, 0, 25)   # Враг атакует ядро игрока (юг)
 		enemy_energy -= energy_cost
 		enemy_crystals -= crystal_cost
 	unit.battle_manager = self
@@ -731,6 +912,9 @@ func spawn_unit_at_pos(team, pos, unit_type="soldier"):
 	print("🎯 Цель юнита: ", unit.target_pos)
 	var units_in_group = get_tree().get_nodes_in_group("units")
 	print("📊 Всего юнитов в группе: ", units_in_group.size())
+	
+	# Проверяем условия победы после создания юнита
+	call_deferred("check_victory_conditions")
 
 # Добавляю функцию update_ui, если её нет
 func update_ui():
@@ -750,9 +934,25 @@ func place_spawner(team: String, spawner_type: String, position: Vector3):
 	spawner.name = team.capitalize() + spawner_type.capitalize() + str(randi())
 	spawner.add_to_group("spawners")
 	
-	# Специальная настройка для collector_facility
-	if spawner_type == "collector_facility":
-		spawner.unit_type = "collector"
+	# Специальная настройка для разных типов зданий
+	match spawner_type:
+		"collector_facility":
+			spawner.unit_type = "collector"
+		"barracks":
+			spawner.unit_type = "soldier"
+		"training_camp":
+			spawner.unit_type = "elite_soldier"
+		"magic_academy":
+			spawner.unit_type = "crystal_mage"
+		"mech_factory":
+			spawner.unit_type = "battle_robot"  # Новый тип юнита
+		"drone_factory":
+			spawner.unit_type = "attack_drone"  # Новый тип юнита
+		"tower":
+			spawner.unit_type = "tower"  # Башня не производит юнитов
+	
+	# Устанавливаем цвет здания
+	set_building_visual(spawner, spawner_type, team)
 	
 	# Звук постройки здания
 	if audio_system:
@@ -768,214 +968,68 @@ func place_spawner(team: String, spawner_type: String, position: Vector3):
 	
 	print("Построен спавнер: ", team, " ", spawner_type, " в позиции ", position)
 
-func init_enemy_ai():
-	# Создаем продвинутый AI
-	enemy_ai = EnemyAI.new(self, ai_difficulty)
-	add_child(enemy_ai)
+func set_building_visual(spawner, spawner_type: String, team: String):
+	# Устанавливаем визуальный стиль зданий
+	var mesh_node = spawner.get_node_or_null("MeshInstance3D")
+	if not mesh_node:
+		mesh_node = MeshInstance3D.new()
+		spawner.add_child(mesh_node)
 	
-	# Таймер для принятия решений AI
-	enemy_decision_timer = Timer.new()
-	enemy_decision_timer.wait_time = 2.0  # Решение каждые 2 секунды
-	enemy_decision_timer.autostart = false  # Запускаем только после старта боя
-	enemy_decision_timer.timeout.connect(_on_enemy_ai_decision)
-	add_child(enemy_decision_timer)
+	# Создаем разные формы для разных зданий
+	match spawner_type:
+		"barracks":
+			var box_mesh = BoxMesh.new()
+			box_mesh.size = Vector3(2, 1.5, 2)
+			mesh_node.mesh = box_mesh
+		"tower":
+			var cylinder_mesh = CylinderMesh.new()
+			cylinder_mesh.height = 3
+			cylinder_mesh.top_radius = 0.5
+			cylinder_mesh.bottom_radius = 0.8
+			mesh_node.mesh = cylinder_mesh
+		"training_camp":
+			var box_mesh = BoxMesh.new()
+			box_mesh.size = Vector3(2.5, 1.2, 2.5)
+			mesh_node.mesh = box_mesh
+		"magic_academy":
+			var sphere_mesh = SphereMesh.new()
+			sphere_mesh.radius = 1.2
+			mesh_node.mesh = sphere_mesh
+		"mech_factory":
+			var box_mesh = BoxMesh.new()
+			box_mesh.size = Vector3(3, 2, 2)
+			mesh_node.mesh = box_mesh
+		"drone_factory":
+			var cylinder_mesh = CylinderMesh.new()
+			cylinder_mesh.height = 2.5
+			cylinder_mesh.top_radius = 1.5
+			cylinder_mesh.bottom_radius = 1.2
+			mesh_node.mesh = cylinder_mesh
+		_:
+			var box_mesh = BoxMesh.new()
+			box_mesh.size = Vector3(1.5, 1.5, 1.5)
+			mesh_node.mesh = box_mesh
 	
-	# Таймер для спавна юнитов врага
-	enemy_ai_timer = Timer.new()
-	enemy_ai_timer.wait_time = 4.0  # Спавн каждые 4 секунды
-	enemy_ai_timer.autostart = false  # Запускаем только после старта боя
-	enemy_ai_timer.timeout.connect(_on_enemy_ai_spawn)
-	add_child(enemy_ai_timer)
+	# Устанавливаем цвет по команде и типу здания
+	var material = StandardMaterial3D.new()
+	if team == "player":
+		material.albedo_color = get_building_color(spawner_type, Color.BLUE)
+	else:
+		material.albedo_color = get_building_color(spawner_type, Color.RED)
+	
+	material.emission_enabled = true
+	material.emission = material.albedo_color * 0.3
+	mesh_node.material_override = material
 
-func _on_enemy_ai_decision():
-	if not battle_started or not enemy_ai:
-		return
-	
-	print("AI врага принимает стратегическое решение...")
-	
-	# Подсчитываем текущих юнитов врага для совместимости
-	count_enemy_units()
-	
-	# Используем продвинутый AI для принятия решений
-	var decision = enemy_ai.make_decision(enemy_decision_timer.wait_time)
-	execute_advanced_ai_decision(decision)
-
-func count_enemy_units():
-	enemy_current_soldiers = 0
-	enemy_current_tanks = 0
-	enemy_current_drones = 0
-	
-	var units = get_tree().get_nodes_in_group("units")
-	for unit in units:
-		if unit.team == "enemy":
-			match unit.unit_type:
-				"soldier":
-					enemy_current_soldiers += 1
-				"tank":
-					enemy_current_tanks += 1
-				"drone":
-					enemy_current_drones += 1
-	
-	print("Вражеские юниты: солдаты=", enemy_current_soldiers, 
-		  ", танки=", enemy_current_tanks, 
-		  ", дроны=", enemy_current_drones)
-
-func make_enemy_decision() -> Dictionary:
-	var decision = {
-		"action": "none",
-		"unit_type": "",
-		"position": Vector3.ZERO
-	}
-	
-	# Анализируем ситуацию на поле боя
-	var _player_units = get_player_unit_count()  # Для будущего использования
-	var enemy_spawners_count = get_enemy_spawner_count()
-	
-	# Если мало солдат - создаем солдат
-	if enemy_current_soldiers < enemy_max_soldiers and enemy_energy >= get_unit_cost("soldier"):
-		decision.action = "spawn"
-		decision.unit_type = "soldier"
-		return decision
-	
-	# Если есть солдаты, но мало танков - создаем танк
-	if enemy_current_soldiers > 0 and enemy_current_tanks < enemy_max_tanks and enemy_energy >= get_unit_cost("tank"):
-		decision.action = "spawn"
-		decision.unit_type = "tank"
-		return decision
-	
-	# Если есть танки, но мало дронов - создаем дрон
-	if enemy_current_tanks > 0 and enemy_current_drones < enemy_max_drones and enemy_energy >= get_unit_cost("drone"):
-		decision.action = "spawn"
-		decision.unit_type = "drone"
-		return decision
-	
-	# Если много ресурсов и мало спавнеров - строим спавнер
-	if enemy_energy >= get_structure_cost("spawner") and enemy_spawners_count < 3:
-		decision.action = "build"
-		decision.unit_type = "spawner"
-		return decision
-	
-	# Если очень много ресурсов - строим башню
-	if enemy_energy >= get_structure_cost("tower"):
-		decision.action = "build"
-		decision.unit_type = "tower"
-		return decision
-	
-	return decision
-
-func get_player_unit_count() -> int:
-	var count = 0
-	var units = get_tree().get_nodes_in_group("units")
-	for unit in units:
-		if unit.team == "player":
-			count += 1
-	return count
-
-func get_enemy_spawner_count() -> int:
-	var count = 0
-	var spawners = get_tree().get_nodes_in_group("spawners")
-	for spawner in spawners:
-		if spawner.team == "enemy":
-			count += 1
-	return count
-
-func execute_enemy_decision(decision: Dictionary):
-	match decision.action:
-		"spawn":
-			spawn_enemy_unit(decision.unit_type)
-		"build":
-			build_enemy_structure(decision.unit_type)
-		"none":
-			print("AI врага: нет действий")
-
-func execute_advanced_ai_decision(decision: Dictionary):
-	match decision.action:
-		"spawn":
-			spawn_enemy_unit_at_position(decision.unit_type, decision.position)
-		"build":
-			build_enemy_structure_at_position(decision.structure_type, decision.position)
-		"ability":
-			if ability_system and ability_system.can_use_ability("enemy", decision.ability_type):
-				ability_system.use_ability("enemy", decision.ability_type, decision.position)
-				update_ui()
-				print("🤖 AI использует способность: ", decision.ability_type)
-		"none":
-			print("AI врага: нет стратегических действий (приоритет: ", decision.priority, ")")
-	
-	# Дополнительная логика AI для коллекторов
-	ai_consider_collector_strategy()
-
-func spawn_enemy_unit(unit_type: String):
-	var cost = get_unit_cost(unit_type)
-	if enemy_energy < cost:
-		print("AI врага: недостаточно энергии для ", unit_type)
-		return
-	
-	# Выбираем случайную позицию на вражеской стороне
-	var spawn_pos = get_random_enemy_spawn_position()
-	
-	spawn_unit_at_pos("enemy", spawn_pos, unit_type)
-	enemy_energy -= cost
-	
-	print("AI врага создал ", unit_type, " за ", cost, " энергии")
-	
-	if battle_ui:
-		battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy)
-
-func build_enemy_structure(structure_type: String):
-	var cost = get_structure_cost(structure_type)
-	if enemy_energy < cost:
-		print("AI врага: недостаточно энергии для постройки ", structure_type)
-		return
-	
-	# Выбираем позицию для постройки на вражеской стороне
-	var build_pos = get_random_enemy_build_position()
-	
-	# Проверяем, можно ли строить в этой позиции
-	if not is_valid_enemy_build_position(build_pos):
-		print("AI врага: не может построить в позиции ", build_pos)
-		return
-	
-	place_spawner("enemy", structure_type, build_pos)
-	enemy_energy -= cost
-	
-	print("AI врага построил ", structure_type, " за ", cost, " энергии")
-	
-	if battle_ui:
-		battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy)
-
-func spawn_enemy_unit_at_position(unit_type: String, position: Vector3):
-	var cost = get_unit_cost(unit_type)
-	if enemy_energy < cost:
-		print("AI врага: недостаточно энергии для ", unit_type)
-		return
-	
-	spawn_unit_at_pos("enemy", position, unit_type)
-	enemy_energy -= cost
-	
-	print("AI врага создал ", unit_type, " в позиции ", position, " за ", cost, " энергии")
-	
-	if battle_ui:
-		battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy)
-
-func build_enemy_structure_at_position(structure_type: String, position: Vector3):
-	var cost = get_structure_cost(structure_type)
-	if enemy_energy < cost:
-		print("AI врага: недостаточно энергии для постройки ", structure_type)
-		return
-	
-	# Проверяем, можно ли строить в этой позиции
-	if not is_valid_enemy_build_position(position):
-		print("AI врага: не может построить ", structure_type, " в позиции ", position)
-		return
-	
-	place_spawner("enemy", structure_type, position)
-	enemy_energy -= cost
-	
-	print("AI врага построил ", structure_type, " в позиции ", position, " за ", cost, " энергии")
-	
-	if battle_ui:
-		battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy)
+func get_building_color(building_type: String, base_color: Color) -> Color:
+	match building_type:
+		"barracks": return base_color.lerp(Color.CYAN, 0.5)
+		"tower": return base_color.lerp(Color.ORANGE, 0.5)
+		"training_camp": return base_color.lerp(Color.GOLD, 0.5)
+		"magic_academy": return base_color.lerp(Color.MAGENTA, 0.5)
+		"mech_factory": return base_color.lerp(Color.STEEL_BLUE, 0.5)
+		"drone_factory": return base_color.lerp(Color.LIGHT_BLUE, 0.5)
+		_: return base_color
 
 func get_unit_cost(unit_type: String) -> int:
 	match unit_type:
@@ -1019,6 +1073,14 @@ func get_structure_cost(structure_type: String) -> int:
 			return 80
 		"collector_facility":
 			return 50  # Средняя стоимость для комплекса коллекторов
+		"training_camp":
+			return 120
+		"magic_academy":
+			return 100
+		"mech_factory":
+			return 150  # Новое здание для роботов
+		"drone_factory":
+			return 130  # Новое здание для дронов
 		"orbital_drop":
 			return 100
 		"energy_generator":
@@ -1029,6 +1091,21 @@ func get_structure_cost(structure_type: String) -> int:
 			return 120
 		_:
 			return 60
+
+func get_structure_crystal_cost(structure_type: String) -> int:
+	match structure_type:
+		"training_camp":
+			return 20
+		"magic_academy":
+			return 30
+		"mech_factory":
+			return 25  # Кристаллы для мех завода
+		"drone_factory":
+			return 20  # Кристаллы для дрон фабрики
+		"collector_facility":
+			return 15
+		_:
+			return 0
 
 func get_random_enemy_spawn_position() -> Vector3:
 	# Случайная позиция на вражеской стороне (z < 0, вверху экрана)
@@ -1096,8 +1173,8 @@ func _on_spawn_crystal_mage():
 
 func _on_use_ability(ability_name: String, position: Vector3):
 	print("Кнопка способности ", ability_name, " нажата!")
-	if battle_started and ability_system and ability_system.can_use_ability("player", ability_name):
-		ability_system.use_ability("player", ability_name, position)
+	if battle_started and race_ability_system and race_ability_system.can_use_ability("player", ability_name):
+		race_ability_system.use_ability("player", ability_name, position)
 		update_ui()
 	else:
 		print("❌ Нельзя использовать ", ability_name)
@@ -1176,18 +1253,291 @@ func _on_spawn_collector():
 func ai_consider_collector_strategy():
 	# Дополнительная стратегия AI для использования коллекторов
 	if enemy_energy >= get_unit_cost("collector") and enemy_crystals >= get_unit_crystal_cost("collector"):
-		# Проверяем доступные территории
-		if territory_system:
-			var available_territories = territory_system.get_available_territories_for_team("enemy")
-			if available_territories.size() > 0:
-				# 30% шанс создать коллектора если есть свободные территории
+		# Проверяем доступные кристаллы
+		if crystal_system:
+			var available_crystals = crystal_system.get_crystal_info()
+			var neutral_crystals = 0
+			for crystal in available_crystals:
+				if crystal.owner == "neutral" or crystal.owner != "enemy":
+					neutral_crystals += 1
+			
+			if neutral_crystals > 0:
+				# 30% шанс создать коллектора если есть свободные кристаллы
 				if randf() < 0.3:
 					var spawn_pos = get_random_enemy_spawn_position()
 					spawn_unit_at_pos("enemy", spawn_pos, "collector")
 					enemy_energy -= get_unit_cost("collector")
 					enemy_crystals -= get_unit_crystal_cost("collector")
-					print("🤖 AI создал коллектора для захвата территорий")
+					print("🤖 AI создал коллектора для захвата кристаллов")
 					update_ui()
- 
- 
- 
+
+func _on_crystal_captured(crystal_id: int, new_owner: String, crystal_type):
+	print("💎 Кристалл ", crystal_id, " захвачен командой ", new_owner)
+	
+	# Показываем уведомление
+	if notification_system:
+		var type_name = get_crystal_type_name(crystal_type)
+		notification_system.show_notification("Кристалл " + type_name + " захвачен!")
+	
+	# Проверяем условия победы
+	call_deferred("check_victory_conditions")
+
+func _on_crystal_depleted(crystal_id: int):
+	print("💎 Кристалл ", crystal_id, " истощен")
+	if notification_system:
+		notification_system.show_notification("Кристалл истощен!")
+
+# Убираем функцию _on_crystal_regenerated так как сигнал удален
+
+# Обновляем методы для работы с кристаллами
+func get_controlled_crystals(team: String) -> int:
+	if crystal_system:
+		return crystal_system.get_controlled_crystals(team)
+	return 0
+
+func get_crystal_type_name(crystal_type: int) -> String:
+	# Безопасное получение имени типа кристалла
+	match crystal_type:
+		0: return "MAIN_CRYSTAL"
+		1: return "ENERGY_CRYSTAL"
+		2: return "TECH_CRYSTAL"
+		3: return "BIO_CRYSTAL"
+		4: return "PSI_CRYSTAL"
+		_: return "UNKNOWN"
+
+# СИСТЕМА УПРАВЛЕНИЯ ЮНИТАМИ МЫШЬЮ
+func handle_left_click_selection(screen_pos: Vector2):
+	# ЛКМ - выбор юнитов игрока
+	if not battle_started:
+		return
+	
+	var world_pos = screen_to_world_position(screen_pos)
+	if not world_pos:
+		return
+	
+	# Ищем ближайший юнит игрока
+	var closest_unit = find_closest_player_unit(world_pos)
+	
+	if closest_unit:
+		# Выбираем юнит
+		select_unit(closest_unit)
+		print("🎯 Выбран юнит: ", closest_unit.unit_type, " в позиции ", closest_unit.global_position)
+	else:
+		# Снимаем выбор
+		clear_selection()
+		print("❌ Выбор снят")
+
+func handle_right_click_command(screen_pos: Vector2):
+	# ПКМ - команда выбранным юнитам
+	if not battle_started or selected_units.is_empty():
+		return
+	
+	var world_pos = screen_to_world_position(screen_pos)
+	if not world_pos:
+		return
+	
+	# Командуем всем выбранным юнитам
+	for unit in selected_units:
+		if is_instance_valid(unit):
+			command_unit_to_position(unit, world_pos)
+	
+	print("📍 Команда ", selected_units.size(), " юнитам: двигаться к ", world_pos)
+	
+	# Создаем визуальный эффект команды
+	create_command_indicator(world_pos)
+
+func screen_to_world_position(screen_pos: Vector2) -> Vector3:
+	# Преобразуем экранные координаты в мировые
+	if not battle_camera:
+		return Vector3.ZERO
+	
+	# Используем raycast от камеры через экранную позицию
+	var ray_origin = battle_camera.project_ray_origin(screen_pos)
+	var ray_direction = battle_camera.project_ray_normal(screen_pos)
+	
+	# Пересечение луча с плоскостью y=0 (поверхность поля)
+	var plane_y = 0.0
+	var t = (plane_y - ray_origin.y) / ray_direction.y
+	
+	if t > 0:
+		var intersection = ray_origin + ray_direction * t
+		return intersection
+	
+	return Vector3.ZERO
+
+func find_closest_player_unit(world_pos: Vector3) -> Unit:
+	var closest_unit = null
+	var closest_distance = 3.0  # Максимальное расстояние для выбора
+	
+	var units = get_tree().get_nodes_in_group("units")
+	for unit in units:
+		if unit.team == "player":
+			var distance = unit.global_position.distance_to(world_pos)
+			if distance < closest_distance:
+				closest_distance = distance
+				closest_unit = unit
+	
+	return closest_unit
+
+func select_unit(unit: Unit):
+	# Снимаем предыдущий выбор
+	clear_selection()
+	
+	# Выбираем новый юнит
+	selected_units.append(unit)
+	
+	# Создаем визуальный индикатор выбора
+	create_selection_indicator(unit)
+
+func clear_selection():
+	selected_units.clear()
+	
+	# Удаляем визуальные индикаторы
+	if selection_indicator:
+		selection_indicator.queue_free()
+		selection_indicator = null
+
+func create_selection_indicator(unit: Unit):
+	# Создаем визуальный индикатор выбранного юнита
+	selection_indicator = MeshInstance3D.new()
+	var ring_mesh = TorusMesh.new()
+	ring_mesh.inner_radius = 0.8
+	ring_mesh.outer_radius = 1.2
+	selection_indicator.mesh = ring_mesh
+	selection_indicator.position = Vector3(0, 0.1, 0)
+	
+	# Материал с зеленым свечением
+	var material = StandardMaterial3D.new()
+	material.albedo_color = Color.GREEN
+	material.emission_enabled = true
+	material.emission = Color.GREEN * 0.5
+	material.flags_transparent = true
+	material.flags_unshaded = true
+	selection_indicator.material_override = material
+	
+	# Добавляем к юниту
+	unit.add_child(selection_indicator)
+	
+	# Анимация вращения
+	var tween = create_tween()
+	tween.set_loops()
+	tween.tween_method(func(angle): selection_indicator.rotation.y = angle, 0.0, TAU, 2.0)
+
+func command_unit_to_position(unit: Unit, target_pos: Vector3):
+	# Командуем юниту двигаться к позиции
+	if not is_instance_valid(unit):
+		return
+	
+	# Устанавливаем новую цель
+	unit.target_pos = target_pos
+	unit.target = null  # Сбрасываем текущую цель атаки
+	
+	print("🚶 Юнит ", unit.unit_type, " получил команду двигаться к ", target_pos)
+
+func create_command_indicator(world_pos: Vector3):
+	# Создаем визуальный эффект команды
+	var indicator = MeshInstance3D.new()
+	var sphere_mesh = SphereMesh.new()
+	sphere_mesh.radius = 0.3
+	indicator.mesh = sphere_mesh
+	indicator.position = world_pos + Vector3(0, 0.2, 0)
+	
+	# Материал с синим свечением
+	var material = StandardMaterial3D.new()
+	material.albedo_color = Color.CYAN
+	material.emission_enabled = true
+	material.emission = Color.CYAN * 0.8
+	material.flags_transparent = true
+	indicator.material_override = material
+	
+	add_child(indicator)
+	
+	# Анимация исчезновения
+	var tween = create_tween()
+	tween.parallel().tween_property(indicator, "scale", Vector3.ZERO, 1.0)
+	tween.parallel().tween_property(indicator, "modulate", Color.TRANSPARENT, 1.0)
+	tween.tween_callback(indicator.queue_free)
+
+func init_enemy_ai():
+	# Инициализация AI врага
+	print("🤖 Инициализация AI врага...")
+	
+	# Таймер для принятия решений AI
+	enemy_decision_timer = Timer.new()
+	enemy_decision_timer.wait_time = 3.0  # AI принимает решения каждые 3 секунды
+	enemy_decision_timer.autostart = false  # Запускается только после начала битвы
+	enemy_decision_timer.timeout.connect(_on_enemy_ai_decision)
+	add_child(enemy_decision_timer)
+	
+	# Таймер для автоматического спавна врагов
+	enemy_ai_timer = Timer.new()
+	enemy_ai_timer.wait_time = 5.0  # Спавн каждые 5 секунд
+	enemy_ai_timer.autostart = false  # Запускается только после начала битвы
+	enemy_ai_timer.timeout.connect(_on_enemy_ai_spawn)
+	add_child(enemy_ai_timer)
+	
+	print("✅ AI врага инициализирован")
+
+func _on_enemy_ai_decision():
+	# AI принимает решения о стратегии
+	if not battle_started:
+		return
+	
+	print("🤖 AI принимает решение...")
+	
+	# Простая логика AI
+	var player_unit_count = get_team_unit_count("player")
+	var enemy_unit_count = get_team_unit_count("enemy")
+	
+	# Если у игрока больше юнитов, AI строит защиту
+	if player_unit_count > enemy_unit_count + 1:
+		ai_consider_defense()
+	else:
+		ai_consider_attack()
+	
+	# AI также рассматривает использование коллекторов
+	ai_consider_collector_strategy()
+
+func ai_consider_defense():
+	# AI рассматривает оборонительную стратегию
+	if enemy_energy >= get_structure_cost("tower"):
+		var build_pos = get_random_enemy_build_position()
+		if is_valid_enemy_build_position(build_pos):
+			place_spawner("enemy", "tower", build_pos)
+			enemy_energy -= get_structure_cost("tower")
+			print("🤖 AI построил оборонительную башню")
+			update_ui()
+
+func ai_consider_attack():
+	# AI рассматривает атакующую стратегию
+	if enemy_energy >= get_unit_cost("soldier"):
+		spawn_enemy_unit("soldier")
+		print("🤖 AI создал солдата для атаки")
+	elif enemy_energy >= get_structure_cost("barracks"):
+		var build_pos = get_random_enemy_build_position()
+		if is_valid_enemy_build_position(build_pos):
+			place_spawner("enemy", "barracks", build_pos)
+			enemy_energy -= get_structure_cost("barracks")
+			print("🤖 AI построил казармы")
+			update_ui()
+
+func spawn_enemy_unit(unit_type: String):
+	# Спавн вражеского юнита
+	if not battle_started:
+		return
+	
+	var energy_cost = get_unit_cost(unit_type)
+	var crystal_cost = get_unit_crystal_cost(unit_type)
+	
+	if enemy_energy < energy_cost or enemy_crystals < crystal_cost:
+		print("🤖 AI: недостаточно ресурсов для ", unit_type)
+		return
+	
+	var spawn_pos = get_random_enemy_spawn_position()
+	spawn_unit_at_pos("enemy", spawn_pos, unit_type)
+	
+	enemy_energy -= energy_cost
+	enemy_crystals -= crystal_cost
+	
+	print("🤖 AI создал ", unit_type, " за ", energy_cost, "⚡ + ", crystal_cost, "💎")
+	update_ui()
