@@ -1,3 +1,4 @@
+class_name Unit
 extends CharacterBody3D
 
 @export var team: String = "player"
@@ -20,10 +21,19 @@ var is_capturing = false
 var capture_progress = 0.0
 var has_transformed = false
 
-@onready var attack_area: Area3D = $AttackArea
-@onready var health_bar: Label = $HealthBar
+@onready var attack_area: Area3D = null
+@onready var health_bar: Label = null
 
 func _ready():
+	# Добавляем юнит в группу для поиска целей
+	add_to_group("units")
+	
+	# Безопасно получаем ссылки на ноды
+	if has_node("AttackArea"):
+		attack_area = get_node("AttackArea")
+	if has_node("HealthBar"):
+		health_bar = get_node("HealthBar")
+	
 	# Отключаем все MeshInstance3D
 	if has_node("MeshInstance3D_Capsule"): get_node("MeshInstance3D_Capsule").visible = false
 	if has_node("MeshInstance3D_Cube"): get_node("MeshInstance3D_Cube").visible = false
@@ -32,71 +42,78 @@ func _ready():
 
 	# Включаем нужную форму по типу юнита
 	var current_mesh = null
-	if unit_type == "soldier":
+	if unit_type == "soldier" and has_node("MeshInstance3D_Capsule"):
 		current_mesh = get_node("MeshInstance3D_Capsule")
-		current_mesh.visible = true
-	elif unit_type == "tank":
+		if current_mesh:
+			current_mesh.visible = true
+	elif unit_type == "tank" and has_node("MeshInstance3D_Cube"):
 		current_mesh = get_node("MeshInstance3D_Cube")
-		current_mesh.visible = true
-	elif unit_type == "drone":
+		if current_mesh:
+			current_mesh.visible = true
+	elif unit_type == "drone" and has_node("MeshInstance3D_Sphere"):
 		current_mesh = get_node("MeshInstance3D_Sphere")
-		current_mesh.visible = true
-	elif unit_type == "collector":
+		if current_mesh:
+			current_mesh.visible = true
+	elif unit_type == "collector" and has_node("MeshInstance3D_Cylinder"):
 		current_mesh = get_node("MeshInstance3D_Cylinder")
-		current_mesh.visible = true
+		if current_mesh:
+			current_mesh.visible = true
 	else:
-		current_mesh = get_node("MeshInstance3D_Capsule")
-		current_mesh.visible = true
+		if has_node("MeshInstance3D_Capsule"):
+			current_mesh = get_node("MeshInstance3D_Capsule")
+			if current_mesh:
+				current_mesh.visible = true
 
-	# Тип и параметры (СБАЛАНСИРОВАННЫЕ)
+	# Тип и параметры (ЗАМЕДЛЕННАЯ СКОРОСТЬ для наблюдения за процессом)
 	if unit_type == "soldier":
-		speed = 70           # Базовая пехота - средняя скорость
+		speed = 30           # Замедлил для наблюдения
 		health = 100
 		max_health = 100
-		damage = 25          # Увеличен урон для баланса
+		damage = 25
 	elif unit_type == "tank":
-		speed = 35           # Медленные танки
-		health = 250         # Больше HP для танковости
+		speed = 20           # Замедлил с 80 до 20
+		health = 250
 		max_health = 250
-		damage = 35          # Меньше урона, но больше HP
+		damage = 35
 	elif unit_type == "drone":
-		speed = 110          # Очень быстрые дроны
-		health = 80          # Больше HP для выживаемости
+		speed = 40           # Замедлил с 200 до 40
+		health = 80
 		max_health = 80
-		damage = 15          # Больше урона для эффективности
+		damage = 15
 	elif unit_type == "elite_soldier":
-		speed = 80           # Быстрые элитные бойцы
+		speed = 35           # Замедлил с 170 до 35
 		health = 140
 		max_health = 140
-		damage = 40          # Высокий урон за кристаллы
+		damage = 40
 	elif unit_type == "crystal_mage":
-		speed = 55           # Медленные маги
+		speed = 25           # Замедлил с 120 до 25
 		health = 90
 		max_health = 90
-		damage = 45          # Снижен урон для баланса
-		attack_range = 5.0   # Дальняя атака
+		damage = 45
+		attack_range = 5.0
 	elif unit_type == "heavy_tank":
-		speed = 25           # Очень медленные супертанки
+		speed = 15           # Замедлил с 60 до 15
 		health = 450
 		max_health = 450
-		damage = 60          # Умеренный урон
+		damage = 60
 	elif unit_type == "collector":
-		speed = 60           # Быстрые сборщики ресурсов
+		speed = 35           # Замедлил с 140 до 35
 		health = 100
 		max_health = 100
 		damage = 0           # Не атакуют
 	# Цвет по команде (жёстко: игрок — синий, враг — красный)
-	current_mesh.material_override = StandardMaterial3D.new()
-	if team == "player":
-		current_mesh.material_override.albedo_color = Color(0.2, 0.6, 1, 1)
-	else:
-		current_mesh.material_override.albedo_color = Color(1, 0.2, 0.2, 1)
+	if current_mesh:
+		current_mesh.material_override = StandardMaterial3D.new()
+		if team == "player":
+			current_mesh.material_override.albedo_color = Color(0.2, 0.6, 1, 1)
+		else:
+			current_mesh.material_override.albedo_color = Color(1, 0.2, 0.2, 1)
 	# Безопасно подключаем AttackArea
-	if has_node("AttackArea"):
+	if attack_area:
 		attack_area.body_entered.connect(_on_attack_area_body_entered)
 		attack_area.body_exited.connect(_on_attack_area_body_exited)
 	# Безопасно обновляем HealthBar
-	if has_node("HealthBar"):
+	if health_bar and health_bar is Label:
 		update_health_display()
 
 func _physics_process(_delta):
@@ -168,9 +185,17 @@ func attack():
 		target.take_damage(damage)
 		print(team, " ", unit_type, " атакует ", target.team, " ", target.unit_type, " урон: ", damage)
 		
-		# Визуальный эффект атаки
+		# Визуальный эффект атаки через систему эффектов
+		if battle_manager and battle_manager.effect_system:
+			battle_manager.effect_system.create_hit_effect(target.global_position, damage)
+		
+		# Звук атаки
+		if battle_manager and battle_manager.audio_system:
+			battle_manager.audio_system.play_unit_attack_sound(global_position)
+		
+		# Визуальный эффект атаки на самом юните
 		var current_mesh = get_current_mesh()
-		if current_mesh:
+		if current_mesh and current_mesh.material_override:
 			current_mesh.material_override.albedo_color = Color.WHITE
 			await get_tree().create_timer(0.1).timeout
 			# Возвращаем исходный цвет
@@ -187,7 +212,7 @@ func take_damage(amount: int):
 	
 	# Визуальный эффект получения урона
 	var current_mesh = get_current_mesh()
-	if current_mesh:
+	if current_mesh and current_mesh.material_override:
 		current_mesh.material_override.albedo_color = Color.RED
 		await get_tree().create_timer(0.2).timeout
 		# Возвращаем исходный цвет
@@ -198,18 +223,57 @@ func take_damage(amount: int):
 	
 	if health <= 0:
 		print(team, " ", unit_type, " уничтожен!")
+		
+		# Эффект взрыва при смерти
+		if battle_manager and battle_manager.effect_system:
+			battle_manager.effect_system.create_explosion_effect(global_position, team)
+		
+		# Звук смерти
+		if battle_manager and battle_manager.audio_system:
+			battle_manager.audio_system.play_unit_death_sound(global_position)
+		
+		# Уведомление о смерти юнита
+		if battle_manager and battle_manager.notification_system:
+			battle_manager.notification_system.show_unit_killed(unit_type, team)
+		
+		# Регистрируем в статистике
+		if battle_manager and battle_manager.statistics_system:
+			battle_manager.statistics_system.register_unit_killed(team, unit_type)
+		
 		queue_free()
 
 func update_health_display():
-	if has_node("HealthBar"):
-		var health_display = get_node("HealthBar")
-		if health_display and health_display is Label:
+	if health_bar:
+		if health_bar is Label:
 			if unit_type == "collector" and is_capturing:
 				# Показываем прогресс захвата для коллекторов
 				var progress_percent = int(capture_progress * 100 / 5.0)  # 5 секунд = 100%
-				health_display.text = "Захват: " + str(progress_percent) + "%"
+				health_bar.text = "🏰 " + str(progress_percent) + "%"
+				health_bar.modulate = Color.ORANGE
 			else:
-				health_display.text = str(health) + "/" + str(max_health)
+				# Красивое отображение здоровья с эмодзи
+				var health_percent = float(health) / float(max_health)
+				var health_emoji = get_health_emoji(health_percent)
+				health_bar.text = health_emoji + " " + str(health) + "/" + str(max_health)
+				
+				# Цветовая индикация здоровья
+				if health_percent > 0.7:
+					health_bar.modulate = Color.GREEN
+				elif health_percent > 0.3:
+					health_bar.modulate = Color.YELLOW
+				else:
+					health_bar.modulate = Color.RED
+
+func get_health_emoji(health_percent: float) -> String:
+	# (documentation comment)
+	if health_percent > 0.8:
+		return "💚"
+	elif health_percent > 0.6:
+		return "💛"
+	elif health_percent > 0.3:
+		return "🧡"
+	else:
+		return "❤️"
 
 func handle_collector_behavior(_delta):
 	# Если коллектор уже превратился в турель
@@ -358,7 +422,7 @@ func transform_to_turret():
 	update_health_display()
 
 func get_current_mesh() -> MeshInstance3D:
-	"""Возвращает текущий активный меш юнита"""
+	# (documentation comment)
 	if unit_type == "soldier" and has_node("MeshInstance3D_Capsule"):
 		return get_node("MeshInstance3D_Capsule")
 	elif unit_type == "tank" and has_node("MeshInstance3D_Cube"):
@@ -370,3 +434,6 @@ func get_current_mesh() -> MeshInstance3D:
 	elif has_node("MeshInstance3D_Capsule"):
 		return get_node("MeshInstance3D_Capsule")
 	return null
+ 
+ 
+ 

@@ -4,14 +4,14 @@
 [ext_resource type="PackedScene" uid="uid://dtc7liy2o51dv" path="res://scenes/BattleUI.tscn" id="2"]
 
 [sub_resource type="NavigationMesh" id="NavigationMesh_1"]
-vertices = PackedVector3Array(-15, 0, -25, 15, 0, -25, 15, 0, 25, -15, 0, 25)
+vertices = PackedVector3Array(-20, 0, -30, 20, 0, -30, 20, 0, 30, -20, 0, 30)
 polygons = [PackedInt32Array(0, 1, 2), PackedInt32Array(0, 2, 3)]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_1"]
-size = Vector2(30, 50)
+size = Vector2(40, 60)
 
 [sub_resource type="BoxMesh" id="BoxMesh_1"]
-size = Vector3(30, 0.1, 0.2)
+size = Vector3(40, 0.1, 0.2)
 
 [node name="Battle" type="Node3D"]
 script = ExtResource("1")
@@ -20,7 +20,7 @@ script = ExtResource("1")
 transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 20, 20)
 
 [node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.5, 0.866025, 0, -0.866025, 0.5, 0, 40, 30)
+transform = Transform3D(1, 0, 0, 0, 0.5, 0.866025, 0, -0.866025, 0.5, 0, 60, 50)
 current = true
 
 [node name="NavigationRegion3D" type="NavigationRegion3D" parent="."]

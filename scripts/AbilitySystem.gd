@@ -209,22 +209,31 @@ func cast_lightning_storm(team: String, position: Vector3, ability: Dictionary):
 	storm_timer.autostart = true
 	add_child(storm_timer)
 	
-	var ticks_remaining = int(ability.duration)
 	var enemy_team = "enemy" if team == "player" else "player"
+	var storm_duration = int(ability.duration)
+	
+	# Создаем объект для хранения состояния бури
+	var storm_data = {
+		"ticks_remaining": storm_duration,
+		"enemy_team": enemy_team,
+		"position": position,
+		"radius": ability.radius,
+		"damage": ability.damage
+	}
 	
 	storm_timer.timeout.connect(func():
-		ticks_remaining -= 1
+		storm_data.ticks_remaining -= 1
 		
 		# Наносим урон каждую секунду
 		var units = get_tree().get_nodes_in_group("units")
 		for unit in units:
-			if unit.team == enemy_team:
-				var distance = unit.global_position.distance_to(position)
-				if distance <= ability.radius:
-					unit.take_damage(ability.damage)
+			if unit.team == storm_data.enemy_team:
+				var distance = unit.global_position.distance_to(storm_data.position)
+				if distance <= storm_data.radius:
+					unit.take_damage(storm_data.damage)
 					print("⚡ Lightning Storm поражает ", unit.team, " ", unit.unit_type)
 		
-		if ticks_remaining <= 0:
+		if storm_data.ticks_remaining <= 0:
 			storm_timer.queue_free()
 	)
 

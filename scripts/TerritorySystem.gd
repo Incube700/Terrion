@@ -5,7 +5,6 @@ class_name TerritorySystem
 # Похоже на Tiny Clash - игроки могут захватывать зоны для получения ресурсов
 
 signal territory_captured(territory_id, new_owner)
-signal resource_generated(territory_id, owner, amount)
 
 var territories: Array[Dictionary] = []
 var territory_meshes: Array[MeshInstance3D] = []
@@ -36,36 +35,33 @@ func _ready():
 	add_child(resource_timer)
 
 func create_territories():
-	# Создаем 9 территорий на карте с разными эффектами
-	var territory_positions = [
-		Vector3(-10, 0.1, -12),  # Левая нижняя
-		Vector3(10, 0.1, -12),   # Правая нижняя  
-		Vector3(-10, 0.1, 12),   # Левая верхняя
-		Vector3(10, 0.1, 12),    # Правая верхняя
-		Vector3(-6, 0.1, 0),     # Центр левый
-		Vector3(6, 0.1, 0),      # Центр правый
-		Vector3(0, 0.1, -6),     # Центр нижний
-		Vector3(0, 0.1, 6),      # Центр верхний
-		Vector3(0, 0.1, 0)       # Центральная точка
+	# Создаем СПРАВЕДЛИВО распределенные территории для обеих сторон
+	var territory_configs = [
+		# === РЕСУРСНЫЕ ТЕРРИТОРИИ (ПОРОВНУ ДЛЯ КАЖДОЙ СТОРОНЫ) ===
+		# Зона игрока (нижняя половина)
+		{"name": "Энергетический Рудник Юг", "pos": Vector3(-12, 0, 15), "type": TerritoryType.ENERGY_MINE, "value": 100, "radius": 5.0},
+		{"name": "Кристальный Рудник Юг", "pos": Vector3(12, 0, 15), "type": TerritoryType.CRYSTAL_MINE, "value": 100, "radius": 5.0},
+		
+		# Зона врага (верхняя половина)
+		{"name": "Энергетический Рудник Север", "pos": Vector3(-12, 0, -15), "type": TerritoryType.ENERGY_MINE, "value": 100, "radius": 5.0},
+		{"name": "Кристальный Рудник Север", "pos": Vector3(12, 0, -15), "type": TerritoryType.CRYSTAL_MINE, "value": 100, "radius": 5.0},
+		
+		# === СИММЕТРИЧНЫЕ БОКОВЫЕ ТЕРРИТОРИИ ===
+		{"name": "Левая Застава", "pos": Vector3(-18, 0, 0), "type": TerritoryType.DEFENSIVE_TOWER, "value": 120, "radius": 4.5},
+		{"name": "Правая Фабрика", "pos": Vector3(18, 0, 0), "type": TerritoryType.FACTORY, "value": 120, "radius": 4.5},
+		
+		# === ЦЕНТРАЛЬНЫЕ НЕЙТРАЛЬНЫЕ ТЕРРИТОРИИ ===
+		{"name": "Центральный Алтарь", "pos": Vector3(0, 0, 0), "type": TerritoryType.ANCIENT_ALTAR, "value": 200, "radius": 6.0},
+		{"name": "Северное Святилище", "pos": Vector3(0, 0, -8), "type": TerritoryType.BATTLEFIELD_SHRINE, "value": 100, "radius": 4.5},
+		{"name": "Южное Святилище", "pos": Vector3(0, 0, 8), "type": TerritoryType.BATTLEFIELD_SHRINE, "value": 100, "radius": 4.5}
 	]
 	
-	var territory_types = [
-		TerritoryType.ENERGY_MINE,      # Ресурсы внизу
-		TerritoryType.CRYSTAL_MINE,     # Ресурсы внизу
-		TerritoryType.ENERGY_MINE,      # Ресурсы вверху
-		TerritoryType.CRYSTAL_MINE,     # Ресурсы вверху
-		TerritoryType.DEFENSIVE_TOWER,  # Оборона слева
-		TerritoryType.FACTORY,          # Производство справа
-		TerritoryType.PORTAL,           # Телепорт внизу
-		TerritoryType.BATTLEFIELD_SHRINE, # Воскрешение вверху
-		TerritoryType.ANCIENT_ALTAR     # Мощный бонус в центре
-	]
-	
-	for i in range(territory_positions.size()):
-		var territory = create_territory(i, territory_positions[i], territory_types[i])
+	for i in range(territory_configs.size()):
+		var config = territory_configs[i]
+		var territory = create_territory(i, config["pos"], config["type"], config["value"], config["radius"])
 		territories.append(territory)
 
-func create_territory(id: int, position: Vector3, type: TerritoryType) -> Dictionary:
+func create_territory(id: int, position: Vector3, type: TerritoryType, value: int, radius: float) -> Dictionary:
 	var territory = {
 		"id": id,
 		"position": position,
@@ -74,7 +70,8 @@ func create_territory(id: int, position: Vector3, type: TerritoryType) -> Dictio
 		"capture_progress": 0.0,
 		"max_capture_time": 5.0,
 		"resource_generation_rate": get_resource_rate(type),
-		"control_radius": 3.0
+		"control_radius": radius,
+		"value": value
 	}
 	
 	# Создаем визуальное представление территории
@@ -85,49 +82,67 @@ func create_territory(id: int, position: Vector3, type: TerritoryType) -> Dictio
 func create_territory_visual(territory: Dictionary):
 	var mesh_instance = MeshInstance3D.new()
 	var cylinder = CylinderMesh.new()
-	cylinder.top_radius = territory.control_radius * 1.2  # Увеличиваем радиус
-	cylinder.bottom_radius = territory.control_radius * 1.2
-	cylinder.height = 0.4  # Увеличиваем высоту для лучшей видимости
+	cylinder.top_radius = territory.control_radius * 1.1  # Немного уменьшил для баланса
+	cylinder.bottom_radius = territory.control_radius * 1.1
+	cylinder.height = 0.5  # Увеличил высоту для лучшей видимости
 	mesh_instance.mesh = cylinder
 	mesh_instance.position = territory.position
 
-	# Подпись (Label3D) - больше и ярче
+	# Создаем визуальную метку территории с КРУПНЫМ текстом
 	var label = Label3D.new()
-	label.position = territory.position + Vector3(0, 2.0, 0)  # Выше над территорией
+	label.text = get_territory_short_name(territory.type)
+	label.position = territory.position + Vector3(0, 3, 0)  # Выше над территорией
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	label.text = get_territory_label(territory.type)
-	label.modulate = Color(1, 1, 1, 1.0)  # Полная непрозрачность
-	label.font_size = 24  # Увеличиваем размер шрифта
-	label.outline_size = 4  # Добавляем контур для лучшей читаемости
-	label.outline_modulate = Color(0, 0, 0, 0.8)  # Черный контур
+	label.font_size = 120  # УВЕЛИЧИЛ с 96 до 120 для максимальной читаемости
+	label.modulate = Color.WHITE
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.name = TerritoryType.keys()[territory.type] + "_Label"
+	# ТОЛСТЫЙ контур для читаемости на любом фоне
+	label.outline_size = 15  # Увеличил с 12 до 15
+	label.outline_modulate = Color.BLACK
 	get_parent().add_child(label)
 
-	# Материал в зависимости от типа территории - делаем менее прозрачными
+	# ЕДИНЫЕ ЦВЕТА для одинаковых типов территорий - яркие и контрастные
 	var material = StandardMaterial3D.new()
 	match territory.type:
 		TerritoryType.ENERGY_MINE:
-			material.albedo_color = Color(0.2, 0.8, 1.0, 0.8)  # Голубой, менее прозрачный
+			# ВСЕ энергетические рудники - ЯРКО-ГОЛУБЫЕ
+			material.albedo_color = Color(0.0, 0.9, 1.0, 0.95)  # Ярко-голубой
+			material.emission = Color(0.0, 0.7, 1.0)  # Сильное голубое свечение
 		TerritoryType.CRYSTAL_MINE:
-			material.albedo_color = Color(1.0, 0.2, 1.0, 0.8)  # Пурпурный
+			# ВСЕ кристальные рудники - ЯРКО-ПУРПУРНЫЕ
+			material.albedo_color = Color(1.0, 0.0, 1.0, 0.95)  # Ярко-пурпурный
+			material.emission = Color(0.8, 0.0, 0.8)  # Сильное пурпурное свечение
 		TerritoryType.STRATEGIC_POINT:
-			material.albedo_color = Color(1.0, 1.0, 0.2, 0.8)  # Желтый
+			material.albedo_color = Color(1.0, 1.0, 0.0, 0.95)  # Ярко-желтый
+			material.emission = Color(0.8, 0.8, 0.0)  # Сильное желтое свечение
 		TerritoryType.DEFENSIVE_TOWER:
-			material.albedo_color = Color(0.8, 0.2, 0.2, 0.8)  # Красный
+			# Оборонительные заставы - ЯРКО-КРАСНЫЕ
+			material.albedo_color = Color(1.0, 0.0, 0.0, 0.95)  # Ярко-красный
+			material.emission = Color(0.8, 0.0, 0.0)  # Сильное красное свечение
 		TerritoryType.FACTORY:
-			material.albedo_color = Color(0.6, 0.6, 0.6, 0.8)  # Серый, ярче
+			# Фабрики - ЯРКО-ОРАНЖЕВЫЕ
+			material.albedo_color = Color(1.0, 0.5, 0.0, 0.95)  # Ярко-оранжевый
+			material.emission = Color(0.8, 0.4, 0.0)  # Сильное оранжевое свечение
 		TerritoryType.PORTAL:
-			material.albedo_color = Color(0.2, 1.0, 0.2, 0.8)  # Зеленый
+			material.albedo_color = Color(0.0, 1.0, 0.0, 0.95)  # Ярко-зеленый
+			material.emission = Color(0.0, 0.8, 0.0)  # Сильное зеленое свечение
 		TerritoryType.ANCIENT_ALTAR:
-			material.albedo_color = Color(1.0, 0.8, 0.2, 0.9)  # Золотой, еще ярче
+			# Главный алтарь - ЗОЛОТОЙ (особый)
+			material.albedo_color = Color(1.0, 0.8, 0.0, 0.95)  # Ярко-золотой
+			material.emission = Color(0.8, 0.6, 0.0)  # Сильное золотое свечение
 		TerritoryType.BATTLEFIELD_SHRINE:
-			material.albedo_color = Color(0.8, 0.8, 1.0, 0.8)  # Светло-синий
+			# ВСЕ святилища - ЯРКО-ЗЕЛЕНЫЕ
+			material.albedo_color = Color(0.0, 1.0, 0.0, 0.95)  # Ярко-зеленый
+			material.emission = Color(0.0, 0.8, 0.0)  # Сильное зеленое свечение
 		_:
-			material.albedo_color = Color(0.6, 0.6, 0.6, 0.8)  # Серый
+			material.albedo_color = Color(0.6, 0.6, 0.6, 0.95)
+			material.emission = Color(0.3, 0.3, 0.3)
 
 	material.flags_transparent = true
-	# Добавляем свечение для лучшей видимости
 	material.emission_enabled = true
-	material.emission = Color(material.albedo_color.r * 0.3, material.albedo_color.g * 0.3, material.albedo_color.b * 0.3)
+	# МАКСИМАЛЬНАЯ интенсивность свечения для видимости
+	material.emission_energy = 3.0  # Увеличил с 2.0 до 3.0
 	mesh_instance.set_surface_override_material(0, material)
 	get_parent().add_child(mesh_instance)
 	territory_meshes.append(mesh_instance)
@@ -155,18 +170,18 @@ func apply_territory_effects(territory: Dictionary):
 	if not battle_manager:
 		return
 	
-	var owner = territory.owner
+	var territory_owner = territory.owner
 	var amount = territory.resource_generation_rate
 	
 	match territory.type:
 		TerritoryType.ENERGY_MINE:
-			add_resource(owner, "energy", amount)
+			add_resource(territory_owner, "energy", amount)
 			
 		TerritoryType.CRYSTAL_MINE:
-			add_resource(owner, "crystals", amount)
+			add_resource(territory_owner, "crystals", amount)
 			
 		TerritoryType.STRATEGIC_POINT:
-			add_resource(owner, "energy", amount)
+			add_resource(territory_owner, "energy", amount)
 			
 		TerritoryType.DEFENSIVE_TOWER:
 			# Автоматическая атака ближайших врагов
@@ -183,21 +198,21 @@ func apply_territory_effects(territory: Dictionary):
 		TerritoryType.ANCIENT_ALTAR:
 			# Снижение кулдаунов способностей
 			reduce_ability_cooldowns(territory)
-			add_resource(owner, "crystals", amount)
+			add_resource(territory_owner, "crystals", amount)
 			
 		TerritoryType.BATTLEFIELD_SHRINE:
 			# Лечение дружественных юнитов в радиусе
 			heal_friendly_units(territory)
 
-func add_resource(owner: String, resource_type: String, amount: int):
+func add_resource(territory_owner: String, resource_type: String, amount: int):
 	match resource_type:
 		"energy":
-			if owner == "player":
+			if territory_owner == "player":
 				battle_manager.player_energy += amount
 			else:
 				battle_manager.enemy_energy += amount
 		"crystals":
-			if owner == "player":
+			if territory_owner == "player":
 				battle_manager.player_crystals += amount
 			else:
 				battle_manager.enemy_crystals += amount
@@ -252,20 +267,20 @@ func update_territory_visual(territory: Dictionary):
 func get_territory_info() -> Array[Dictionary]:
 	return territories
 
-func force_capture_territory(territory_id: int, new_owner: String):
-	"""Принудительно захватывает территорию (для коллекторов)"""
+func force_capture_territory(territory_id: int, territory_owner: String):
+	# (documentation comment)
 	if territory_id < 0 or territory_id >= territories.size():
 		return false
 		
 	var territory = territories[territory_id]
-	territory.owner = new_owner
+	territory.owner = territory_owner
 	territory.capture_progress = 0.0
 	
 	# Обновляем визуал
 	update_territory_visual(territory)
 	
-	territory_captured.emit(territory_id, new_owner)
-	print("🏳️ Территория ", territory_id, " принудительно захвачена командой ", new_owner)
+	territory_captured.emit(territory_id, territory_owner)
+	print("🏳️ Территория ", territory_id, " принудительно захвачена командой ", territory_owner)
 	return true
 
 func get_controlled_territories(team: String) -> int:
@@ -285,20 +300,20 @@ func auto_attack_enemies(territory: Dictionary):
 
 func auto_produce_units(territory: Dictionary):
 	# Автоматически производим базовых юнитов
-	var owner = territory.owner
+	var territory_owner = territory.owner
 	var cost = 20
 	
-	if owner == "player" and battle_manager.player_energy >= cost:
+	if territory_owner == "player" and battle_manager.player_energy >= cost:
 		battle_manager.player_energy -= cost
 		# Спавним юнита рядом с фабрикой
 		var spawn_pos = territory.position + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2))
 		battle_manager.spawn_unit_at_pos("player", spawn_pos, "soldier")
-		print("🏭 Factory produced soldier for ", owner)
-	elif owner == "enemy" and battle_manager.enemy_energy >= cost:
+		print("🏭 Factory produced soldier for ", territory_owner)
+	elif territory_owner == "enemy" and battle_manager.enemy_energy >= cost:
 		battle_manager.enemy_energy -= cost
 		var spawn_pos = territory.position + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2))
 		battle_manager.spawn_unit_at_pos("enemy", spawn_pos, "soldier")
-		print("🏭 Factory produced soldier for ", owner)
+		print("🏭 Factory produced soldier for ", territory_owner)
 
 func teleport_friendly_units(territory: Dictionary):
 	# Телепортируем случайного дружественного юнита к порталу
@@ -314,32 +329,52 @@ func heal_friendly_units(territory: Dictionary):
 	# Лечим дружественных юнитов в радиусе
 	print("💚 Battlefield shrine healing units for ", territory.owner)
 
-func get_territory_label(type):
+func get_territory_short_name(type) -> String:
+	# Короткие и читаемые названия территорий
 	match type:
 		TerritoryType.ENERGY_MINE:
 			return "⚡ ЭНЕРГИЯ\n+15/сек"
 		TerritoryType.CRYSTAL_MINE:
 			return "💎 КРИСТАЛЛЫ\n+10/сек"
-		TerritoryType.STRATEGIC_POINT:
-			return "🎯 БОНУС\n+5 энергии"
 		TerritoryType.DEFENSIVE_TOWER:
-			return "🏰 БАШНЯ\nАвтоатака"
+			return "🏰 ЗАСТАВА\nАвтоатака"
 		TerritoryType.FACTORY:
-			return "🏭 ФАБРИКА\nСоздает юнитов"
-		TerritoryType.PORTAL:
-			return "🌀 ПОРТАЛ\nТелепорт"
+			return "🏭 ФАБРИКА\nСоздает войска"
 		TerritoryType.ANCIENT_ALTAR:
-			return "✨ АЛТАРЬ\nМощные бонусы"
+			return "✨ АЛТАРЬ\n💰 ГЛАВНАЯ ЦЕЛЬ!"
 		TerritoryType.BATTLEFIELD_SHRINE:
-			return "💚 СВЯТИЛИЩЕ\nЛечение"
+			return "🌿 СВЯТИЛИЩЕ\nЛечение"
 		_:
 			return "❓ ТЕРРИТОРИЯ"
 
+func get_territory_label(type):
+	match type:
+		TerritoryType.ENERGY_MINE:
+			return "⚡ ЭНЕРГИЯ ⚡\n+15/сек"
+		TerritoryType.CRYSTAL_MINE:
+			return "💎 КРИСТАЛЛЫ 💎\n+10/сек"
+		TerritoryType.STRATEGIC_POINT:
+			return "🎯 СТРАТЕГИЯ 🎯\n+5 энергии"
+		TerritoryType.DEFENSIVE_TOWER:
+			return "🏰 БАШНЯ 🏰\nАвтоатака"
+		TerritoryType.FACTORY:
+			return "🏭 ФАБРИКА 🏭\nСоздает армию"
+		TerritoryType.PORTAL:
+			return "🌀 ПОРТАЛ 🌀\nТелепорт"
+		TerritoryType.ANCIENT_ALTAR:
+			return "✨ АЛТАРЬ ✨\n💪 ГЛАВНАЯ ЦЕЛЬ!"
+		TerritoryType.BATTLEFIELD_SHRINE:
+			return "💚 СВЯТИЛИЩЕ 💚\nЛечение войск"
+		_:
+			return "❓ ТЕРРИТОРИЯ ❓"
+
 func get_available_territories_for_team(team_name: String) -> Array[Dictionary]:
-	"""Возвращает территории, доступные для захвата командой"""
+	# (documentation comment)
 	var available: Array[Dictionary] = []
 	for territory in territories:
 		if territory.owner == "neutral" or territory.owner != team_name:
 			if not territory.has("assigned_collector"):
 				available.append(territory)
 	return available
+ 
+ 

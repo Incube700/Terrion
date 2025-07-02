@@ -1,9 +1,12 @@
+class_name Spawner
 extends Node3D
 
 @export var team: String = "player"
 @export var lane_idx: int = 0
 @export var unit_type: String = "soldier"
 @export var spawner_type: String = "spawner" # 'spawner', 'tower', 'barracks'
+@export var spawn_interval: float = 5.0
+@export var max_units: int = 10
 
 @onready var spawn_timer: Timer = $SpawnTimer
 @onready var mesh_instance: MeshInstance3D = $MeshInstance3D
@@ -205,3 +208,4 @@ func get_spawner_info() -> Dictionary:
 		"unit_type": get_spawn_unit_type(),
 		"spawn_time": spawn_timer.wait_time if spawn_timer else 4.0
 	}
+ 

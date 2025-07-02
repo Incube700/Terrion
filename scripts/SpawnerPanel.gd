@@ -1,3 +1,4 @@
+class_name SpawnerPanel
 extends Control
 
 signal spawner_drag_start(spawner_type)
