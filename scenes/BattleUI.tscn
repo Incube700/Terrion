@@ -1,10 +1,10 @@
 [gd_scene load_steps=3 format=3 uid="uid://dtc7liy2o51dv"]
 
-[ext_resource type="Script" uid="uid://biagfnmt23k5" path="res://scripts/BattleUI.gd" id="1"]
-[ext_resource type="PackedScene" uid="uid://bwiruao8f573s" path="res://scenes/SpawnerPanel.tscn" id="2"]
+[ext_resource type="Script" uid="uid://biagfnmt23k5" path="res://scripts/BattleUI.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://bwiruao8f573s" path="res://scenes/SpawnerPanel.tscn" id="2_spawner"]
 
 [node name="BattleUI" type="CanvasLayer"]
-script = ExtResource("1")
+script = ExtResource("1_script")
 
 [node name="MainMenu" type="Control" parent="."]
 layout_mode = 3
@@ -49,119 +49,245 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "❌ ВЫХОД"
 
-[node name="Panel" type="Panel" parent="."]
+[node name="GameUI" type="Control" parent="."]
 visible = false
-anchors_preset = -1
-anchor_top = 0.7
-anchor_right = 0.18
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="MainButtonContainer" type="VBoxContainer" parent="Panel"]
-layout_mode = 0
+[node name="TopPanel" type="Panel" parent="GameUI"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 80.0
+grow_horizontal = 2
+
+[node name="TopContainer" type="HBoxContainer" parent="GameUI/TopPanel"]
+layout_mode = 1
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 10.0
 offset_top = 10.0
 offset_right = -10.0
 offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="CollectorButton" type="Button" parent="Panel/MainButtonContainer"]
-custom_minimum_size = Vector2(200, 80)
+[node name="PlayerInfo" type="Label" parent="GameUI/TopPanel/TopContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "🏃 Коллектор"
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 20
+text = "🟦 ИГРОК | ⚡100 | 💎0 | ❤️100"
+vertical_alignment = 1
 
-[node name="SpawnSoldierButton" type="Button" parent="Panel/MainButtonContainer"]
-custom_minimum_size = Vector2(200, 80)
+[node name="EnemyInfo" type="Label" parent="GameUI/TopPanel/TopContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "⚔️ Солдат"
-
-[node name="BuildTowerButton" type="Button" parent="Panel/MainButtonContainer"]
-visible = false
-custom_minimum_size = Vector2(200, 80)
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "Построить Модуль"
-
-[node name="EliteSoldierButton" type="Button" parent="Panel/MainButtonContainer"]
-visible = false
-custom_minimum_size = Vector2(200, 80)
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "Элитный Отряд"
-
-[node name="CrystalMageButton" type="Button" parent="Panel/MainButtonContainer"]
-visible = false
-custom_minimum_size = Vector2(200, 80)
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Техно-Специалист"
-
-[node name="PlayerHUD" type="Label" parent="."]
-visible = false
-anchors_preset = -1
-anchor_left = 0.01
-anchor_top = 0.88
-anchor_right = 0.48
-anchor_bottom = 0.98
-theme_override_font_sizes/font_size = 24
-text = "Player HP: 100 | Energy: 100"
-
-[node name="EnemyHUD" type="Label" parent="."]
-visible = false
-anchors_preset = -1
-anchor_left = 0.52
-anchor_top = 0.88
-anchor_right = 0.99
-anchor_bottom = 0.98
-theme_override_font_sizes/font_size = 24
-text = "Enemy HP: 100 | Energy: 100"
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 20
+text = "🟥 ВРАГ | ⚡100 | 💎0 | ❤️100"
 horizontal_alignment = 2
+vertical_alignment = 1
 
-[node name="SpawnerPanel" parent="." instance=ExtResource("2")]
+[node name="BottomPanel" type="Panel" parent="GameUI"]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -200.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="BottomContainer" type="VBoxContainer" parent="GameUI/BottomPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="BuildingRow" type="HBoxContainer" parent="GameUI/BottomPanel/BottomContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BarracksButton" type="Button" parent="GameUI/BottomPanel/BottomContainer/BuildingRow"]
+custom_minimum_size = Vector2(120, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+text = "🏰
+КАЗАРМЫ
+80⚡"
+
+[node name="CollectorButton" type="Button" parent="GameUI/BottomPanel/BottomContainer/BuildingRow"]
+custom_minimum_size = Vector2(120, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+text = "🏃
+КОЛЛЕКТОР
+90⚡+15💎"
+
+[node name="TowerButton" type="Button" parent="GameUI/BottomPanel/BottomContainer/BuildingRow"]
+custom_minimum_size = Vector2(120, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+text = "🗼
+БАШНЯ
+60⚡"
+
+[node name="TrainingButton" type="Button" parent="GameUI/BottomPanel/BottomContainer/BuildingRow"]
+custom_minimum_size = Vector2(120, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+text = "🎖️
+ЛАГЕРЬ
+120⚡+20💎"
+
+[node name="AcademyButton" type="Button" parent="GameUI/BottomPanel/BottomContainer/BuildingRow"]
+custom_minimum_size = Vector2(120, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+text = "🔮
+АКАДЕМИЯ
+100⚡+30💎"
+
+[node name="AbilityRow" type="HBoxContainer" parent="GameUI/BottomPanel/BottomContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="FireballButton" type="Button" parent="GameUI/BottomPanel/BottomContainer/AbilityRow"]
+custom_minimum_size = Vector2(120, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+text = "🔥
+ОГНЕННЫЙ ШАР
+40⚡+15💎"
+
+[node name="HealButton" type="Button" parent="GameUI/BottomPanel/BottomContainer/AbilityRow"]
+custom_minimum_size = Vector2(120, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+text = "💚
+ЛЕЧЕНИЕ
+30⚡+10💎"
+
+[node name="ShieldButton" type="Button" parent="GameUI/BottomPanel/BottomContainer/AbilityRow"]
+custom_minimum_size = Vector2(120, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+text = "🛡️
+ЩИТ
+50⚡+20💎"
+
+[node name="LightningButton" type="Button" parent="GameUI/BottomPanel/BottomContainer/AbilityRow"]
+custom_minimum_size = Vector2(120, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+text = "⚡
+ИОННАЯ БУРЯ
+60⚡+25💎"
+
+[node name="HeroButton" type="Button" parent="GameUI/BottomPanel/BottomContainer/AbilityRow"]
+custom_minimum_size = Vector2(120, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+disabled = true
+text = "🦸
+ГЕРОЙ
+⏰ Нужен алтарь"
+
+[node name="SpecialRow" type="HBoxContainer" parent="GameUI/BottomPanel/BottomContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="RallyButton" type="Button" parent="GameUI/BottomPanel/BottomContainer/SpecialRow"]
+custom_minimum_size = Vector2(120, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+text = "🎯
+СБОР ВОЙСК
+Бесплатно"
+
+[node name="RetreatButton" type="Button" parent="GameUI/BottomPanel/BottomContainer/SpecialRow"]
+custom_minimum_size = Vector2(120, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+text = "🏃
+ОТСТУПЛЕНИЕ
+Бесплатно"
+
+[node name="UpgradeButton" type="Button" parent="GameUI/BottomPanel/BottomContainer/SpecialRow"]
+custom_minimum_size = Vector2(120, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+text = "⬆️
+УЛУЧШЕНИЕ
+150⚡+50💎"
+
+[node name="NukeButton" type="Button" parent="GameUI/BottomPanel/BottomContainer/SpecialRow"]
+custom_minimum_size = Vector2(120, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+text = "☢️
+ЯДЕРНЫЙ УДАР
+200⚡+100💎"
+
+[node name="MenuButton" type="Button" parent="GameUI/BottomPanel/BottomContainer/SpecialRow"]
+custom_minimum_size = Vector2(120, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+text = "⚙️
+МЕНЮ
+Бесплатно"
+
+[node name="Instructions" type="Label" parent="GameUI"]
+visible = false
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -400.0
+offset_top = 90.0
+offset_right = -10.0
+offset_bottom = 290.0
+grow_horizontal = 0
+theme_override_font_sizes/font_size = 16
+text = "🎮 УПРАВЛЕНИЕ:
+🖱️ ПКМ + драг = камера
+🎮 Скролл = зум
+🏗️ ЗАЖМИ И ПЕРЕТАЩИ кнопку!
+1️⃣ Зажми кнопку здания
+2️⃣ Перетащи на карту
+3️⃣ Отпусти = постройка!
+
+🏰 Казармы производят солдат
+🦸 Герой: захвати 2 боковых территории!"
+vertical_alignment = 1
+
+[node name="SpawnerPanel" parent="." instance=ExtResource("2_spawner")]
 visible = false
 anchors_preset = 15
 anchor_top = 0.0
 grow_vertical = 2
-
-[node name="AbilityPanel" type="Panel" parent="."]
-visible = false
-anchors_preset = -1
-anchor_left = 0.2
-anchor_top = 0.88
-anchor_right = 0.8
-anchor_bottom = 0.98
-
-[node name="AbilityContainer" type="HBoxContainer" parent="AbilityPanel"]
-layout_mode = 0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 10.0
-offset_top = 5.0
-offset_right = -10.0
-offset_bottom = -5.0
-
-[node name="FireballButton" type="Button" parent="AbilityPanel/AbilityContainer"]
-custom_minimum_size = Vector2(170, 70)
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Плазменный Удар"
-
-[node name="HealButton" type="Button" parent="AbilityPanel/AbilityContainer"]
-custom_minimum_size = Vector2(170, 70)
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Волна Ремонта"
-
-[node name="ShieldButton" type="Button" parent="AbilityPanel/AbilityContainer"]
-custom_minimum_size = Vector2(170, 70)
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Энерго-Барьер"
-
-[node name="LightningButton" type="Button" parent="AbilityPanel/AbilityContainer"]
-custom_minimum_size = Vector2(170, 70)
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "Ионная Буря"

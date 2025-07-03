@@ -68,20 +68,26 @@ func _ready():
 		# Настройка времени спавна в зависимости от типа
 		match spawner_type:
 			"spawner":
-				spawn_timer.wait_time = 4.0  # Базовый спавнер
+				spawn_timer.wait_time = 8.0  # Увеличено с 4.0 до 8.0
 			"barracks":
-				spawn_timer.wait_time = 3.0  # Быстрее спавнит
+				spawn_timer.wait_time = 6.0  # Увеличено с 3.0 до 6.0
 			"tower":
-				spawn_timer.wait_time = 6.0  # Медленнее, но сильнее
+				spawn_timer.wait_time = 10.0  # Увеличено с 6.0 до 10.0
 			"collector_facility":
-				spawn_timer.wait_time = 8.0  # Медленнее, коллекторы дорогие
+				spawn_timer.wait_time = 15.0  # Увеличено с 8.0 до 15.0
 			_:
-				spawn_timer.wait_time = 4.0
+				spawn_timer.wait_time = 8.0  # Увеличено с 4.0 до 8.0
 	
 	# Создаем 3D HP бар для здания
 	create_building_health_bar()
 
 func setup_appearance():
+	# Создаем MeshInstance3D если его нет
+	if not mesh_instance:
+		mesh_instance = MeshInstance3D.new()
+		mesh_instance.name = "MeshInstance3D"
+		add_child(mesh_instance)
+	
 	if spawner_type == "tower":
 		var cyl = CylinderMesh.new()
 		cyl.top_radius = 0.7
@@ -100,16 +106,22 @@ func setup_appearance():
 		hide_barracks_meshes()
 		
 	elif spawner_type == "barracks":
-		mesh_instance.visible = false
-		show_barracks_meshes()
+		# Для казарм используем простой куб вместо отдельных мешей
+		var box = BoxMesh.new()
+		box.size = Vector3(2.5, 1.5, 2.5)
+		mesh_instance.mesh = box
+		mesh_instance.material_override = StandardMaterial3D.new()
 		
-		for m in [mesh_barrack1, mesh_barrack2, mesh_barrack3, mesh_barrack4]:
-			if m:
-				m.material_override = StandardMaterial3D.new()
-				if team == "player":
-					m.material_override.albedo_color = Color(0.3, 0.5, 0.8, 1)  # Синеватый
-				else:
-					m.material_override.albedo_color = Color(0.8, 0.3, 0.3, 1)  # Красноватый
+		if team == "player":
+			mesh_instance.material_override.albedo_color = Color(0.3, 0.5, 0.8, 1)  # Синеватый
+		else:
+			mesh_instance.material_override.albedo_color = Color(0.8, 0.3, 0.3, 1)  # Красноватый
+		
+		# Добавляем свечение для видимости
+		mesh_instance.material_override.emission_enabled = true
+		mesh_instance.material_override.emission = mesh_instance.material_override.albedo_color * 0.3
+		
+		hide_barracks_meshes()
 	
 	elif spawner_type == "collector_facility":
 		# Комплекс коллекторов - особая форма
@@ -180,6 +192,13 @@ func _on_spawn_timer_timeout():
 	
 	# Спавним юнита
 	battle_manager.spawn_unit_at_pos(team, spawn_pos, spawn_unit_type)
+	
+	# Визуальный эффект спавна
+	if battle_manager.effect_system:
+		battle_manager.effect_system.create_spawn_effect(spawn_pos, team)
+	# Всплывающее уведомление
+	if battle_manager.notification_system:
+		battle_manager.notification_system.show_unit_spawned(spawn_unit_type, team)
 	
 	# Снимаем энергию
 	if team == "player":

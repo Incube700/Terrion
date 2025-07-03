@@ -103,10 +103,10 @@ func can_use_ability(team: String, ability_key: String) -> bool:
 	# Проверяем ресурсы
 	if team == "player":
 		return (battle_manager.player_energy >= ability.energy_cost and 
-		        battle_manager.player_crystals >= ability.crystal_cost)
+				battle_manager.player_crystals >= ability.crystal_cost)
 	else:
 		return (battle_manager.enemy_energy >= ability.energy_cost and 
-		        battle_manager.enemy_crystals >= ability.crystal_cost)
+				battle_manager.enemy_crystals >= ability.crystal_cost)
 
 func use_ability(team: String, ability_key: String, target_position: Vector3) -> bool:
 	if not can_use_ability(team, ability_key):

@@ -27,6 +27,9 @@ var target_search_timer: float = 0.0
 var target_search_interval: float = 0.5  # Ищем цели раз в 0.5 секунды
 var last_target_search_time: float = 0.0
 
+# Визуальная модель юнита
+var current_mesh: MeshInstance3D = null
+
 # Специальные переменные для коллекторов
 var target_crystal = null
 var is_capturing = false
@@ -37,76 +40,64 @@ var has_transformed = false
 @onready var health_bar: Label = null
 
 func _ready():
-	# Добавляем юнит в группу для поиска целей
+	# Добавляем юнита в группу для поиска целей
 	add_to_group("units")
 	
-	# Безопасно получаем ссылки на ноды
-	if has_node("AttackArea"):
+	# Создаем AttackArea если его нет
+	if not has_node("AttackArea"):
+		attack_area = Area3D.new()
+		attack_area.name = "AttackArea"
+		var collision_shape = CollisionShape3D.new()
+		var sphere_shape = SphereShape3D.new()
+		sphere_shape.radius = 2.0  # Радиус атаки
+		collision_shape.shape = sphere_shape
+		attack_area.add_child(collision_shape)
+		add_child(attack_area)
+	else:
 		attack_area = get_node("AttackArea")
-	if has_node("HealthBar"):
+	
+	# Создаем HealthBar если его нет
+	if not has_node("HealthBar"):
+		health_bar = Label.new()
+		health_bar.name = "HealthBar"
+		add_child(health_bar)
+	else:
 		health_bar = get_node("HealthBar")
 	
-	# Отключаем все MeshInstance3D
-	if has_node("MeshInstance3D_Capsule"): get_node("MeshInstance3D_Capsule").visible = false
-	if has_node("MeshInstance3D_Cube"): get_node("MeshInstance3D_Cube").visible = false
-	if has_node("MeshInstance3D_Sphere"): get_node("MeshInstance3D_Sphere").visible = false
-	if has_node("MeshInstance3D_Cylinder"): get_node("MeshInstance3D_Cylinder").visible = false
-
-	# Включаем нужную форму по типу юнита
-	var current_mesh = null
-	if unit_type == "soldier" and has_node("MeshInstance3D_Capsule"):
-		current_mesh = get_node("MeshInstance3D_Capsule")
-		if current_mesh:
-			current_mesh.visible = true
-	elif unit_type == "tank" and has_node("MeshInstance3D_Cube"):
-		current_mesh = get_node("MeshInstance3D_Cube")
-		if current_mesh:
-			current_mesh.visible = true
-	elif unit_type == "drone" and has_node("MeshInstance3D_Sphere"):
-		current_mesh = get_node("MeshInstance3D_Sphere")
-		if current_mesh:
-			current_mesh.visible = true
-	elif unit_type == "collector" and has_node("MeshInstance3D_Cylinder"):
-		current_mesh = get_node("MeshInstance3D_Cylinder")
-		if current_mesh:
-			current_mesh.visible = true
-	else:
-		if has_node("MeshInstance3D_Capsule"):
-			current_mesh = get_node("MeshInstance3D_Capsule")
-			if current_mesh:
-				current_mesh.visible = true
-
+	# Создаем визуальную модель юнита
+	create_unit_visual()
+	
 	# Тип и параметры (МАКСИМАЛЬНО МЕДЛЕННЫЕ СКОРОСТИ для глубокого тактического геймплея)
 	if unit_type == "soldier":
-		speed = 8            # МАКСИМАЛЬНО МЕДЛЕННО (было 15)
+		speed = 3            # МАКСИМАЛЬНО МЕДЛЕННО (было 15)
 		health = 300         # Увеличено в 3 раза для тактики
 		max_health = 300
 		damage = 25
 		enemy_detection_range = 10.0  # Хорошая зона восприятия
 		building_search_range = 15.0
 	elif unit_type == "tank":
-		speed = 5            # МАКСИМАЛЬНО МЕДЛЕННО (было 10)
+		speed = 2            # МАКСИМАЛЬНО МЕДЛЕННО (было 10)
 		health = 800         # Увеличено в 3+ раза для тактики
 		max_health = 800
 		damage = 35
 		enemy_detection_range = 8.0   # Средняя зона восприятия
 		building_search_range = 12.0
 	elif unit_type == "drone":
-		speed = 12           # МАКСИМАЛЬНО МЕДЛЕННО (было 20)
+		speed = 4           # МАКСИМАЛЬНО МЕДЛЕННО (было 20)
 		health = 240         # Увеличено в 3 раза для тактики
 		max_health = 240
 		damage = 15
 		enemy_detection_range = 12.0  # Отличная зона восприятия (дрон)
 		building_search_range = 18.0
 	elif unit_type == "elite_soldier":
-		speed = 10           # МАКСИМАЛЬНО МЕДЛЕННО (было 18)
+		speed = 4           # МАКСИМАЛЬНО МЕДЛЕННО (было 18)
 		health = 450         # Увеличено в 3+ раза для тактики
 		max_health = 450
 		damage = 40
 		enemy_detection_range = 12.0  # Отличная зона восприятия
 		building_search_range = 16.0
 	elif unit_type == "crystal_mage":
-		speed = 6            # МАКСИМАЛЬНО МЕДЛЕННО (было 12)
+		speed = 2            # МАКСИМАЛЬНО МЕДЛЕННО (было 12)
 		health = 320         # Увеличено в 3+ раза для тактики
 		max_health = 320
 		damage = 45
@@ -114,26 +105,20 @@ func _ready():
 		enemy_detection_range = 14.0  # Очень хорошая зона восприятия (маг)
 		building_search_range = 20.0
 	elif unit_type == "heavy_tank":
-		speed = 4            # МАКСИМАЛЬНО МЕДЛЕННО (было 8)
+		speed = 1            # МАКСИМАЛЬНО МЕДЛЕННО (было 8)
 		health = 1200        # Увеличено в 2.7 раза для тактики
 		max_health = 1200
 		damage = 60
 		enemy_detection_range = 6.0   # Ограниченная зона восприятия (тяжелый танк)
 		building_search_range = 10.0
 	elif unit_type == "collector":
-		speed = 10           # МАКСИМАЛЬНО МЕДЛЕННО (было 18)
+		speed = 2           # МАКСИМАЛЬНО МЕДЛЕННО (было 18)
 		health = 280         # Увеличено почти в 3 раза для тактики
 		max_health = 280
 		damage = 0           # Не атакуют
 		enemy_detection_range = 5.0   # Ограниченная зона восприятия
 		building_search_range = 8.0
-	# Цвет по команде (жёстко: игрок — синий, враг — красный)
-	if current_mesh:
-		current_mesh.material_override = StandardMaterial3D.new()
-		if team == "player":
-			current_mesh.material_override.albedo_color = Color(0.2, 0.6, 1, 1)
-		else:
-			current_mesh.material_override.albedo_color = Color(1, 0.2, 0.2, 1)
+		
 	# Безопасно подключаем AttackArea
 	if attack_area:
 		attack_area.body_entered.connect(_on_attack_area_body_entered)
@@ -148,6 +133,120 @@ func _ready():
 	# Безопасно обновляем HealthBar
 	if health_bar and health_bar is Label:
 		update_health_display()
+
+func create_unit_visual():
+	# Создаем визуальную модель для юнита
+	var mesh_instance = MeshInstance3D.new()
+	mesh_instance.name = "UnitMesh"
+	add_child(mesh_instance)
+	
+	# Уникальная форма для каждого типа юнита
+	match unit_type:
+		"soldier":
+			var capsule = CapsuleMesh.new()
+			capsule.radius = 0.3
+			capsule.height = 1.0
+			mesh_instance.mesh = capsule
+		"tank":
+			var box = BoxMesh.new()
+			box.size = Vector3(1.2, 0.5, 1.6)
+			mesh_instance.mesh = box
+		"drone":
+			var sphere = SphereMesh.new()
+			sphere.radius = 0.5
+			sphere.height = 1.0
+			mesh_instance.mesh = sphere
+		"collector":
+			var cylinder = CylinderMesh.new()
+			cylinder.top_radius = 0.35
+			cylinder.bottom_radius = 0.35
+			cylinder.height = 1.0
+			mesh_instance.mesh = cylinder
+		"elite_soldier":
+			var capsule = CapsuleMesh.new()
+			capsule.radius = 0.4
+			capsule.height = 1.4
+			mesh_instance.mesh = capsule
+		"crystal_mage":
+			var prism = PrismMesh.new()
+			prism.size = Vector3(0.7, 1.3, 0.7)
+			mesh_instance.mesh = prism
+		"heavy_tank":
+			var box = BoxMesh.new()
+			box.size = Vector3(1.6, 0.7, 2.0)
+			mesh_instance.mesh = box
+		"hero":
+			var capsule = CapsuleMesh.new()
+			capsule.radius = 0.6
+			capsule.height = 2.0
+			mesh_instance.mesh = capsule
+		_:
+			var capsule = CapsuleMesh.new()
+			capsule.radius = 0.3
+			capsule.height = 1.0
+			mesh_instance.mesh = capsule
+	
+	# Цвет и эффекты — по команде (как раньше)
+	var material = StandardMaterial3D.new()
+	if team == "player":
+		match unit_type:
+			"collector":
+				material.albedo_color = Color(0.2, 1.0, 0.2, 1)
+				material.emission = Color(0.1, 0.7, 0.1)
+			"crystal_mage":
+				material.albedo_color = Color(0.7, 0.2, 1, 1)
+				material.emission = Color(0.5, 0.1, 0.7)
+			"heavy_tank":
+				material.albedo_color = Color(0.2, 0.6, 1, 1)
+				material.emission = Color(0.1, 0.3, 0.5)
+			"hero":
+				material.albedo_color = Color(1, 1, 0.2, 1)
+				material.emission = Color(1, 1, 0.2)
+			_:
+				material.albedo_color = Color(0.2, 0.6, 1, 1)
+				material.emission = Color(0.1, 0.3, 0.5)
+		material.emission_enabled = true
+		material.emission_energy = 1.0
+		material.outline_size = 0.05
+		material.outline_color = Color(0.2, 0.6, 1, 1)
+	else:
+		match unit_type:
+			"collector":
+				material.albedo_color = Color(1, 1, 0.2, 1)
+				material.emission = Color(0.7, 0.7, 0.1)
+			"crystal_mage":
+				material.albedo_color = Color(1, 0.2, 0.7, 1)
+				material.emission = Color(0.7, 0.1, 0.5)
+			"heavy_tank":
+				material.albedo_color = Color(1, 0.05, 0.05, 1)
+				material.emission = Color(0.5, 0.1, 0.1)
+			"hero":
+				material.albedo_color = Color(1, 0.7, 0.2, 1)
+				material.emission = Color(1, 0.5, 0.1)
+			_:
+				material.albedo_color = Color(1, 0.05, 0.05, 1)
+				material.emission = Color(0.5, 0.1, 0.1)
+		material.emission_enabled = true
+		material.emission_energy = 1.0
+		material.outline_size = 0.05
+		material.outline_color = Color(1, 0.05, 0.05, 1)
+	mesh_instance.material_override = material
+	current_mesh = mesh_instance
+	
+	# Подпись типа юнита (Label3D)
+	var label = Label3D.new()
+	label.text = unit_type
+	label.font_size = 32
+	label.position = Vector3(0, 1.5, 0)
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	if team == "player":
+		label.modulate = Color(0.2, 0.6, 1, 1)
+	else:
+		label.modulate = Color(1, 0.05, 0.05, 1)
+	label.outline_size = 4
+	label.outline_modulate = Color.BLACK
+	label.name = "TypeLabel3D"
+	add_child(label)
 
 func _physics_process(_delta):
 	if health <= 0:
@@ -165,9 +264,9 @@ func _physics_process(_delta):
 		queue_free()
 		return
 	
-	# Проверяем захват кристаллов для обычных юнитов
-	if battle_manager and battle_manager.crystal_system:
-		battle_manager.crystal_system.check_crystal_interaction(global_position, team, unit_type)
+	# Заменяем проверку crystal_system на territory_system
+	if battle_manager and battle_manager.territory_system:
+		battle_manager.territory_system.check_territory_interaction(global_position, team)
 	
 	attack_timer += _delta
 	target_search_timer += _delta
@@ -468,22 +567,23 @@ func handle_collector_behavior(_delta):
 			move_towards_target()
 
 func find_target_crystal():
-	if not battle_manager or not battle_manager.crystal_system:
+	if not battle_manager or not battle_manager.territory_system:
 		return
 		
-	var crystals = battle_manager.crystal_system.get_crystal_info()
+	# Получаем территории вместо кристаллов
+	var territories = battle_manager.territory_system.get_territory_info()
 	var best_crystal = null
 	var closest_distance = 999999.0
 	
-	for crystal in crystals:
+	for territory in territories:
 		# Ищем нейтральные или вражеские кристаллы
-		if crystal.owner == "neutral" or crystal.owner != team:
+		if territory.owner == "neutral" or territory.owner != team:
 			# Проверяем, нет ли уже коллектора на этом кристалле
-			if not crystal.has("assigned_collector"):
-				var distance = global_position.distance_to(crystal.position)
+			if not territory.has("assigned_collector"):
+				var distance = global_position.distance_to(territory.position)
 				if distance < closest_distance:
 					closest_distance = distance
-					best_crystal = crystal
+					best_crystal = territory
 	
 	if best_crystal:
 		target_crystal = best_crystal
@@ -500,11 +600,11 @@ func start_crystal_capture():
 	print("⏳ Коллектор ", team, " начал захват кристалла ", target_crystal.id, " (", crystal_type_name, ")")
 
 func complete_crystal_capture():
-	if not target_crystal or not battle_manager or not battle_manager.crystal_system:
+	if not target_crystal or not battle_manager or not battle_manager.territory_system:
 		return
 		
-	# Захватываем кристалл
-	battle_manager.crystal_system.force_capture_crystal(target_crystal.id, team)
+	# Захватываем территорию вместо кристалла
+	battle_manager.territory_system.force_capture_territory(target_crystal.id, team)
 	
 	# Создаем генератор с турелью на кристалле
 	create_crystal_generator_turret()
@@ -714,7 +814,10 @@ func _on_crystal_resource_generation():
 	update_generator_display(resource_amount)
 
 func get_current_mesh() -> MeshInstance3D:
-	# (documentation comment)
+	# Возвращаем созданный нами меш
+	if has_node("UnitMesh"):
+		return get_node("UnitMesh")
+	# Если по какой-то причине нет UnitMesh, пробуем найти старые меши
 	if unit_type == "soldier" and has_node("MeshInstance3D_Capsule"):
 		return get_node("MeshInstance3D_Capsule")
 	elif unit_type == "tank" and has_node("MeshInstance3D_Cube"):
@@ -725,7 +828,7 @@ func get_current_mesh() -> MeshInstance3D:
 		return get_node("MeshInstance3D_Cylinder")
 	elif has_node("MeshInstance3D_Capsule"):
 		return get_node("MeshInstance3D_Capsule")
-	return null
+	return current_mesh  # Возвращаем сохраненную ссылку
 
 func get_crystal_type_name(crystal_type: int) -> String:
 	# Безопасное получение имени типа кристалла

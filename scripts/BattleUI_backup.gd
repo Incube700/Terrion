@@ -1,4 +1,3 @@
-class_name BattleUI
 extends CanvasLayer
 
 # Интерфейс командира TERRION - компактный UI с иконками
@@ -41,12 +40,6 @@ func _ready():
 	setup_building_buttons()
 	setup_ability_buttons()
 	setup_special_buttons()
-	
-	# Подключаем старую панель SpawnerPanel, если она есть (совместимость)
-	var spawner_panel = get_node_or_null("SpawnerPanel")
-	if spawner_panel and spawner_panel.has_signal("spawner_drag_end"):
-		spawner_panel.spawner_drag_end.connect(_on_spawner_panel_drag_end)
-		print("✅ SpawnerPanel drag_end подключен к UI")
 	
 	print("✅ Все кнопки настроены")
 
@@ -326,15 +319,3 @@ func show_main_menu():
 	# Возврат в главное меню
 	main_menu.visible = true
 	game_ui.visible = false
-
-# Обработчик drag_end из старой панели
-func _on_spawner_panel_drag_end(spawner_type: String, screen_pos: Vector2):
-	print("[DEBUG] SpawnerPanel drag_end: ", spawner_type, " на позиции ", screen_pos)
-	drag_type = spawner_type
-	build_structure_drag.emit(screen_pos)
-	# Визуальная обратная связь: временно подсветить панель
-	var spawner_panel = get_node_or_null("SpawnerPanel")
-	if spawner_panel:
-		spawner_panel.modulate = Color(1, 1, 0.5, 1)  # Желтая подсветка
-		await get_tree().create_timer(0.3).timeout
-		spawner_panel.modulate = Color(1, 1, 1, 1)

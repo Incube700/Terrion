@@ -77,6 +77,14 @@ var hero_summoned = false
 var hero_summon_timer: Timer
 var side_territories_captured = 0  # Счетчик захваченных боковых территорий
 
+var energy_timer = null
+var enemy_decision_timer = null
+var enemy_ai_timer = null
+var enemy_current_soldiers = 0
+
+# Флаг для тестового спавна юнитов при старте битвы
+var debug_spawn_test_units := false
+
 func _ready():
 	print("🚀 Инициализация BattleManager...")
 	
@@ -106,7 +114,6 @@ func setup_ui_connections():
 		# Подключение к расовой системе
 		if race_system:
 			battle_ui.use_race_ability.connect(_on_use_race_ability)
-			battle_ui.summon_race_hero.connect(_on_summon_hero)
 		
 		print("🔗 Drag&drop управление подключено")
 	else:
@@ -168,6 +175,10 @@ func setup_battle_systems():
 	init_ability_system()
 	init_race_system()
 	# Остальные системы уже инициализированы через SystemManager
+	# Проверка рас после инициализации
+	if race_system:
+		print("[DEBUG] Фракция игрока:", race_system.player_race, " (", race_system.get_race_name(race_system.player_race), ")")
+		print("[DEBUG] Фракция врага:", race_system.enemy_race, " (", race_system.get_race_name(race_system.enemy_race), ")")
 
 	# Создание поля боя (территория конфликта)
 	create_battlefield()
@@ -190,9 +201,19 @@ func create_battlefield():
 	field.mesh = plane
 	field.position = Vector3(0, 0, 0)
 	var field_mat = StandardMaterial3D.new()
-	field_mat.albedo_color = Color(0.2, 0.7, 0.2, 1.0)  # Поверхность планеты
+	field_mat.albedo_color = Color(0.3, 0.5, 0.3, 1.0)  # Более темная поверхность
+	field_mat.roughness = 0.8
+	field_mat.metallic = 0.1
+	# Добавляем текстуру сетки
+	field_mat.detail_enabled = true
+	field_mat.detail_blend_mode = BaseMaterial3D.BLEND_MODE_MIX
+	field_mat.detail_uv_layer = BaseMaterial3D.DETAIL_UV_1
+	field_mat.detail_normal_blend_mode = BaseMaterial3D.BLEND_MODE_MIX
 	field.set_surface_override_material(0, field_mat)
 	add_child(field)
+	
+	# Добавляем сетку для лучшей видимости
+	create_grid_lines()
 
 	# Зона игрока (синяя, внизу карты) - УВЕЛИЧЕНА
 	var player_zone = MeshInstance3D.new()
@@ -201,7 +222,7 @@ func create_battlefield():
 	player_zone.mesh = player_plane
 	player_zone.position = Vector3(0, 0.01, 17.5)  # Смещение к игроку
 	var player_zone_mat = StandardMaterial3D.new()
-	player_zone_mat.albedo_color = Color(0.2, 0.6, 1.0, 0.3)  # Синяя зона игрока
+	player_zone_mat.albedo_color = Color(0.2, 0.6, 1.0, 0.5)  # Более видимая синяя зона
 	player_zone_mat.flags_transparent = true
 	player_zone.set_surface_override_material(0, player_zone_mat)
 	add_child(player_zone)
@@ -213,7 +234,7 @@ func create_battlefield():
 	enemy_zone.mesh = enemy_plane
 	enemy_zone.position = Vector3(0, 0.01, -17.5)  # Смещение к врагу
 	var enemy_zone_mat = StandardMaterial3D.new()
-	enemy_zone_mat.albedo_color = Color(1.0, 0.2, 0.2, 0.3)  # Красная зона врага
+	enemy_zone_mat.albedo_color = Color(1.0, 0.2, 0.2, 0.5)  # Более видимая красная зона
 	enemy_zone_mat.flags_transparent = true
 	enemy_zone.set_surface_override_material(0, enemy_zone_mat)
 	add_child(enemy_zone)
@@ -227,7 +248,8 @@ func create_battlefield():
 	var line_mat = StandardMaterial3D.new()
 	line_mat.albedo_color = Color(1, 1, 1, 1)  # Нейтральная зона
 	line_mat.emission_enabled = true
-	line_mat.emission = Color(0.3, 0.3, 0.3)  # Слабое свечение
+	line_mat.emission = Color(0.5, 0.5, 0.5)  # Более яркое свечение
+	line_mat.emission_energy = 1.5
 	line.set_surface_override_material(0, line_mat)
 	add_child(line)
 
@@ -256,15 +278,45 @@ func create_battlefield():
 	enemy_zone_label.outline_modulate = Color.BLACK
 	add_child(enemy_zone_label)
 
+func create_grid_lines():
+	# Создаем сетку для лучшей видимости поля
+	var grid_container = Node3D.new()
+	grid_container.name = "GridLines"
+	add_child(grid_container)
+	
+	var grid_material = StandardMaterial3D.new()
+	grid_material.albedo_color = Color(0.6, 0.6, 0.6, 0.5)
+	grid_material.flags_transparent = true
+	
+	# Вертикальные линии
+	for x in range(-20, 21, 5):
+		var line = MeshInstance3D.new()
+		var box = BoxMesh.new()
+		box.size = Vector3(0.1, 0.05, 60)
+		line.mesh = box
+		line.position = Vector3(x, 0.02, 0)
+		line.material_override = grid_material
+		grid_container.add_child(line)
+	
+	# Горизонтальные линии
+	for z in range(-30, 31, 5):
+		var line = MeshInstance3D.new()
+		var box = BoxMesh.new()
+		box.size = Vector3(40, 0.05, 0.1)
+		line.mesh = box
+		line.position = Vector3(0, 0.02, z)
+		line.material_override = grid_material
+		grid_container.add_child(line)
+
 func create_command_centers():
 	# Создает командные центры фракций
 	# Командный центр игрока (синяя фракция) - ВНИЗУ карты - УМЕНЬШЕННЫЙ
 	var player_core = MeshInstance3D.new()
 	var player_sphere = SphereMesh.new()
-	player_sphere.radius = 0.8  # УМЕНЬШЕНО с 1.5 до 0.8
-	player_sphere.height = 1.6  # УМЕНЬШЕНО с 3.0 до 1.6
+	player_sphere.radius = 2.0  # УВЕЛИЧЕНО с 0.8 до 2.0
+	player_sphere.height = 4.0  # УВЕЛИЧЕНО с 1.6 до 4.0
 	player_core.mesh = player_sphere
-	player_core.position = Vector3(0, 0.8, 28)  # Исправлено: в пределах карты
+	player_core.position = Vector3(0, 2.0, 28)  # Поднял выше
 	player_core.name = "PlayerCoreVisual"
 	var player_mat = StandardMaterial3D.new()
 	player_mat.albedo_color = Color(0.2, 0.6, 1, 1)  # СИНИЙ = ИГРОК
@@ -276,22 +328,22 @@ func create_command_centers():
 	# Подпись для ядра игрока - УМЕНЬШЕННАЯ
 	var player_label = Label3D.new()
 	player_label.text = "ИГРОК"
-	player_label.position = Vector3(0, 2.0, 28)  # Исправлено: в пределах карты
+	player_label.position = Vector3(0, 4.5, 28)  # Поднял выше
 	player_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	player_label.font_size = 48  # УМЕНЬШЕНО с 80 до 48
+	player_label.font_size = 64  # УВЕЛИЧЕНО с 48 до 64
 	player_label.modulate = Color(0.2, 0.6, 1, 1)
 	# Добавляем контур для читаемости
-	player_label.outline_size = 6  # УМЕНЬШЕНО с 10 до 6
+	player_label.outline_size = 10  # УВЕЛИЧЕНО с 6 до 10
 	player_label.outline_modulate = Color.BLACK
 	add_child(player_label)
 
 	# Командный центр противника (красная фракция) - ВВЕРХУ карты - УМЕНЬШЕННЫЙ
 	var enemy_core = MeshInstance3D.new()
 	var enemy_sphere = SphereMesh.new()
-	enemy_sphere.radius = 0.8  # УМЕНЬШЕНО с 1.5 до 0.8
-	enemy_sphere.height = 1.6  # УМЕНЬШЕНО с 3.0 до 1.6
+	enemy_sphere.radius = 2.0  # УВЕЛИЧЕНО с 0.8 до 2.0
+	enemy_sphere.height = 4.0  # УВЕЛИЧЕНО с 1.6 до 4.0
 	enemy_core.mesh = enemy_sphere
-	enemy_core.position = Vector3(0, 0.8, -28)  # Исправлено: в пределах карты
+	enemy_core.position = Vector3(0, 2.0, -28)  # Поднял выше
 	enemy_core.name = "EnemyCoreVisual"
 	var enemy_mat = StandardMaterial3D.new()
 	enemy_mat.albedo_color = Color(1, 0.2, 0.2, 1)  # КРАСНЫЙ = ВРАГ
@@ -303,12 +355,12 @@ func create_command_centers():
 	# Подпись для ядра врага - УМЕНЬШЕННАЯ
 	var enemy_label = Label3D.new()
 	enemy_label.text = "ВРАГ"
-	enemy_label.position = Vector3(0, 2.0, -28)  # Исправлено: в пределах карты
+	enemy_label.position = Vector3(0, 4.5, -28)  # Поднял выше
 	enemy_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	enemy_label.font_size = 48  # УМЕНЬШЕНО с 80 до 48
+	enemy_label.font_size = 64  # УВЕЛИЧЕНО с 48 до 64
 	enemy_label.modulate = Color(1, 0.2, 0.2, 1)
 	# Добавляем контур для читаемости
-	enemy_label.outline_size = 6  # УМЕНЬШЕНО с 10 до 6
+	enemy_label.outline_size = 10  # УВЕЛИЧЕНО с 6 до 10
 	enemy_label.outline_modulate = Color.BLACK
 	add_child(enemy_label)
 
@@ -513,10 +565,13 @@ func _on_start_battle():
 		enemy_ai_timer.start()
 		print("🤖 AI таймер спавна запущен")
 	
-	print("6. Создаем тестовых юнитов...")
-	# Создаем тестовых юнитов для проверки
-	spawn_unit_at_pos("player", Vector3(-2, 0, 12), "soldier")  # Игрок внизу экрана
-	spawn_unit_at_pos("enemy", Vector3(2, 0, -12), "soldier")   # Враг вверху экрана
+	if debug_spawn_test_units:
+		print("6. Создаем тестовых юнитов...")
+		# Создаем тестовых юнитов для проверки
+		spawn_unit_at_pos("player", Vector3(-2, 0, 12), "soldier")  # Игрок внизу экрана
+		spawn_unit_at_pos("enemy", Vector3(2, 0, -12), "soldier")   # Враг вверху экрана
+	else:
+		print("6. Пропускаем тестовый спавн юнитов (debug_spawn_test_units = false)")
 	
 	print("7. Создаем начальных коллекторов...")
 	# Создаем начальных коллекторов при старте битвы
@@ -785,64 +840,32 @@ func _on_spawn_unit_simple(unit_type: String):
 
 # Drag&drop: строительство здания (определяем тип по drag_type из UI)
 func _on_build_structure_drag(screen_pos):
+	print("[DEBUG] DRAG & DROP ЗДАНИЯ: drag_type=", battle_ui.drag_type, " screen_pos=", screen_pos)
 	print("🏗️ === DRAG & DROP ЗДАНИЯ ===")
 	print("1. Позиция экрана: ", screen_pos)
 	print("2. Битва началась: ", battle_started)
-	
 	if not battle_started:
 		print("❌ Битва не началась!")
 		return
-	
 	# Определяем тип здания по drag_type из BattleUI
-	var building_type = "tower"  # По умолчанию башня
-	var building_cost_local = 60
-	var crystal_cost = 0
-	
-	# Получаем тип здания из UI (нужно будет передать из BattleUI)
-	if battle_ui and battle_ui.drag_type:
-		match battle_ui.drag_type:
-			"barracks":
-				building_type = "barracks"
-				building_cost_local = 80
-			"training_camp":
-				building_type = "training_camp"
-				building_cost_local = 120
-				crystal_cost = 20
-			"magic_academy":
-				building_type = "magic_academy"
-				building_cost_local = 100
-				crystal_cost = 30
-			"collector_facility":
-				building_type = "collector_facility"
-				building_cost_local = 90
-				crystal_cost = 15
-			"mech_factory":
-				building_type = "mech_factory"
-				building_cost_local = 150
-				crystal_cost = 25
-			"drone_factory":
-				building_type = "drone_factory"
-				building_cost_local = 130
-				crystal_cost = 20
-			_:
-				building_type = "tower"
-				building_cost_local = 60
-	
+	var building_type = "tower"
+	if battle_ui and battle_ui.drag_type != "":
+		building_type = battle_ui.drag_type
+	print("[DEBUG] building_type=", building_type)
+	# Получаем стоимость через конфигурационные функции
+	var building_cost_local = get_structure_cost(building_type)
+	var crystal_cost = get_structure_crystal_cost(building_type)
 	print("3. Тип здания: ", building_type)
 	print("4. Стоимость: ", building_cost_local, " энергии, ", crystal_cost, " кристаллов")
 	print("5. У игрока: ", player_energy, " энергии, ", player_crystals, " кристаллов")
-	
 	if player_energy < building_cost_local or player_crystals < crystal_cost:
 		print("❌ Недостаточно ресурсов для постройки ", building_type, "!")
 		return
-		
 	var pos = get_mouse_map_position(screen_pos)
 	print("6. 3D позиция на карте: ", pos)
-	
 	if pos == Vector3.ZERO:
 		print("❌ Не удалось определить позицию на карте!")
 		return
-		
 	if is_valid_build_position(pos):
 		print("✅ Позиция валидна, строим ", building_type, "...")
 		place_spawner("player", building_type, pos)
@@ -850,6 +873,8 @@ func _on_build_structure_drag(screen_pos):
 		player_crystals -= crystal_cost
 		update_ui()
 		print("✅ ", building_type, " построено успешно!")
+		if notification_system:
+			notification_system.show_notification("Построено: " + building_type, "build_success")
 	else:
 		print("❌ Нельзя построить ", building_type, " в позиции ", pos)
 		print("   Причина: вне игровой зоны или слишком близко к другому зданию")
@@ -1285,35 +1310,46 @@ func ai_consider_collector_strategy():
 func _on_territory_captured(territory_id: int, team: String, territory_type: int):
 	print("🏰 Территория захвачена: ID=", territory_id, " типа=", territory_type, " командой ", team)
 	
-	# Проверяем если игрок захватил территории для алтаря
-	if team == "player":
-		# Получаем информацию о кристалле
-		if territory_system:
-			var crystals = territory_system.get_territory_info()
-			if territory_id < crystals.size():
-				var crystal = crystals[territory_id]
-				var crystal_name = crystal.get("name", "")
-				
-				print("🔍 Имя захваченной территории: '", crystal_name, "'")
-				
-				# Добавляем кристаллы в зависимости от типа
+	# Получаем информацию о территории
+	if territory_system:
+		var territories = territory_system.get_territory_info()
+		if territory_id < territories.size():
+			var territory = territories[territory_id]
+			var territory_name = territory.get("name", "")
+			
+			print("🔍 Имя захваченной территории: '", territory_name, "'")
+			
+			# Обрабатываем захват в зависимости от типа территории
+			if team == "player":
 				match territory_type:
-					1: # ENERGY_CRYSTAL
+					TerritorySystem.TerritoryType.ENERGY_MINE:
 						player_crystals += 15
-						# Проверяем боковые территории для алтаря героя (energy_1 и energy_2)
-						if crystal_name == "energy_1" or crystal_name == "energy_2":
-							side_territories_captured += 1
-							print("🦸 Захвачена боковая территория! Всего: ", side_territories_captured, "/2")
-							
-							# Если захвачены 2 боковые территории - активируем алтарь
-							if side_territories_captured >= 2 and not hero_altar_active:
-								activate_hero_altar()
-					2: # UNSTABLE_CRYSTAL
+						print("⚡ Захвачен энергетический рудник! +15 кристаллов")
+					TerritorySystem.TerritoryType.CRYSTAL_MINE:
 						player_crystals += 25
-					3: # VOID_CRYSTAL
+						print("💎 Захвачен кристальный рудник! +25 кристаллов")
+					TerritorySystem.TerritoryType.VOID_CRYSTAL:
 						player_crystals += 50
+						print("💜 Захвачен кристалл пустоты! +50 кристаллов")
+					TerritorySystem.TerritoryType.ANCIENT_ALTAR:
+						player_crystals += 100
+						print("✨ Захвачен главный алтарь! +100 кристаллов")
+						# Проверяем условия победы
+						check_victory_conditions()
+					TerritorySystem.TerritoryType.CENTER_TRIGGER_1, TerritorySystem.TerritoryType.CENTER_TRIGGER_2:
+						side_territories_captured += 1
+						print("🦸 Захвачен триггер! Всего: ", side_territories_captured, "/2")
+						
+						# Если захвачены оба триггера - активируем алтарь
+						if side_territories_captured >= 2 and not hero_altar_active:
+							activate_hero_altar()
 	
+	# Обновляем UI
 	update_ui()
+	
+	# Показываем уведомление
+	if notification_system:
+		notification_system.show_notification("🏰 Территория захвачена!", "territory_captured")
 
 func _on_summon_altar_hero():
 	# Обработка призыва героя через алтарь

@@ -70,13 +70,13 @@ func analyze_battlefield():
 		"base_threat": 0.0
 	}
 
-	# Подсчёт захваченных кристаллов
-	if battle_manager.has("crystal_system") and battle_manager.crystal_system:
-		var crystals = battle_manager.crystal_system.get_crystal_info()
-		for crystal in crystals:
-			if crystal.owner == "player":
+	# Подсчёт захваченных территорий
+	if battle_manager.has("territory_system") and battle_manager.territory_system:
+		var territories = battle_manager.territory_system.get_territory_info()
+		for territory in territories:
+			if territory.owner == "player":
 				analysis.player_crystals += 1
-			elif crystal.owner == "enemy":
+			elif territory.owner == "enemy":
 				analysis.enemy_crystals += 1
 
 	# Угроза базе: враги в радиусе THREAT_RADIUS от ядра
@@ -178,11 +178,12 @@ func change_strategy():
 	var base_threat = battlefield_analysis.get("base_threat", 0.0)
 	var player_collectors = battlefield_analysis.get("player_units", {}).get("collector", 0)
 	var player_towers = battlefield_analysis.get("player_spawners", {}).get("tower", 0)
+	# Подсчёт свободных кристаллов через TerritorySystem
 	var free_crystals = 0
-	if battle_manager.has("crystal_system") and battle_manager.crystal_system:
-		var crystals = battle_manager.crystal_system.get_crystal_info()
-		for crystal in crystals:
-			if crystal.owner == "neutral":
+	if battle_manager.has("territory_system") and battle_manager.territory_system:
+		var territories = battle_manager.territory_system.get_territory_info()
+		for territory in territories:
+			if (territory.type == TerritorySystem.TerritoryType.CRYSTAL_MINE or territory.type == TerritorySystem.TerritoryType.VOID_CRYSTAL) and territory.owner == "neutral":
 				free_crystals += 1
 
 	# Новые условия для стратегий
@@ -362,4 +363,5 @@ func get_strategy_info() -> Dictionary:
 		"unit_priorities": unit_priorities,
 		"build_priorities": build_priorities
 	}
+ 
  

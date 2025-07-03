@@ -27,7 +27,7 @@ enum TerritoryType {
 	ANCIENT_ALTAR,      # Главный алтарь (победа)
 	BATTLEFIELD_SHRINE, # Святилище (лечение)
 	DEFENSIVE_TOWER,    # Оборонительная башня
-	FACTORY,            # Фабрика (производство)
+	# FACTORY,            # Фабрика (больше не используется)
 	
 	# === СТАРТОВЫЕ ПОЗИЦИИ ===
 	PLAYER_BASE,        # База игрока
@@ -63,6 +63,15 @@ func create_territories():
 		{"name": "Кристальный Рудник Юг", "pos": Vector3(0, 0, 20), "type": TerritoryType.CRYSTAL_MINE, "value": 150, "radius": 5.0},
 		{"name": "Кристальный Рудник Север", "pos": Vector3(0, 0, -20), "type": TerritoryType.CRYSTAL_MINE, "value": 150, "radius": 5.0},
 		
+		# === СПЕЦИАЛЬНЫЕ ТЕРРИТОРИИ ===
+		# Святилища ближе к базе
+		{"name": "Святилище Юг", "pos": Vector3(0, 0, 10), "type": TerritoryType.BATTLEFIELD_SHRINE, "value": 100, "radius": 4.5},
+		{"name": "Святилище Север", "pos": Vector3(0, 0, -10), "type": TerritoryType.BATTLEFIELD_SHRINE, "value": 100, "radius": 4.5},
+		
+		# Кристалл пустоты между лечением и центром (на обеих половинах)
+		{"name": "Кристалл Пустоты Юг", "pos": Vector3(0, 0, 5), "type": TerritoryType.VOID_CRYSTAL, "value": 250, "radius": 6.0},
+		{"name": "Кристалл Пустоты Север", "pos": Vector3(0, 0, -5), "type": TerritoryType.VOID_CRYSTAL, "value": 250, "radius": 6.0},
+		
 		# === СТРАТЕГИЧЕСКИЕ ТОЧКИ ===
 		# Центральные триггеры для призыва героя
 		{"name": "Триггер Альфа", "pos": Vector3(-8, 0, 0), "type": TerritoryType.CENTER_TRIGGER_1, "value": 200, "radius": 4.0},
@@ -71,17 +80,9 @@ func create_territories():
 		# Башня Предтеч (нейтральная, в центре)
 		{"name": "Башня Предтеч", "pos": Vector3(0, 0, 0), "type": TerritoryType.ANCIENT_TOWER, "value": 300, "radius": 5.5},
 		
-		# Кристалл пустоты (между ядром и центральной точкой)
-		{"name": "Кристалл Пустоты", "pos": Vector3(0, 0, 12), "type": TerritoryType.VOID_CRYSTAL, "value": 250, "radius": 6.0},
-		
-		# === СПЕЦИАЛЬНЫЕ ТЕРРИТОРИИ ===
-		# Оборонительные сооружения
+		# Оборонительные сооружения (две заставы)
 		{"name": "Застава Запад", "pos": Vector3(-20, 0, 0), "type": TerritoryType.DEFENSIVE_TOWER, "value": 120, "radius": 4.5},
-		{"name": "Фабрика Восток", "pos": Vector3(20, 0, 0), "type": TerritoryType.FACTORY, "value": 120, "radius": 4.5},
-		
-		# Святилища
-		{"name": "Святилище Юг", "pos": Vector3(0, 0, 8), "type": TerritoryType.BATTLEFIELD_SHRINE, "value": 100, "radius": 4.5},
-		{"name": "Святилище Север", "pos": Vector3(0, 0, -8), "type": TerritoryType.BATTLEFIELD_SHRINE, "value": 100, "radius": 4.5},
+		{"name": "Застава Восток", "pos": Vector3(20, 0, 0), "type": TerritoryType.DEFENSIVE_TOWER, "value": 120, "radius": 4.5},
 		
 		# Главный алтарь (цель победы)
 		{"name": "Главный Алтарь", "pos": Vector3(0, 0, 4), "type": TerritoryType.ANCIENT_ALTAR, "value": 500, "radius": 6.0}
@@ -138,41 +139,39 @@ func create_territory_visual(territory: Dictionary):
 	match territory.type:
 		TerritoryType.ENERGY_MINE:
 			# ВСЕ энергетические рудники - ЯРКО-ГОЛУБЫЕ
-			material.albedo_color = Color(0.0, 0.9, 1.0, 0.95)  # Ярко-голубой
+			material.albedo_color = Color(0.0, 0.9, 1.0, 0.7)  # Уменьшил прозрачность
 			material.emission = Color(0.0, 0.7, 1.0)  # Сильное голубое свечение
 		TerritoryType.CRYSTAL_MINE:
 			# ВСЕ кристальные рудники - ЯРКО-ПУРПУРНЫЕ
-			material.albedo_color = Color(1.0, 0.0, 1.0, 0.95)  # Ярко-пурпурный
+			material.albedo_color = Color(1.0, 0.0, 1.0, 0.7)  # Уменьшил прозрачность
 			material.emission = Color(0.8, 0.0, 0.8)  # Сильное пурпурное свечение
 		TerritoryType.DEFENSIVE_TOWER:
-			material.albedo_color = Color(1.0, 0.0, 0.0, 0.95)  # Ярко-красный
+			material.albedo_color = Color(1.0, 0.0, 0.0, 0.7)  # Уменьшил прозрачность
 			material.emission = Color(0.8, 0.0, 0.0)  # Сильное красное свечение
-		TerritoryType.FACTORY:
-			material.albedo_color = Color(1.0, 0.5, 0.0, 0.95)  # Ярко-оранжевый
-			material.emission = Color(0.8, 0.4, 0.0)  # Сильное оранжевое свечение
+		# Удалено: TerritoryType.FACTORY
 		TerritoryType.ANCIENT_ALTAR:
-			material.albedo_color = Color(1.0, 0.8, 0.0, 0.95)  # Ярко-золотой
+			material.albedo_color = Color(1.0, 0.8, 0.0, 0.7)  # Уменьшил прозрачность
 			material.emission = Color(0.8, 0.6, 0.0)  # Сильное золотое свечение
 		TerritoryType.BATTLEFIELD_SHRINE:
-			material.albedo_color = Color(0.0, 1.0, 0.0, 0.95)  # Ярко-зеленый
+			material.albedo_color = Color(0.0, 1.0, 0.0, 0.7)  # Уменьшил прозрачность
 			material.emission = Color(0.0, 0.8, 0.0)  # Сильное зеленое свечение
 		TerritoryType.CENTER_TRIGGER_1, TerritoryType.CENTER_TRIGGER_2:
-			material.albedo_color = Color(1.0, 0.8, 0.0, 0.95)  # Ярко-золотой
+			material.albedo_color = Color(1.0, 0.8, 0.0, 0.7)  # Уменьшил прозрачность
 			material.emission = Color(1.0, 0.6, 0.0)  # Сильное золотое свечение
 		TerritoryType.ANCIENT_TOWER:
-			material.albedo_color = Color(0.2, 0.2, 0.8, 0.95)  # Темно-синий
+			material.albedo_color = Color(0.2, 0.2, 0.8, 0.7)  # Уменьшил прозрачность
 			material.emission = Color(0.4, 0.4, 1.0)  # Синее свечение
 		TerritoryType.VOID_CRYSTAL:
-			material.albedo_color = Color(0.6, 0.0, 0.8, 0.95)  # Темно-пурпурный
+			material.albedo_color = Color(0.6, 0.0, 0.8, 0.7)  # Уменьшил прозрачность
 			material.emission = Color(0.8, 0.0, 1.0)  # Пурпурное свечение
 		TerritoryType.PLAYER_BASE:
-			material.albedo_color = Color(0.2, 0.6, 1.0, 0.95)  # Синий игрок
+			material.albedo_color = Color(0.2, 0.6, 1.0, 0.7)  # Уменьшил прозрачность
 			material.emission = Color(0.1, 0.3, 0.5)  # Синее свечение
 		TerritoryType.ENEMY_BASE:
-			material.albedo_color = Color(1.0, 0.2, 0.2, 0.95)  # Красный враг
+			material.albedo_color = Color(1.0, 0.2, 0.2, 0.7)  # Уменьшил прозрачность
 			material.emission = Color(0.5, 0.1, 0.1)  # Красное свечение
 		_:
-			material.albedo_color = Color(0.6, 0.6, 0.6, 0.95)
+			material.albedo_color = Color(0.6, 0.6, 0.6, 0.7)  # Уменьшил прозрачность
 			material.emission = Color(0.3, 0.3, 0.3)
 
 	material.flags_transparent = true
@@ -214,33 +213,23 @@ func apply_territory_effects(territory: Dictionary):
 	match territory.type:
 		TerritoryType.ENERGY_MINE:
 			add_resource(territory_owner, "energy", amount)
-			
 		TerritoryType.CRYSTAL_MINE:
 			add_resource(territory_owner, "crystals", amount)
-			
 		TerritoryType.VOID_CRYSTAL:
 			add_resource(territory_owner, "energy", amount)
 			apply_void_crystal_effects(territory)
-			
 		TerritoryType.DEFENSIVE_TOWER:
 			auto_attack_enemies(territory)
-			
-		TerritoryType.FACTORY:
-			auto_produce_units(territory)
-			
+		# Удалено: TerritoryType.FACTORY
 		TerritoryType.ANCIENT_ALTAR:
 			reduce_ability_cooldowns(territory)
 			add_resource(territory_owner, "crystals", amount)
-			
 		TerritoryType.BATTLEFIELD_SHRINE:
 			heal_friendly_units(territory)
-			
 		TerritoryType.CENTER_TRIGGER_1, TerritoryType.CENTER_TRIGGER_2:
 			check_hero_summon_conditions()
-			
 		TerritoryType.ANCIENT_TOWER:
 			ancient_tower_attack(territory)
-			
 		TerritoryType.PLAYER_BASE, TerritoryType.ENEMY_BASE:
 			add_resource(territory_owner, "energy", amount)
 
@@ -307,11 +296,28 @@ func update_territory_visual(territory: Dictionary):
 			# Восстанавливаем оригинальный цвет по типу
 			match territory.type:
 				TerritoryType.ENERGY_MINE:
-					material.albedo_color = Color(0.2, 0.8, 1.0, 0.5)
+					material.albedo_color = Color(0.0, 0.9, 1.0, 0.7)
 				TerritoryType.CRYSTAL_MINE:
-					material.albedo_color = Color(1.0, 0.2, 1.0, 0.5)
-				TerritoryType.STRATEGIC_POINT:
-					material.albedo_color = Color(1.0, 1.0, 0.2, 0.5)
+					material.albedo_color = Color(1.0, 0.0, 1.0, 0.7)
+				TerritoryType.VOID_CRYSTAL:
+					material.albedo_color = Color(0.6, 0.0, 0.8, 0.7)
+				TerritoryType.CENTER_TRIGGER_1, TerritoryType.CENTER_TRIGGER_2:
+					material.albedo_color = Color(1.0, 0.8, 0.0, 0.7)
+				TerritoryType.ANCIENT_TOWER:
+					material.albedo_color = Color(0.2, 0.2, 0.8, 0.7)
+				TerritoryType.ANCIENT_ALTAR:
+					material.albedo_color = Color(1.0, 0.8, 0.0, 0.7)
+				TerritoryType.BATTLEFIELD_SHRINE:
+					material.albedo_color = Color(0.0, 1.0, 0.0, 0.7)
+				TerritoryType.DEFENSIVE_TOWER:
+					material.albedo_color = Color(1.0, 0.0, 0.0, 0.7)
+				# Удалено: TerritoryType.FACTORY
+				TerritoryType.PLAYER_BASE:
+					material.albedo_color = Color(0.2, 0.6, 1.0, 0.7)
+				TerritoryType.ENEMY_BASE:
+					material.albedo_color = Color(1.0, 0.2, 0.2, 0.7)
+				_:
+					material.albedo_color = Color(0.6, 0.6, 0.6, 0.7)
 
 func get_territory_info() -> Array[Dictionary]:
 	return territories
@@ -347,22 +353,7 @@ func auto_attack_enemies(territory: Dictionary):
 	# Здесь будет логика поиска и атаки врагов
 	print("🔥 Defensive tower attacking ", enemy_team, " near territory ", territory.id)
 
-func auto_produce_units(territory: Dictionary):
-	# Автоматически производим базовых юнитов
-	var territory_owner = territory.owner
-	var cost = 20
-	
-	if territory_owner == "player" and battle_manager.player_energy >= cost:
-		battle_manager.player_energy -= cost
-		# Спавним юнита рядом с фабрикой
-		var spawn_pos = territory.position + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2))
-		battle_manager.spawn_unit_at_pos("player", spawn_pos, "soldier")
-		print("🏭 Factory produced soldier for ", territory_owner)
-	elif territory_owner == "enemy" and battle_manager.enemy_energy >= cost:
-		battle_manager.enemy_energy -= cost
-		var spawn_pos = territory.position + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2))
-		battle_manager.spawn_unit_at_pos("enemy", spawn_pos, "soldier")
-		print("🏭 Factory produced soldier for ", territory_owner)
+# Удаляю auto_produce_units и все вызовы для фабрики
 
 func teleport_friendly_units(territory: Dictionary):
 	# Телепортируем случайного дружественного юнита к порталу
@@ -374,9 +365,33 @@ func reduce_ability_cooldowns(territory: Dictionary):
 		battle_manager.reduce_cooldowns(0.5)  # Снижаем на 0.5 секунды
 	print("✨ Ancient altar reducing cooldowns for ", territory.owner)
 
+# Таймеры для лечения по territory_id
+var shrine_heal_timers = {}
+
 func heal_friendly_units(territory: Dictionary):
-	# Лечим дружественных юнитов в радиусе
-	print("💚 Battlefield shrine healing units for ", territory.owner)
+	if not battle_manager:
+		return
+	var territory_id = territory.id if "id" in territory else str(territory.position)
+	var now = OS.get_ticks_msec() / 1000.0
+	if shrine_heal_timers.has(territory_id):
+		if now - shrine_heal_timers[territory_id] < 3.0:
+			return # Лечим только раз в 3 секунды
+	shrine_heal_timers[territory_id] = now
+	# Лечим только 5% от недостающего здоровья
+	var team = territory.owner
+	var units = get_tree().get_nodes_in_group("units")
+	for unit in units:
+		if unit.team == team and unit.health < unit.max_health:
+			var heal_amount = int((unit.max_health - unit.health) * 0.05)
+			if heal_amount > 0:
+				unit.health += heal_amount
+				if unit.health > unit.max_health:
+					unit.health = unit.max_health
+				if unit.has_method("update_health_display"):
+					unit.update_health_display()
+				if unit.has_method("update_3d_health_bar"):
+					unit.update_3d_health_bar()
+	print("💚 Battlefield shrine healing units for ", team)
 
 func get_territory_short_name(type) -> String:
 	# Короткие и читаемые названия территорий
@@ -389,8 +404,7 @@ func get_territory_short_name(type) -> String:
 			return "💜 ПУСТОТА\n+1 энергия/сек"
 		TerritoryType.DEFENSIVE_TOWER:
 			return "🏰 ЗАСТАВА\nАвтоатака"
-		TerritoryType.FACTORY:
-			return "🏭 ФАБРИКА\nСоздает войска"
+		# Удалено: TerritoryType.FACTORY
 		TerritoryType.ANCIENT_ALTAR:
 			return "✨ АЛТАРЬ\n💰 ГЛАВНАЯ ЦЕЛЬ!"
 		TerritoryType.BATTLEFIELD_SHRINE:
@@ -414,27 +428,25 @@ func get_territory_label(type):
 			return "⚡ ЭНЕРГИЯ ⚡\n+15/сек"
 		TerritoryType.CRYSTAL_MINE:
 			return "💎 КРИСТАЛЛЫ 💎\n+10/сек"
-		TerritoryType.STRATEGIC_POINT:
-			return "🎯 СТРАТЕГИЯ 🎯\n+5 энергии"
+		TerritoryType.VOID_CRYSTAL:
+			return "💜 ПУСТОТА 💜\n+1 энергия/сек"
 		TerritoryType.DEFENSIVE_TOWER:
-			return "🏰 БАШНЯ 🏰\nАвтоатака"
-		TerritoryType.FACTORY:
-			return "🏭 ФАБРИКА 🏭\nСоздает армию"
-		TerritoryType.PORTAL:
-			return "🌀 ПОРТАЛ 🌀\nТелепорт"
+			return "🏰 ЗАСТАВА 🏰\nАвтоатака"
+		# Удалено: TerritoryType.FACTORY
 		TerritoryType.ANCIENT_ALTAR:
 			return "✨ АЛТАРЬ ✨\n💪 ГЛАВНАЯ ЦЕЛЬ!"
 		TerritoryType.BATTLEFIELD_SHRINE:
 			return "💚 СВЯТИЛИЩЕ 💚\nЛечение войск"
-		# НОВЫЕ ТИПЫ ТЕРРИТОРИЙ
 		TerritoryType.CENTER_TRIGGER_1:
 			return "⚔️ ТРИГГЕР АЛЬФА ⚔️\nПризыв героя!"
 		TerritoryType.CENTER_TRIGGER_2:
 			return "⚔️ ТРИГГЕР БЕТА ⚔️\nПризыв героя!"
 		TerritoryType.ANCIENT_TOWER:
 			return "🏛️ БАШНЯ ПРЕДТЕЧ 🏛️\nНейтральная угроза"
-		TerritoryType.VOID_CRYSTAL:
-			return "💜 КРИСТАЛЛ ПУСТОТЫ 💜\nАура эффективности"
+		TerritoryType.PLAYER_BASE:
+			return "🏠 БАЗА ИГРОКА 🏠\nКомандный центр"
+		TerritoryType.ENEMY_BASE:
+			return "🏠 БАЗА ВРАГА 🏠\nКомандный центр"
 		_:
 			return "❓ ТЕРРИТОРИЯ ❓"
 
@@ -458,7 +470,7 @@ func check_hero_summon_conditions():
 	
 	# Если оба триггера захвачены одной командой - призываем героя и освящаем башню
 	if trigger_1_captured and trigger_2_captured and trigger_1_owner == trigger_2_owner:
-		if not battle_manager.has("hero_summoned") or not battle_manager.hero_summoned:
+		if not battle_manager.hero_summoned:
 			summon_hero(trigger_1_owner)
 			consecrate_ancient_tower(trigger_1_owner)
 			print("🦸 ГЕРОЙ ПРИЗВАН и БАШНЯ ОСВЯЩЕНА для команды ", trigger_1_owner, "!")
@@ -512,7 +524,7 @@ func start_tower_activation_timer(territory: Dictionary):
 	var timer = Timer.new()
 	timer.wait_time = territory["activation_timer"]
 	timer.one_shot = true
-	timer.timeout.connect(func(): activate_consecrated_tower(territory))
+	timer.timeout.connect(activate_consecrated_tower.bind(territory))
 	add_child(timer)
 	timer.start()
 
@@ -558,11 +570,11 @@ func ancient_tower_attack(territory: Dictionary):
 	# Атакуем случайную цель
 	if targets.size() > 0:
 		var target = targets[randi() % targets.size()]
-		ancient_tower_damage_target(target, territory)
+		ancient_tower_damage_target(target)
 		print("🏛️ Башня Предтеч атакует ", target.unit_type, " команды ", target.team)
 
 # Урон от башни предтеч
-func ancient_tower_damage_target(target, territory: Dictionary):
+func ancient_tower_damage_target(target):
 	if not target or not is_instance_valid(target):
 		return
 	
@@ -572,7 +584,7 @@ func ancient_tower_damage_target(target, territory: Dictionary):
 	
 	# Визуальный эффект
 	if battle_manager.effect_system:
-		battle_manager.effect_system.create_damage_effect(target.global_position, damage)
+		battle_manager.effect_system.create_hit_effect(target.global_position, damage)
 
 # Эффекты кристалла пустоты
 func apply_void_crystal_effects(territory: Dictionary):
@@ -614,32 +626,23 @@ func block_healing_in_zone(crystal_position: Vector3, aura_radius: float):
 			if unit.has_method("block_healing"):
 				unit.block_healing(true)
 			print("💜 Лечение заблокировано для ", unit.unit_type, " в зоне кристалла")
-
-# Обновляем get_territory_short_name для новых типов
-func get_territory_short_name(type) -> String:
-	match type:
-		TerritoryType.ENERGY_MINE:
-			return "⚡ ЭНЕРГИЯ\n+15/сек"
-		TerritoryType.CRYSTAL_MINE:
-			return "💎 КРИСТАЛЛЫ\n+10/сек"
-		TerritoryType.DEFENSIVE_TOWER:
-			return "🏰 ЗАСТАВА\nАвтоатака"
-		TerritoryType.FACTORY:
-			return "🏭 ФАБРИКА\nСоздает войска"
-		TerritoryType.ANCIENT_ALTAR:
-			return "✨ АЛТАРЬ\n💰 ГЛАВНАЯ ЦЕЛЬ!"
-		TerritoryType.BATTLEFIELD_SHRINE:
-			return "🌿 СВЯТИЛИЩЕ\nЛечение"
-		# НОВЫЕ ТИПЫ
-		TerritoryType.CENTER_TRIGGER_1:
-			return "⚔️ ТРИГГЕР АЛЬФА\nПризыв героя!"
-		TerritoryType.CENTER_TRIGGER_2:
-			return "⚔️ ТРИГГЕР БЕТА\nПризыв героя!"
-		TerritoryType.ANCIENT_TOWER:
-			return "🏛️ БАШНЯ ПРЕДТЕЧ\nНейтральная угроза"
-		TerritoryType.VOID_CRYSTAL:
-			return "💜 КРИСТАЛЛ ПУСТОТЫ\nАура эффективности"
-		_:
-			return "❓ ТЕРРИТОРИЯ"
+ 
+ 
+# Проверка взаимодействия юнита с территорией (захват и спецэффекты)
+func check_territory_interaction(unit_position: Vector3, team: String):
+	for territory in territories:
+		var distance = unit_position.distance_to(territory.position)
+		if distance <= territory.control_radius:
+			# Попытка захвата территории
+			attempt_capture(territory, team)
+			# Спецэффекты для особых территорий
+			if territory.type == TerritoryType.BATTLEFIELD_SHRINE:
+				heal_friendly_units(territory)
+			elif territory.type == TerritoryType.VOID_CRYSTAL:
+				apply_void_crystal_effects(territory)
+			elif territory.type == TerritoryType.DEFENSIVE_TOWER:
+				auto_attack_enemies(territory)
+			# Удалено: elif territory.type == TerritoryType.FACTORY
+			break 
  
  
