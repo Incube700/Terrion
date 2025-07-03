@@ -20,7 +20,12 @@ enum TerritoryType {
 	FACTORY,            # Автоматически производит юнитов
 	PORTAL,             # Телепортирует юнитов
 	ANCIENT_ALTAR,      # Дает мощные бонусы способностей
-	BATTLEFIELD_SHRINE  # Воскрешает павших юнитов
+	BATTLEFIELD_SHRINE, # Воскрешает павших юнитов
+	# НОВЫЕ ТИПЫ ТЕРРИТОРИЙ
+	CENTER_TRIGGER_1,   # Первый центральный триггер
+	CENTER_TRIGGER_2,   # Второй центральный триггер
+	ANCIENT_TOWER,      # Башня Предтеч (нейтральная, стреляет по всем)
+	VOID_CRYSTAL        # Кристалл пустоты (аура эффективности + энергия для ультиматов)
 }
 
 func _ready():
@@ -53,7 +58,18 @@ func create_territories():
 		# === ЦЕНТРАЛЬНЫЕ НЕЙТРАЛЬНЫЕ ТЕРРИТОРИИ ===
 		{"name": "Центральный Алтарь", "pos": Vector3(0, 0, 0), "type": TerritoryType.ANCIENT_ALTAR, "value": 200, "radius": 6.0},
 		{"name": "Северное Святилище", "pos": Vector3(0, 0, -8), "type": TerritoryType.BATTLEFIELD_SHRINE, "value": 100, "radius": 4.5},
-		{"name": "Южное Святилище", "pos": Vector3(0, 0, 8), "type": TerritoryType.BATTLEFIELD_SHRINE, "value": 100, "radius": 4.5}
+		{"name": "Южное Святилище", "pos": Vector3(0, 0, 8), "type": TerritoryType.BATTLEFIELD_SHRINE, "value": 100, "radius": 4.5},
+		
+		# === НОВЫЕ СТРАТЕГИЧЕСКИЕ ТОЧКИ ===
+		# Центральные триггеры для призыва героя
+		{"name": "Триггер Альфа", "pos": Vector3(-8, 0, 0), "type": TerritoryType.CENTER_TRIGGER_1, "value": 150, "radius": 4.0},
+		{"name": "Триггер Бета", "pos": Vector3(8, 0, 0), "type": TerritoryType.CENTER_TRIGGER_2, "value": 150, "radius": 4.0},
+		
+		# Башня Предтеч (нейтральная, в центре между триггерами)
+		{"name": "Башня Предтеч", "pos": Vector3(0, 0, 0), "type": TerritoryType.ANCIENT_TOWER, "value": 300, "radius": 5.5},
+		
+		# Кристалл пустоты (между ядром и центральной точкой)
+		{"name": "Кристалл Пустоты", "pos": Vector3(0, 0, 12), "type": TerritoryType.VOID_CRYSTAL, "value": 250, "radius": 6.0}
 	]
 	
 	for i in range(territory_configs.size()):
@@ -135,6 +151,19 @@ func create_territory_visual(territory: Dictionary):
 			# ВСЕ святилища - ЯРКО-ЗЕЛЕНЫЕ
 			material.albedo_color = Color(0.0, 1.0, 0.0, 0.95)  # Ярко-зеленый
 			material.emission = Color(0.0, 0.8, 0.0)  # Сильное зеленое свечение
+		# НОВЫЕ ТИПЫ ТЕРРИТОРИЙ
+		TerritoryType.CENTER_TRIGGER_1, TerritoryType.CENTER_TRIGGER_2:
+			# Центральные триггеры - ЯРКО-ЗОЛОТЫЕ
+			material.albedo_color = Color(1.0, 0.8, 0.0, 0.95)  # Ярко-золотой
+			material.emission = Color(1.0, 0.6, 0.0)  # Сильное золотое свечение
+		TerritoryType.ANCIENT_TOWER:
+			# Башня Предтеч - ТЕМНО-СИНЯЯ с пульсацией
+			material.albedo_color = Color(0.2, 0.2, 0.8, 0.95)  # Темно-синий
+			material.emission = Color(0.4, 0.4, 1.0)  # Синее свечение
+		TerritoryType.VOID_CRYSTAL:
+			# Кристалл пустоты - ТЕМНО-ПУРПУРНЫЙ с пульсацией
+			material.albedo_color = Color(0.6, 0.0, 0.8, 0.95)  # Темно-пурпурный
+			material.emission = Color(0.8, 0.0, 1.0)  # Пурпурное свечение
 		_:
 			material.albedo_color = Color(0.6, 0.6, 0.6, 0.95)
 			material.emission = Color(0.3, 0.3, 0.3)
@@ -203,6 +232,19 @@ func apply_territory_effects(territory: Dictionary):
 		TerritoryType.BATTLEFIELD_SHRINE:
 			# Лечение дружественных юнитов в радиусе
 			heal_friendly_units(territory)
+			
+		# НОВЫЕ ТИПЫ ТЕРРИТОРИЙ
+		TerritoryType.CENTER_TRIGGER_1, TerritoryType.CENTER_TRIGGER_2:
+			# Центральные триггеры - проверяем условия для призыва героя
+			check_hero_summon_conditions()
+			
+		TerritoryType.ANCIENT_TOWER:
+			# Башня Предтеч - автоматическая атака всех врагов
+			ancient_tower_attack(territory)
+			
+		TerritoryType.VOID_CRYSTAL:
+			# Кристалл пустоты - аура эффективности и генерация энергии для ультиматов
+			apply_void_crystal_effects(territory)
 
 func add_resource(territory_owner: String, resource_type: String, amount: int):
 	match resource_type:
@@ -348,6 +390,15 @@ func get_territory_short_name(type) -> String:
 			return "✨ АЛТАРЬ\n💰 ГЛАВНАЯ ЦЕЛЬ!"
 		TerritoryType.BATTLEFIELD_SHRINE:
 			return "🌿 СВЯТИЛИЩЕ\nЛечение"
+		# НОВЫЕ ТИПЫ
+		TerritoryType.CENTER_TRIGGER_1:
+			return "⚔️ ТРИГГЕР АЛЬФА\nПризыв героя!"
+		TerritoryType.CENTER_TRIGGER_2:
+			return "⚔️ ТРИГГЕР БЕТА\nПризыв героя!"
+		TerritoryType.ANCIENT_TOWER:
+			return "🏛️ БАШНЯ ПРЕДТЕЧ\nНейтральная угроза"
+		TerritoryType.VOID_CRYSTAL:
+			return "💜 КРИСТАЛЛ ПУСТОТЫ\nАура эффективности"
 		_:
 			return "❓ ТЕРРИТОРИЯ"
 
@@ -369,17 +420,168 @@ func get_territory_label(type):
 			return "✨ АЛТАРЬ ✨\n💪 ГЛАВНАЯ ЦЕЛЬ!"
 		TerritoryType.BATTLEFIELD_SHRINE:
 			return "💚 СВЯТИЛИЩЕ 💚\nЛечение войск"
+		# НОВЫЕ ТИПЫ ТЕРРИТОРИЙ
+		TerritoryType.CENTER_TRIGGER_1:
+			return "⚔️ ТРИГГЕР АЛЬФА ⚔️\nПризыв героя!"
+		TerritoryType.CENTER_TRIGGER_2:
+			return "⚔️ ТРИГГЕР БЕТА ⚔️\nПризыв героя!"
+		TerritoryType.ANCIENT_TOWER:
+			return "🏛️ БАШНЯ ПРЕДТЕЧ 🏛️\nНейтральная угроза"
+		TerritoryType.VOID_CRYSTAL:
+			return "💜 КРИСТАЛЛ ПУСТОТЫ 💜\nАура эффективности"
 		_:
 			return "❓ ТЕРРИТОРИЯ ❓"
 
-func get_available_territories_for_team(team_name: String) -> Array[Dictionary]:
-	# (documentation comment)
-	var available: Array[Dictionary] = []
+# НОВЫЕ ФУНКЦИИ ДЛЯ СТРАТЕГИЧЕСКИХ МЕХАНИК
+
+# Проверка условий для призыва героя
+func check_hero_summon_conditions():
+	var trigger_1_captured = false
+	var trigger_2_captured = false
+	var trigger_1_owner = ""
+	var trigger_2_owner = ""
+	
+	# Проверяем статус обоих триггеров
 	for territory in territories:
-		if territory.owner == "neutral" or territory.owner != team_name:
-			if not territory.has_variable("assigned_collector"):
-				continue
-			available.append(territory)
-	return available
+		if territory.type == TerritoryType.CENTER_TRIGGER_1:
+			trigger_1_captured = territory.owner != "neutral"
+			trigger_1_owner = territory.owner
+		elif territory.type == TerritoryType.CENTER_TRIGGER_2:
+			trigger_2_captured = territory.owner != "neutral"
+			trigger_2_owner = territory.owner
+	
+	# Если оба триггера захвачены одной командой - призываем героя
+	if trigger_1_captured and trigger_2_captured and trigger_1_owner == trigger_2_owner:
+		if not battle_manager.has("hero_summoned") or not battle_manager.hero_summoned:
+			summon_hero(trigger_1_owner)
+			print("🦸 ГЕРОЙ ПРИЗВАН для команды ", trigger_1_owner, "!")
+
+# Призыв героя
+func summon_hero(team: String):
+	if not battle_manager:
+		return
+	
+	# Помечаем что герой уже призван
+	battle_manager.hero_summoned = true
+	
+	# Определяем позицию спавна героя (рядом с ядром команды)
+	var spawn_position = Vector3.ZERO
+	if team == "player":
+		spawn_position = Vector3(0, 0, 20)  # Позиция ядра игрока
+	else:
+		spawn_position = Vector3(0, 0, -20)  # Позиция ядра врага
+	
+	# Спавним героя
+	battle_manager.spawn_unit_at_pos(team, spawn_position, "hero")
+	
+	# Уведомление
+	if battle_manager.notification_system:
+		battle_manager.notification_system.show_hero_summoned(team)
+	
+	print("🦸 Герой призван для команды ", team, " в позиции ", spawn_position)
+
+# Атака башни предтеч
+func ancient_tower_attack(territory: Dictionary):
+	if not battle_manager:
+		return
+	
+	# Башня атакует всех врагов в радиусе, независимо от владельца
+	var attack_radius = territory.control_radius * 1.5
+	var tower_position = territory.position
+	
+	# Ищем всех юнитов в радиусе
+	var units = get_tree().get_nodes_in_group("units")
+	var targets = []
+	
+	for unit in units:
+		if unit.global_position.distance_to(tower_position) <= attack_radius:
+			targets.append(unit)
+	
+	# Атакуем случайную цель
+	if targets.size() > 0:
+		var target = targets[randi() % targets.size()]
+		ancient_tower_damage_target(target, territory)
+		print("🏛️ Башня Предтеч атакует ", target.unit_type, " команды ", target.team)
+
+# Урон от башни предтеч
+func ancient_tower_damage_target(target, territory: Dictionary):
+	if not target or not is_instance_valid(target):
+		return
+	
+	# Сильный урон от башни
+	var damage = 25
+	target.take_damage(damage)
+	
+	# Визуальный эффект
+	if battle_manager.effect_system:
+		battle_manager.effect_system.create_damage_effect(target.global_position, damage)
+
+# Эффекты кристалла пустоты
+func apply_void_crystal_effects(territory: Dictionary):
+	if not battle_manager:
+		return
+	
+	var crystal_position = territory.position
+	var aura_radius = territory.control_radius
+	
+	# Генерируем энергию для ультиматов
+	if territory.owner != "neutral":
+		var energy_amount = 5  # Энергия для ультиматов
+		add_resource(territory.owner, "energy", energy_amount)
+		
+		# Применяем ауру эффективности к зданиям в радиусе
+		apply_efficiency_aura(crystal_position, aura_radius, territory.owner)
+		
+		# Блокируем лечение в зоне кристалла
+		block_healing_in_zone(crystal_position, aura_radius)
+
+# Аура эффективности для зданий
+func apply_efficiency_aura(crystal_position: Vector3, aura_radius: float, team: String):
+	var spawners = get_tree().get_nodes_in_group("spawners")
+	
+	for spawner in spawners:
+		if spawner.team == team and spawner.global_position.distance_to(crystal_position) <= aura_radius:
+			# Ускоряем постройку и производство
+			if spawner.has_method("apply_efficiency_bonus"):
+				spawner.apply_efficiency_bonus(1.5)  # +50% эффективности
+			print("💜 Аура эффективности применена к ", spawner.name)
+
+# Блокировка лечения в зоне кристалла
+func block_healing_in_zone(crystal_position: Vector3, aura_radius: float):
+	var units = get_tree().get_nodes_in_group("units")
+	
+	for unit in units:
+		if unit.global_position.distance_to(crystal_position) <= aura_radius:
+			# Блокируем лечение для всех юнитов в зоне
+			if unit.has_method("block_healing"):
+				unit.block_healing(true)
+			print("💜 Лечение заблокировано для ", unit.unit_type, " в зоне кристалла")
+
+# Обновляем get_territory_short_name для новых типов
+func get_territory_short_name(type) -> String:
+	match type:
+		TerritoryType.ENERGY_MINE:
+			return "⚡ ЭНЕРГИЯ\n+15/сек"
+		TerritoryType.CRYSTAL_MINE:
+			return "💎 КРИСТАЛЛЫ\n+10/сек"
+		TerritoryType.DEFENSIVE_TOWER:
+			return "🏰 ЗАСТАВА\nАвтоатака"
+		TerritoryType.FACTORY:
+			return "🏭 ФАБРИКА\nСоздает войска"
+		TerritoryType.ANCIENT_ALTAR:
+			return "✨ АЛТАРЬ\n💰 ГЛАВНАЯ ЦЕЛЬ!"
+		TerritoryType.BATTLEFIELD_SHRINE:
+			return "🌿 СВЯТИЛИЩЕ\nЛечение"
+		# НОВЫЕ ТИПЫ
+		TerritoryType.CENTER_TRIGGER_1:
+			return "⚔️ ТРИГГЕР АЛЬФА\nПризыв героя!"
+		TerritoryType.CENTER_TRIGGER_2:
+			return "⚔️ ТРИГГЕР БЕТА\nПризыв героя!"
+		TerritoryType.ANCIENT_TOWER:
+			return "🏛️ БАШНЯ ПРЕДТЕЧ\nНейтральная угроза"
+		TerritoryType.VOID_CRYSTAL:
+			return "💜 КРИСТАЛЛ ПУСТОТЫ\nАура эффективности"
+		_:
+			return "❓ ТЕРРИТОРИЯ"
  
  

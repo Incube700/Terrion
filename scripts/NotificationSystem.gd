@@ -171,6 +171,10 @@ func show_victory(winner: String):
 	var type = "achievement" if winner == "player" else "error"
 	show_notification(message, type, 5.0)
 
+func show_hero_summoned(team: String):
+	var team_emoji = "🟦" if team == "player" else "🟥"
+	show_notification(team_emoji + " 🦸 ГЕРОЙ ПРИЗВАН! Ультимативная сила!", "achievement", 4.0)
+
 func show_battle_start():
 	show_notification("⚔️ БИТВА НАЧАЛАСЬ!", "achievement", 2.0)
 
