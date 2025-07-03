@@ -269,6 +269,11 @@ func attempt_capture(territory: Dictionary, team: String):
 	if territory.owner == team:
 		return  # Уже захвачена этой командой
 	
+	# Освященную башню нельзя атаковать
+	if territory.type == TerritoryType.ANCIENT_TOWER and territory.get("consecrated", false):
+		print("🏛️ Освященную башню предтеч нельзя атаковать!")
+		return
+	
 	# Логика захвата территории
 	territory.capture_progress += 1.0
 	
@@ -489,16 +494,39 @@ func consecrate_ancient_tower(team: String):
 			territory.owner = team
 			territory["consecrated"] = true  # Помечаем как освященную
 			territory["invulnerable"] = true  # Делаем неуязвимой
+			territory["activation_timer"] = 5.0  # Таймер активации 5 секунд
+			territory["is_active"] = false  # Пока неактивна
+			
+			# Запускаем таймер активации
+			start_tower_activation_timer(territory)
 			
 			# Обновляем визуал башни
 			update_territory_visual(territory)
 			
-			print("🏛️ Башня Предтеч освящена для команды ", team, " и стала неуязвимой")
+			print("🏛️ Башня Предтеч освящена для команды ", team, " и станет активной через 5 секунд")
 			break
+
+# Таймер активации башни
+func start_tower_activation_timer(territory: Dictionary):
+	var timer = Timer.new()
+	timer.wait_time = territory["activation_timer"]
+	timer.one_shot = true
+	timer.timeout.connect(func(): activate_consecrated_tower(territory))
+	add_child(timer)
+	timer.start()
+
+# Активация освященной башни
+func activate_consecrated_tower(territory: Dictionary):
+	territory["is_active"] = true
+	print("🏛️ Башня Предтеч активирована и готова к бою!")
 
 # Атака башни предтеч
 func ancient_tower_attack(territory: Dictionary):
 	if not battle_manager:
+		return
+	
+	# Если башня освящена, но еще не активирована - не атакуем
+	if territory.get("consecrated", false) and not territory.get("is_active", true):
 		return
 	
 	# Башня атакует в зависимости от владельца
