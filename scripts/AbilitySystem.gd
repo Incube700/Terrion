@@ -268,11 +268,13 @@ func find_closest_enemy(position: Vector3, enemy_team: String, max_range: float)
 	var closest_distance = max_range
 	
 	for unit in units:
-		if unit.team == enemy_team:
-			var distance = unit.global_position.distance_to(position)
-			if distance < closest_distance:
-				closest_enemy = unit
-				closest_distance = distance
+		if unit.team != enemy_team or unit.health <= 0:
+			continue  # Пропускаем союзников и мертвых
+			
+		var distance = unit.global_position.distance_to(position)
+		if distance < closest_distance:
+			closest_enemy = unit
+			closest_distance = distance
 	
 	return closest_enemy
 

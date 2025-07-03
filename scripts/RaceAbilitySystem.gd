@@ -442,3 +442,4 @@ func get_ability_cooldown(team: String, ability_name: String) -> float:
 
 func is_ability_ready(team: String, ability_name: String) -> bool:
 	return get_ability_cooldown(team, ability_name) <= 0.0 
+ 

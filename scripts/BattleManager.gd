@@ -85,14 +85,56 @@ var selection_indicator = null  # Визуальный индикатор выб
 var current_drag_building_type = ""
 var is_dragging_building = false
 
+# Система алтаря героя
+var hero_altar_active = false
+var hero_summoned = false
+var hero_summon_timer: Timer
+var side_territories_captured = 0  # Счетчик захваченных боковых территорий
+
 func _ready():
-	# Получаем ссылку на камеру
-	battle_camera = get_node("Camera3D")
+	print("🚀 Инициализация BattleManager...")
 	
-	print("🎮 Начинаем инициализацию BattleManager...")
+	# Инициализируем системы
+	setup_battle_systems()
+	setup_ui_connections()
+	setup_timers()
 	
-	# Инициализация всех систем
-	call_deferred("init_all_systems")
+	# Убираем автоматический спавн - коллекторы будут созданы при старте битвы
+	
+	print("✅ BattleManager готов к бою!")
+
+func setup_ui_connections():
+	"""Настройка подключений к UI"""
+	print("🔗 Настройка подключений к UI...")
+	
+	# Подключение к интерфейсу с drag&drop
+	battle_ui = get_node_or_null("BattleUI")
+	if battle_ui:
+		print("✅ Интерфейс с drag&drop активен")
+		battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy)
+		battle_ui.start_battle.connect(_on_start_battle)
+		battle_ui.build_structure_drag.connect(_on_build_structure_drag)
+		battle_ui.use_ability.connect(_on_use_ability)
+		battle_ui.summon_hero.connect(_on_summon_altar_hero)
+		
+		# Подключение к расовой системе
+		if race_system:
+			battle_ui.use_race_ability.connect(_on_use_race_ability)
+			battle_ui.summon_race_hero.connect(_on_summon_hero)
+		
+		print("🔗 Drag&drop управление подключено")
+	else:
+		print("❌ Интерфейс недоступен!")
+
+func setup_timers():
+	"""Настройка всех таймеров"""
+	print("⏰ Настройка таймеров...")
+	
+	# Таймер энергии уже инициализирован в init_energy_timer()
+	# Таймер AI уже инициализирован в init_enemy_ai()
+	
+	# Дополнительные таймеры если нужны
+	print("✅ Все таймеры настроены")
 
 func _input(event):
 	if not battle_camera:
@@ -107,14 +149,14 @@ func _input(event):
 		# Зум колесиком мыши - БЛИЖЕ для лучшего наблюдения
 		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			var new_pos = battle_camera.position
-			new_pos.y = max(20, new_pos.y - zoom_speed)  # Уменьшил с 30 до 20
-			new_pos.z = max(15, new_pos.z - zoom_speed * 0.8)  # Уменьшил с 25 до 15
+			new_pos.y = max(20, new_pos.y - zoom_speed)  # Минимальная высота
+			new_pos.z = max(15, new_pos.z - zoom_speed * 0.8)  # Минимальная дистанция
 			battle_camera.position = new_pos
 			
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			var new_pos = battle_camera.position
-			new_pos.y = min(120, new_pos.y + zoom_speed)  # Увеличил с 100 до 120
-			new_pos.z = min(100, new_pos.z + zoom_speed * 0.8)  # Увеличил с 80 до 100
+			new_pos.y = min(80, new_pos.y + zoom_speed)  # Исправлено: в пределах карты
+			new_pos.z = min(50, new_pos.z + zoom_speed * 0.8)  # Исправлено: в пределах карты
 			battle_camera.position = new_pos
 			
 	elif event is InputEventMouseMotion and is_mouse_dragging:
@@ -124,12 +166,12 @@ func _input(event):
 		new_pos.x -= delta.x * 0.1
 		new_pos.z += delta.y * 0.1
 		# Ограничиваем перемещение камеры в пределах поля
-		new_pos.x = clamp(new_pos.x, -30, 30)
-		new_pos.z = clamp(new_pos.z, 20, 80)
+		new_pos.x = clamp(new_pos.x, -25, 25)  # Исправлено: в пределах карты (40 ширина)
+		new_pos.z = clamp(new_pos.z, -35, 35)  # Исправлено: в пределах карты (60 длина)
 		battle_camera.position = new_pos
 		last_mouse_position = event.position
 
-func init_all_systems():
+func setup_battle_systems():
 	print("🚀 Командный центр TERRION инициализация...")
 	
 	# Инициализация систем
@@ -140,20 +182,6 @@ func init_all_systems():
 	init_ability_system()
 	init_race_system()
 	# Остальные системы уже инициализированы через SystemManager
-
-	# Подключение к интерфейсу командира
-	battle_ui = get_node_or_null("BattleUI")
-	if battle_ui:
-		print("✅ Интерфейс командира активен")
-		battle_ui.update_info(player_base_hp, player_energy, enemy_base_hp, enemy_energy)
-		battle_ui.start_battle.connect(_on_start_battle)
-		battle_ui.spawn_unit_drag.connect(_on_spawn_unit_drag)
-		battle_ui.build_structure_drag.connect(_on_build_structure_drag)
-		battle_ui.use_ability.connect(_on_use_ability)
-		
-		print("🔗 Системы управления подключены")
-	else:
-		print("❌ Интерфейс командира недоступен!")
 
 	# Создание поля боя (территория конфликта)
 	create_battlefield()
@@ -244,13 +272,13 @@ func create_battlefield():
 
 func create_command_centers():
 	# Создает командные центры фракций
-	# Командный центр игрока (синяя фракция) - ВНИЗУ карты
+	# Командный центр игрока (синяя фракция) - ВНИЗУ карты - УМЕНЬШЕННЫЙ
 	var player_core = MeshInstance3D.new()
 	var player_sphere = SphereMesh.new()
-	player_sphere.radius = 1.5  # Увеличиваем размер для лучшей видимости
-	player_sphere.height = 3.0
+	player_sphere.radius = 0.8  # УМЕНЬШЕНО с 1.5 до 0.8
+	player_sphere.height = 1.6  # УМЕНЬШЕНО с 3.0 до 1.6
 	player_core.mesh = player_sphere
-	player_core.position = Vector3(0, 1.5, 25)  # Увеличил с 20 до 25
+	player_core.position = Vector3(0, 0.8, 28)  # Исправлено: в пределах карты
 	player_core.name = "PlayerCoreVisual"
 	var player_mat = StandardMaterial3D.new()
 	player_mat.albedo_color = Color(0.2, 0.6, 1, 1)  # СИНИЙ = ИГРОК
@@ -259,25 +287,25 @@ func create_command_centers():
 	player_core.set_surface_override_material(0, player_mat)
 	add_child(player_core)
 
-	# Подпись для ядра игрока
+	# Подпись для ядра игрока - УМЕНЬШЕННАЯ
 	var player_label = Label3D.new()
-	player_label.text = "ИГРОК (СИНИЙ)"
-	player_label.position = Vector3(0, 3.5, 25)  # Увеличил с 20 до 25
+	player_label.text = "ИГРОК"
+	player_label.position = Vector3(0, 2.0, 28)  # Исправлено: в пределах карты
 	player_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	player_label.font_size = 80  # Увеличил с 56 до 80
+	player_label.font_size = 48  # УМЕНЬШЕНО с 80 до 48
 	player_label.modulate = Color(0.2, 0.6, 1, 1)
 	# Добавляем контур для читаемости
-	player_label.outline_size = 10
+	player_label.outline_size = 6  # УМЕНЬШЕНО с 10 до 6
 	player_label.outline_modulate = Color.BLACK
 	add_child(player_label)
 
-	# Командный центр противника (красная фракция) - ВВЕРХУ карты
+	# Командный центр противника (красная фракция) - ВВЕРХУ карты - УМЕНЬШЕННЫЙ
 	var enemy_core = MeshInstance3D.new()
 	var enemy_sphere = SphereMesh.new()
-	enemy_sphere.radius = 1.5
-	enemy_sphere.height = 3.0
+	enemy_sphere.radius = 0.8  # УМЕНЬШЕНО с 1.5 до 0.8
+	enemy_sphere.height = 1.6  # УМЕНЬШЕНО с 3.0 до 1.6
 	enemy_core.mesh = enemy_sphere
-	enemy_core.position = Vector3(0, 1.5, -25)  # Увеличил с -20 до -25
+	enemy_core.position = Vector3(0, 0.8, -28)  # Исправлено: в пределах карты
 	enemy_core.name = "EnemyCoreVisual"
 	var enemy_mat = StandardMaterial3D.new()
 	enemy_mat.albedo_color = Color(1, 0.2, 0.2, 1)  # КРАСНЫЙ = ВРАГ
@@ -286,21 +314,21 @@ func create_command_centers():
 	enemy_core.set_surface_override_material(0, enemy_mat)
 	add_child(enemy_core)
 
-	# Подпись для ядра врага
+	# Подпись для ядра врага - УМЕНЬШЕННАЯ
 	var enemy_label = Label3D.new()
-	enemy_label.text = "ВРАГ (КРАСНЫЙ)"
-	enemy_label.position = Vector3(0, 3.5, -25)  # Увеличил с -20 до -25
+	enemy_label.text = "ВРАГ"
+	enemy_label.position = Vector3(0, 2.0, -28)  # Исправлено: в пределах карты
 	enemy_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	enemy_label.font_size = 80  # Увеличил с 56 до 80
+	enemy_label.font_size = 48  # УМЕНЬШЕНО с 80 до 48
 	enemy_label.modulate = Color(1, 0.2, 0.2, 1)
 	# Добавляем контур для читаемости
-	enemy_label.outline_size = 10
+	enemy_label.outline_size = 6  # УМЕНЬШЕНО с 10 до 6
 	enemy_label.outline_modulate = Color.BLACK
 	add_child(enemy_label)
 
 	# Создание стартовых производственных модулей - ОБНОВЛЕНЫ ПОЗИЦИИ
-	create_start_spawner("player", Vector3(-5, 0, 20))   # Увеличил с 15 до 20
-	create_start_spawner("enemy", Vector3(5, 0, -20))    # Увеличил с -15 до -20
+	create_start_spawner("player", Vector3(-5, 0, 23))   # Исправлено: ближе к ядру игрока
+	create_start_spawner("enemy", Vector3(5, 0, -23))    # Исправлено: ближе к ядру врага
 
 func init_energy_timer():
 	# Таймер для автоматического пополнения энергии
@@ -504,6 +532,10 @@ func _on_start_battle():
 	spawn_unit_at_pos("player", Vector3(-2, 0, 12), "soldier")  # Игрок внизу экрана
 	spawn_unit_at_pos("enemy", Vector3(2, 0, -12), "soldier")   # Враг вверху экрана
 	
+	print("7. Создаем начальных коллекторов...")
+	# Создаем начальных коллекторов при старте битвы
+	spawn_initial_collectors()
+	
 	print("🎮 === БИТВА УСПЕШНО ЗАПУЩЕНА! ===")
 
 func _on_energy_timer():
@@ -516,6 +548,20 @@ func _on_energy_timer():
 	
 	# Периодически проверяем условия победы (каждую секунду)
 	check_victory_conditions()
+
+func add_resources(team: String, energy_amount: int, crystal_amount: int):
+	"""Добавляет ресурсы команде (используется генераторами на кристаллах)"""
+	if team == "player":
+		player_energy += energy_amount
+		player_crystals += crystal_amount
+		print("⚡ Игрок получил ресурсы: +", energy_amount, " энергии, +", crystal_amount, " кристаллов")
+	elif team == "enemy":
+		enemy_energy += energy_amount
+		enemy_crystals += crystal_amount
+		print("⚡ Враг получил ресурсы: +", energy_amount, " энергии, +", crystal_amount, " кристаллов")
+	
+	# Обновляем интерфейс
+	update_ui()
 
 # НОВАЯ ЛОГИКА ПОБЕДЫ
 func check_victory_conditions():
@@ -548,33 +594,19 @@ func get_team_unit_count(team: String) -> int:
 	var count = 0
 	var units = get_tree().get_nodes_in_group("units")
 	for unit in units:
-		if unit.team == team:
-			count += 1
+		if unit.team == team and unit.health > 0:
+			count += 1  # Считаем только живых юнитов
 	return count
 
 func get_team_spawner_count(team: String) -> int:
 	var count = 0
 	var all_spawners = get_tree().get_nodes_in_group("spawners")
 	for spawner in all_spawners:
-		if spawner.team == team:
-			count += 1
+		if spawner.team == team and spawner.health > 0:
+			count += 1  # Считаем только неразрушенные здания
 	return count
 
-# Спавн юнита на линии
-func spawn_unit(team, lane_idx):
-	if not battle_started:
-		return
-	if lane_idx < 0 or lane_idx >= lanes.size():
-		return
-	var lane = lanes[lane_idx]
-	var start_pos = lane.get_node("Start").global_position
-	var end_pos = lane.get_node("End").global_position
-	var unit = unit_scene.instantiate()
-	unit.team = team
-	unit.global_position = start_pos
-	unit.target_pos = end_pos
-	unit.battle_manager = self
-	get_parent().add_child(unit)
+# Устаревшая функция удалена - используется spawn_unit_at_pos()
 
 # ВОССТАНАВЛИВАЕМ ЛОГИКУ АТАКИ ЯДРА
 func unit_reached_base(unit):
@@ -700,11 +732,14 @@ func get_mouse_world_position() -> Vector3:
 func is_valid_build_position(pos: Vector3) -> bool:
 	var map_width = 40.0
 	var map_height = 60.0
-	if pos.z < 0:  # Игрок строит только на нижней половине (положительные Z)
+	var map_half_height = map_height / 2.0  # 30 единиц каждая половина
+	
+	# Игрок строит только на нижней половине (положительные Z)
+	if pos.z < 0:
 		return false
 	if pos.x < -map_width/2 or pos.x > map_width/2:
 		return false
-	if pos.z > map_height/2 or pos.z < 0:
+	if pos.z > map_half_height or pos.z < 0:
 		return false
 	var all_spawners = get_tree().get_nodes_in_group("spawners")
 	for s in all_spawners:
@@ -727,58 +762,40 @@ func is_valid_enemy_build_position(pos: Vector3) -> bool:
 	
 	return true
 
-# Drag&drop: спавн юнита
-func _on_spawn_unit_drag(unit_type, screen_pos):
-	print("🎮 === DRAG & DROP ЮНИТА ===")
+# Простой спавн юнита - без drag&drop
+func _on_spawn_unit_simple(unit_type: String):
+	print("⚔️ === ПРОСТОЙ СПАВН ЮНИТА ===")
 	print("1. Тип юнита: ", unit_type)
-	print("2. Позиция экрана: ", screen_pos)
-	print("3. Битва началась: ", battle_started)
+	print("2. Битва началась: ", battle_started)
 	
 	if not battle_started:
 		print("❌ Битва не началась!")
 		return
 	
-	# Специальная обработка для коллекторов - автоматическое размещение
-	if unit_type == "collector":
-		print("🏃 Коллектор: автоматическое размещение на игровой половине")
-		var spawn_pos = Vector3(randf_range(-4.0, 4.0), 0, randf_range(8.0, 18.0))
-		
-		var energy_cost = get_unit_cost(unit_type)
-		var crystal_cost = get_unit_crystal_cost(unit_type)
-		
-		if player_energy >= energy_cost and player_crystals >= crystal_cost:
-			spawn_unit_at_pos("player", spawn_pos, unit_type)
-			print("✅ Коллектор автоматически создан на позиции ", spawn_pos)
-			update_ui()
-		else:
-			print("❌ Недостаточно ресурсов для коллектора (нужно: ", energy_cost, " энергии, ", crystal_cost, " кристаллов)")
-		return
-	
-	# Обычная обработка для других юнитов (если понадобится в будущем)
 	var energy_cost = get_unit_cost(unit_type)
 	var crystal_cost = get_unit_crystal_cost(unit_type)
 	
-	print("4. Стоимость: ", energy_cost, " энергии, ", crystal_cost, " кристаллов")
-	print("5. Ресурсы игрока: ", player_energy, " энергии, ", player_crystals, " кристаллов")
+	print("3. Стоимость: ", energy_cost, " энергии, ", crystal_cost, " кристаллов")
+	print("4. Ресурсы игрока: ", player_energy, " энергии, ", player_crystals, " кристаллов")
 	
 	if player_energy < energy_cost or player_crystals < crystal_cost:
-		print("❌ Недостаточно ресурсов для ", unit_type, " (нужно: ", energy_cost, " энергии, ", crystal_cost, " кристаллов)")
-		return
-		
-	var pos = get_mouse_map_position(screen_pos)
-	print("6. 3D позиция на карте: ", pos)
-	
-	if pos == Vector3.ZERO:
-		print("❌ Не удалось определить позицию на карте!")
+		print("❌ Недостаточно ресурсов для ", unit_type, "!")
 		return
 	
-	if is_valid_unit_position(pos):
-		spawn_unit_at_pos("player", pos, unit_type)
-		print("✅ ", unit_type, " успешно создан на позиции ", pos)
-		update_ui()
-	else:
-		print("❌ Нельзя разместить ", unit_type, " в позиции ", pos)
-		print("   Причина: позиция вне игровой зоны или слишком близко к зданию")
+	# Автоматическое размещение на игровой половине карты
+	var spawn_pos = Vector3(randf_range(-4.0, 4.0), 0, randf_range(10.0, 18.0))
+	
+	# Создаем юнита
+	spawn_unit_at_pos("player", spawn_pos, unit_type)
+	
+	# Снимаем ресурсы
+	player_energy -= energy_cost
+	player_crystals -= crystal_cost
+	
+	print("✅ ", unit_type, " создан на позиции ", spawn_pos)
+	print("💰 Потрачено: ", energy_cost, "⚡ + ", crystal_cost, "💎")
+	print("💰 Осталось: ", player_energy, "⚡ + ", player_crystals, "💎")
+	update_ui()
 
 # Drag&drop: строительство здания (определяем тип по drag_type из UI)
 func _on_build_structure_drag(screen_pos):
@@ -854,11 +871,14 @@ func _on_build_structure_drag(screen_pos):
 func is_valid_unit_position(pos: Vector3) -> bool:
 	var map_width = 40.0
 	var map_height = 60.0
-	if pos.z < 0:  # Игрок размещает юнитов только на нижней половине (положительные Z)
+	var map_half_height = map_height / 2.0  # 30 единиц каждая половина
+	
+	# Игрок размещает юнитов только на нижней половине (положительные Z)
+	if pos.z < 0:
 		return false
 	if pos.x < -map_width/2 or pos.x > map_width/2:
 		return false
-	if pos.z > map_height/2 or pos.z < 0:
+	if pos.z > map_half_height or pos.z < 0:
 		return false
 	var all_spawners = get_tree().get_nodes_in_group("spawners")
 	for s in all_spawners:
@@ -882,11 +902,11 @@ func spawn_unit_at_pos(team, pos, unit_type="soldier"):
 	unit.global_position = pos
 	# ПРАВИЛЬНАЯ ЛОГИКА: Юниты идут к вражескому ядру
 	if team == "player":
-		unit.target_pos = Vector3(0, 0, -25)  # Игрок атакует вражеское ядро (север)
+		unit.target_pos = Vector3(0, 0, -28)  # Игрок атакует вражеское ядро (север)
 		player_energy -= energy_cost
 		player_crystals -= crystal_cost
 	else:
-		unit.target_pos = Vector3(0, 0, 25)   # Враг атакует ядро игрока (юг)
+		unit.target_pos = Vector3(0, 0, 28)   # Враг атакует ядро игрока (юг)
 		enemy_energy -= energy_cost
 		enemy_crystals -= crystal_cost
 	unit.battle_manager = self
@@ -1047,6 +1067,8 @@ func get_unit_cost(unit_type: String) -> int:
 			return 100       # Супертанк - очень дорого
 		"collector":
 			return 40        # Специализированный юнит
+		"hero":
+			return 0         # Герой призывается бесплатно через алтарь
 		_:
 			return 25
 
@@ -1060,6 +1082,8 @@ func get_unit_crystal_cost(unit_type: String) -> int:
 			return 15        # Снижено, но все еще дорого
 		"collector":
 			return 5         # Небольшая стоимость кристаллов
+		"hero":
+			return 0         # Герой призывается бесплатно
 		_:
 			return 0
 
@@ -1271,16 +1295,95 @@ func ai_consider_collector_strategy():
 					print("🤖 AI создал коллектора для захвата кристаллов")
 					update_ui()
 
-func _on_crystal_captured(crystal_id: int, new_owner: String, crystal_type):
-	print("💎 Кристалл ", crystal_id, " захвачен командой ", new_owner)
+# Система алтаря героя - обработка захвата боковых территорий
+func _on_crystal_captured(crystal_id: int, team: String, crystal_type: int):
+	print("💎 Кристалл захвачен: ID=", crystal_id, " типа=", crystal_type, " командой ", team)
 	
-	# Показываем уведомление
+	# Проверяем если игрок захватил территории для алтаря
+	if team == "player":
+		# Получаем информацию о кристалле
+		if crystal_system:
+			var crystals = crystal_system.get_crystal_info()
+			if crystal_id < crystals.size():
+				var crystal = crystals[crystal_id]
+				var crystal_name = crystal.get("name", "")
+				
+				print("🔍 Имя захваченного кристалла: '", crystal_name, "'")
+				
+				# Добавляем кристаллы в зависимости от типа
+				match crystal_type:
+					1: # ENERGY_CRYSTAL
+						player_crystals += 15
+						# Проверяем боковые территории для алтаря героя (energy_1 и energy_2)
+						if crystal_name == "energy_1" or crystal_name == "energy_2":
+							side_territories_captured += 1
+							print("🦸 Захвачена боковая территория! Всего: ", side_territories_captured, "/2")
+							
+							# Если захвачены 2 боковые территории - активируем алтарь
+							if side_territories_captured >= 2 and not hero_altar_active:
+								activate_hero_altar()
+					2: # UNSTABLE_CRYSTAL
+						player_crystals += 25
+					3: # VOID_CRYSTAL
+						player_crystals += 50
+	
+	update_ui()
+
+func _on_summon_altar_hero():
+	# Обработка призыва героя через алтарь
+	if not hero_altar_active:
+		print("❌ Алтарь героя не активен!")
+		return
+	
+	if hero_summoned:
+		print("❌ Герой уже призван!")
+		return
+	
+	print("🦸 === НАЧИНАЕТСЯ ПРИЗЫВ ГЕРОЯ ===")
+	print("⏰ Герой будет призван через 45 секунд...")
+	
+	# Создаем таймер призыва героя
+	hero_summon_timer = Timer.new()
+	hero_summon_timer.wait_time = 45.0  # 45 секунд
+	hero_summon_timer.one_shot = true
+	hero_summon_timer.timeout.connect(_on_hero_summoned)
+	add_child(hero_summon_timer)
+	hero_summon_timer.start()
+	
+	# Уведомление о начале призыва
 	if notification_system:
-		var type_name = get_crystal_type_name(crystal_type)
-		notification_system.show_notification("Кристалл " + type_name + " захвачен!")
+		notification_system.show_notification("🦸 ПРИЗЫВ ГЕРОЯ НАЧАТ!\n⏰ Герой появится через 45 секунд", "hero_summon")
 	
-	# Проверяем условия победы
-	call_deferred("check_victory_conditions")
+	# Отключаем кнопку призыва
+	if battle_ui:
+		var hero_button = battle_ui.get_node_or_null("AbilityPanel/AbilityContainer/HeroSummonButton")
+		if hero_button:
+			hero_button.disabled = true
+			hero_button.text = "🦸 ПРИЗЫВ ГЕРОЯ\n⏰ 45 секунд..."
+
+func _on_hero_summoned():
+	# Герой призван через 45 секунд
+	hero_summoned = true
+	print("🦸 === ГЕРОЙ ПРИЗВАН! ===")
+	
+	# Создаем героя в центре карты
+	var hero_pos = Vector3(0, 0, 0)  # Центр карты
+	spawn_unit_at_pos("player", hero_pos, "hero")
+	
+	# Добавляем кнопки способностей героя в UI
+	if battle_ui:
+		battle_ui.add_hero_ability_buttons()
+	
+	# Уведомление о призыве
+	if notification_system:
+		notification_system.show_notification("🦸 ГЕРОЙ ПРИЗВАН!\n⚔️ Способности героя доступны!", "hero_ready")
+	
+	# Удаляем таймер
+	if hero_summon_timer:
+		hero_summon_timer.queue_free()
+		hero_summon_timer = null
+	
+	print("🦸 Герой готов к бою! Способности активированы.")
 
 func _on_crystal_depleted(crystal_id: int):
 	print("💎 Кристалл ", crystal_id, " истощен")
@@ -1300,9 +1403,8 @@ func get_crystal_type_name(crystal_type: int) -> String:
 	match crystal_type:
 		0: return "MAIN_CRYSTAL"
 		1: return "ENERGY_CRYSTAL"
-		2: return "TECH_CRYSTAL"
-		3: return "BIO_CRYSTAL"
-		4: return "PSI_CRYSTAL"
+		2: return "UNSTABLE_CRYSTAL"
+		3: return "VOID_CRYSTAL"
 		_: return "UNKNOWN"
 
 # СИСТЕМА УПРАВЛЕНИЯ ЮНИТАМИ МЫШЬЮ
@@ -1371,11 +1473,13 @@ func find_closest_player_unit(world_pos: Vector3) -> Unit:
 	
 	var units = get_tree().get_nodes_in_group("units")
 	for unit in units:
-		if unit.team == "player":
-			var distance = unit.global_position.distance_to(world_pos)
-			if distance < closest_distance:
-				closest_distance = distance
-				closest_unit = unit
+		if unit.team != "player" or unit.health <= 0:
+			continue  # Пропускаем вражеских и мертвых юнитов
+			
+		var distance = unit.global_position.distance_to(world_pos)
+		if distance < closest_distance:
+			closest_distance = distance
+			closest_unit = unit
 	
 	return closest_unit
 
@@ -1522,22 +1626,107 @@ func ai_consider_attack():
 			update_ui()
 
 func spawn_enemy_unit(unit_type: String):
-	# Спавн вражеского юнита
+	# Спавн вражеского юнита (упрощенная версия для AI)
 	if not battle_started:
 		return
 	
-	var energy_cost = get_unit_cost(unit_type)
-	var crystal_cost = get_unit_crystal_cost(unit_type)
-	
-	if enemy_energy < energy_cost or enemy_crystals < crystal_cost:
+	if not can_spawn_unit("enemy", unit_type):
 		print("🤖 AI: недостаточно ресурсов для ", unit_type)
 		return
 	
 	var spawn_pos = get_random_enemy_spawn_position()
 	spawn_unit_at_pos("enemy", spawn_pos, unit_type)
 	
-	enemy_energy -= energy_cost
-	enemy_crystals -= crystal_cost
-	
-	print("🤖 AI создал ", unit_type, " за ", energy_cost, "⚡ + ", crystal_cost, "💎")
+	print("🤖 AI создал ", unit_type)
 	update_ui()
+
+func spawn_initial_collectors():
+	print("🤖 Спавн начальных коллекторов...")
+	
+	# Спавн коллектора игрока (слева от южного ядра)
+	var player_collector_pos = Vector3(-5, 0, 20)  # Исправлено: ближе к ядру игрока
+	spawn_free_unit_at_pos("player", player_collector_pos, "collector")
+	print("✅ Коллектор игрока создан в позиции ", player_collector_pos)
+	
+	# Спавн коллектора врага (слева от северного ядра) 
+	var enemy_collector_pos = Vector3(-5, 0, -20)  # Исправлено: ближе к ядру врага
+	spawn_free_unit_at_pos("enemy", enemy_collector_pos, "collector")
+	print("✅ Коллектор врага создан в позиции ", enemy_collector_pos)
+
+func spawn_free_unit_at_pos(team: String, pos: Vector3, unit_type: String):
+	# Создание юнита без трат ресурсов (для начальных юнитов)
+	print("🆓 Создаем бесплатного юнита: ", team, " ", unit_type, " в позиции ", pos)
+	var unit = unit_scene.instantiate()
+	add_child(unit)
+	unit.team = team
+	unit.unit_type = unit_type
+	unit.global_position = pos
+	# Правильная логика: Юниты идут к вражескому ядру
+	if team == "player":
+		unit.target_pos = Vector3(0, 0, -28)  # Игрок атакует вражеское ядро (север)
+	else:
+		unit.target_pos = Vector3(0, 0, 28)   # Враг атакует ядро игрока (юг)
+	unit.battle_manager = self
+	unit.add_to_group("units")
+	
+	# Эффект спавна юнита
+	if effect_system:
+		effect_system.create_spawn_effect(pos, team)
+	
+	# Звук спавна юнита
+	if audio_system:
+		audio_system.play_unit_spawn_sound(pos)
+	
+	# Регистрируем в статистике
+	if statistics_system:
+		statistics_system.register_unit_spawned(team, unit_type)
+	
+	print("✅ Бесплатный юнит создан: ", unit.name, " команда: ", unit.team)
+
+func activate_hero_altar():
+	# Активируем алтарь героя
+	hero_altar_active = true
+	print("🏛️ === АЛТАРЬ ГЕРОЯ АКТИВИРОВАН! ===")
+	
+	# Создаем алтарь в центре карты
+	create_hero_altar()
+	
+	# Активируем кнопку призыва героя в UI
+	if battle_ui:
+		battle_ui.enable_hero_summon()
+	
+	# Уведомление
+	if notification_system:
+		notification_system.show_notification("🏛️ АЛТАРЬ ГЕРОЯ АКТИВИРОВАН!\n🦸 Можно призвать героя!", "hero_altar")
+
+func create_hero_altar():
+	# Создаем алтарь героя в центре карты
+	var altar = MeshInstance3D.new()
+	var altar_mesh = CylinderMesh.new()
+	altar_mesh.height = 2.5
+	altar_mesh.top_radius = 1.5
+	altar_mesh.bottom_radius = 2.0
+	altar.mesh = altar_mesh
+	altar.position = Vector3(0, 1.25, 0)  # Центр карты
+	altar.name = "HeroAltar"
+	
+	# Материал алтаря - золотой с свечением
+	var altar_mat = StandardMaterial3D.new()
+	altar_mat.albedo_color = Color(1.0, 0.8, 0.2, 1.0)  # Золотой
+	altar_mat.emission_enabled = true
+	altar_mat.emission = Color(0.8, 0.6, 0.1)  # Золотое свечение
+	altar.set_surface_override_material(0, altar_mat)
+	add_child(altar)
+	
+	# Подпись алтаря
+	var altar_label = Label3D.new()
+	altar_label.text = "🏛️ АЛТАРЬ ГЕРОЯ\n🦸 Готов к призыву!"
+	altar_label.position = Vector3(0, 3.5, 0)
+	altar_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	altar_label.font_size = 32
+	altar_label.modulate = Color(1.0, 0.8, 0.2, 1.0)
+	altar_label.outline_size = 4
+	altar_label.outline_modulate = Color.BLACK
+	add_child(altar_label)
+	
+	print("🏛️ Алтарь героя создан в центре карты")

@@ -199,8 +199,52 @@ func set_particle_color(particles: GPUParticles3D, color: Color):
 	if particles.process_material and particles.process_material is ParticleProcessMaterial:
 		particles.process_material.color = color
 
+# Эффект генерации ресурсов от кристалла
+func create_resource_generation_effect(position: Vector3, resource_amount: int):
+	var resource_effect = create_simple_resource_effect()
+	resource_effect.position = position
+	
+	# Интенсивность эффекта зависит от количества ресурсов
+	var intensity = clamp(resource_amount / 10.0, 0.5, 2.0)
+	set_particle_amount(resource_effect, int(15 * intensity))
+	
+	if battle_manager:
+		battle_manager.add_child(resource_effect)
+	else:
+		get_parent().add_child(resource_effect)
+	
+	# Автоудаление через 1.5 секунды
+	resource_effect.get_tree().create_timer(1.5).timeout.connect(func(): resource_effect.queue_free())
+
+# Создание эффекта генерации ресурсов
+func create_simple_resource_effect() -> GPUParticles3D:
+	var particles = GPUParticles3D.new()
+	
+	var material = ParticleProcessMaterial.new()
+	material.direction = Vector3(0, 1, 0)
+	material.initial_velocity_min = 2.0
+	material.initial_velocity_max = 6.0
+	material.gravity = Vector3(0, -2.0, 0)
+	material.scale_min = 0.08
+	material.scale_max = 0.2
+	material.color = Color.CYAN  # Цвет энергии
+	
+	particles.process_material = material
+	particles.amount = 20
+	particles.lifetime = 1.2
+	particles.explosiveness = 0.6
+	particles.emitting = true
+	
+	var mesh = SphereMesh.new()
+	mesh.radius = 0.08
+	mesh.height = 0.16
+	particles.draw_pass_1 = mesh
+	
+	return particles
+
 func set_particle_amount(particles: GPUParticles3D, amount: int):
-	particles.amount = amount
+	if particles:
+		particles.amount = amount
 
 # Эффект для способностей
 func create_ability_effect(position: Vector3, ability_name: String):

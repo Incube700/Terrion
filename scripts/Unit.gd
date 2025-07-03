@@ -15,6 +15,18 @@ var attack_cooldown: float = 1.0
 var attack_timer: float = 0.0
 var target: Node = null
 
+# Система зон восприятия и приоритетов
+var enemy_detection_range: float = 8.0  # Зона восприятия вражеских войск
+var building_search_range: float = 12.0  # Зона поиска зданий
+var current_target_type: String = "building"  # "building" или "enemy"
+var enemy_target: Node = null  # Текущий вражеский юнит
+var building_target: Node = null  # Текущее здание
+
+# Оптимизация поиска целей
+var target_search_timer: float = 0.0
+var target_search_interval: float = 0.5  # Ищем цели раз в 0.5 секунды
+var last_target_search_time: float = 0.0
+
 # Специальные переменные для коллекторов
 var target_crystal = null
 var is_capturing = false
@@ -70,37 +82,51 @@ func _ready():
 		health = 300         # Увеличено в 3 раза для тактики
 		max_health = 300
 		damage = 25
+		enemy_detection_range = 10.0  # Хорошая зона восприятия
+		building_search_range = 15.0
 	elif unit_type == "tank":
 		speed = 5            # МАКСИМАЛЬНО МЕДЛЕННО (было 10)
 		health = 800         # Увеличено в 3+ раза для тактики
 		max_health = 800
 		damage = 35
+		enemy_detection_range = 8.0   # Средняя зона восприятия
+		building_search_range = 12.0
 	elif unit_type == "drone":
 		speed = 12           # МАКСИМАЛЬНО МЕДЛЕННО (было 20)
 		health = 240         # Увеличено в 3 раза для тактики
 		max_health = 240
 		damage = 15
+		enemy_detection_range = 12.0  # Отличная зона восприятия (дрон)
+		building_search_range = 18.0
 	elif unit_type == "elite_soldier":
 		speed = 10           # МАКСИМАЛЬНО МЕДЛЕННО (было 18)
 		health = 450         # Увеличено в 3+ раза для тактики
 		max_health = 450
 		damage = 40
+		enemy_detection_range = 12.0  # Отличная зона восприятия
+		building_search_range = 16.0
 	elif unit_type == "crystal_mage":
 		speed = 6            # МАКСИМАЛЬНО МЕДЛЕННО (было 12)
 		health = 320         # Увеличено в 3+ раза для тактики
 		max_health = 320
 		damage = 45
 		attack_range = 5.0
+		enemy_detection_range = 14.0  # Очень хорошая зона восприятия (маг)
+		building_search_range = 20.0
 	elif unit_type == "heavy_tank":
 		speed = 4            # МАКСИМАЛЬНО МЕДЛЕННО (было 8)
 		health = 1200        # Увеличено в 2.7 раза для тактики
 		max_health = 1200
 		damage = 60
+		enemy_detection_range = 6.0   # Ограниченная зона восприятия (тяжелый танк)
+		building_search_range = 10.0
 	elif unit_type == "collector":
 		speed = 10           # МАКСИМАЛЬНО МЕДЛЕННО (было 18)
 		health = 280         # Увеличено почти в 3 раза для тактики
 		max_health = 280
 		damage = 0           # Не атакуют
+		enemy_detection_range = 5.0   # Ограниченная зона восприятия
+		building_search_range = 8.0
 	# Цвет по команде (жёстко: игрок — синий, враг — красный)
 	if current_mesh:
 		current_mesh.material_override = StandardMaterial3D.new()
@@ -115,6 +141,9 @@ func _ready():
 	
 	# Создаем 3D HP бар
 	create_3d_health_bar()
+	
+	# Создаем визуальные зоны восприятия (для отладки)
+	create_detection_zones()
 	
 	# Безопасно обновляем HealthBar
 	if health_bar and health_bar is Label:
@@ -141,79 +170,138 @@ func _physics_process(_delta):
 		battle_manager.crystal_system.check_crystal_interaction(global_position, team, unit_type)
 	
 	attack_timer += _delta
+	target_search_timer += _delta
 	
-	# ПРИОРИТЕТ 1: Если есть враг в зоне видимости - атакуем его
+	# Проверяем валидность текущих целей
+	if enemy_target and (not is_instance_valid(enemy_target) or enemy_target.health <= 0):
+		enemy_target = null
+	if building_target and (not is_instance_valid(building_target) or building_target.health <= 0):
+		building_target = null
+	
+	# Система приоритетов целей
+	update_target_priorities()
+	
+	# Атакуем текущую цель
 	if target and is_instance_valid(target):
 		var dist = global_position.distance_to(target.global_position)
 		if dist > attack_range:
-			# Враг далеко - движемся к нему
-			move_towards_enemy()
+			# Цель далеко - движемся к ней
+			move_towards_target()
 		else:
-			# Враг близко - атакуем
+			# Цель близко - атакуем
 			if attack_timer > attack_cooldown:
 				attack()
 				attack_timer = 0.0
 	else:
-		# ПРИОРИТЕТ 2: Нет врагов - ищем новых врагов
-		find_new_target()
+		# Нет цели - ищем новые цели
+		if target_search_timer >= target_search_interval:
+			find_new_targets()
+			target_search_timer = 0.0
 		
-		# ПРИОРИТЕТ 3: Если врагов нет - идем к вражескому ядру
+		# Если целей нет - идем к вражескому ядру
 		if not target:
-			move_towards_target()
+			move_towards_base()
+
+func update_target_priorities():
+	"""Обновляет приоритеты целей на основе зоны восприятия"""
+	# Проверяем, есть ли враги в зоне восприятия
+	var nearby_enemy = find_nearest_enemy_in_range(enemy_detection_range)
+	
+	if nearby_enemy:
+		# Есть враг в зоне восприятия - переключаемся на него
+		if current_target_type != "enemy" or enemy_target != nearby_enemy:
+			current_target_type = "enemy"
+			enemy_target = nearby_enemy
+			target = enemy_target
+			print(team, " ", unit_type, " переключился на вражеского юнита в зоне восприятия")
+	else:
+		# Нет врагов в зоне восприятия - возвращаемся к зданиям
+		if current_target_type != "building" or not building_target:
+			current_target_type = "building"
+			target = building_target
+			if building_target:
+				print(team, " ", unit_type, " вернулся к атаке здания")
+
+func find_nearest_enemy_in_range(range_limit: float) -> Node:
+	"""Ищет ближайшего врага в заданном радиусе"""
+	var nearest_enemy = null
+	var nearest_distance = range_limit
+	
+	var enemies = get_tree().get_nodes_in_group("units")
+	for enemy in enemies:
+		if enemy == self or enemy.team == team:
+			continue  # Пропускаем себя и союзников
+		
+		if enemy.health <= 0:
+			continue  # Пропускаем мертвых
+			
+		var distance = global_position.distance_to(enemy.global_position)
+		if distance < nearest_distance:
+			nearest_enemy = enemy
+			nearest_distance = distance
+	
+	return nearest_enemy
+
+func find_new_targets():
+	"""Ищет новые цели для зданий и врагов"""
+	# Ищем ближайшее здание
+	var nearest_building = null
+	var nearest_building_distance = building_search_range
+	
+	var enemy_spawners = get_tree().get_nodes_in_group("spawners")
+	for spawner in enemy_spawners:
+		if spawner.team == team:
+			continue  # Пропускаем союзные здания
+			
+		if not spawner.has_variable("health") or spawner.health <= 0:
+			continue  # Пропускаем разрушенные здания
+			
+		var distance = global_position.distance_to(spawner.global_position)
+		if distance < nearest_building_distance:
+			nearest_building = spawner
+			nearest_building_distance = distance
+	
+	# Обновляем цель здания
+	if nearest_building and building_target != nearest_building:
+		building_target = nearest_building
+		if current_target_type == "building":
+			target = building_target
+			print(team, " ", unit_type, " нашел новое здание для атаки")
 
 func move_towards_target():
-	# Движение к вражескому ядру (основная цель)
-	if target_pos:
-		var dir = (target_pos - global_position).normalized()
-		velocity = dir * speed
-		move_and_slide()
-
-func move_towards_enemy():
-	# Движение к конкретному врагу (приоритетная цель)
+	"""Движение к текущей цели (враг или здание)"""
 	if target and is_instance_valid(target):
 		var dir = (target.global_position - global_position).normalized()
 		velocity = dir * speed
 		move_and_slide()
 
+func move_towards_base():
+	"""Движение к вражескому ядру (основная цель)"""
+	if target_pos:
+		var dir = (target_pos - global_position).normalized()
+		velocity = dir * speed
+		move_and_slide()
+
 func _on_attack_area_body_entered(body):
+	"""Обработка входа врага в зону атаки"""
 	if body != self and body.has_method("take_damage") and body.team != team:
-		target = body
+		# Если это вражеский юнит - устанавливаем его как приоритетную цель
+		if body.has_method("get_current_mesh"):  # Это юнит
+			enemy_target = body
+			current_target_type = "enemy"
+			target = enemy_target
+			print(team, " ", unit_type, " обнаружил вражеского юнита в зоне атаки")
 
 func _on_attack_area_body_exited(body):
-	if target == body:
-		target = null
-
-func find_new_target():
-	# Ищем ближайшего врага в радиусе видимости
-	var enemies = get_tree().get_nodes_in_group("units")
-	var enemy_spawners = get_tree().get_nodes_in_group("spawners")
-	
-	var closest_enemy = null
-	var closest_distance = 999999.0
-	
-	# ПРИОРИТЕТ 1: Вражеские юниты
-	for enemy in enemies:
-		if enemy.team != team and enemy.health > 0:
-			var distance = global_position.distance_to(enemy.global_position)
-			if distance < closest_distance and distance < 15.0:  # Радиус поиска 15 единиц
-				closest_enemy = enemy
-				closest_distance = distance
-	
-	# ПРИОРИТЕТ 2: Вражеские здания (если нет юнитов рядом)
-	if not closest_enemy:
-		for spawner in enemy_spawners:
-			if spawner.team != team and spawner.health > 0:
-				var distance = global_position.distance_to(spawner.global_position)
-				if distance < closest_distance and distance < 10.0:  # Меньший радиус для зданий
-					closest_enemy = spawner
-					closest_distance = distance
-	
-	if closest_enemy and target != closest_enemy:
-		target = closest_enemy
-		# Логируем только при смене цели, чтобы избежать спама
-		var target_type = "здание" if closest_enemy.has_method("get_spawner_info") else "юнит"
-		var enemy_team = closest_enemy.team if "team" in closest_enemy else "нейтральное"
-		print(team, " ", unit_type, " нашел новую цель (", target_type, "): ", enemy_team)
+	"""Обработка выхода врага из зоны атаки"""
+	if enemy_target == body:
+		enemy_target = null
+		# Возвращаемся к зданию или ищем новую цель
+		if building_target:
+			current_target_type = "building"
+			target = building_target
+		else:
+			target = null
 
 func attack():
 	if target and target.has_method("take_damage"):
@@ -322,7 +410,9 @@ func handle_collector_behavior(_delta):
 		# Ведем себя как статичная турель
 		speed = 0
 		attack_timer += _delta
-		find_new_target()
+		# Оптимизация: ищем цели не каждый кадр
+		if target_search_timer >= target_search_interval:
+			find_new_targets()
 		if target and is_instance_valid(target):
 			if attack_timer > attack_cooldown:
 				attack()
@@ -342,7 +432,9 @@ func handle_collector_behavior(_delta):
 		
 		# Можем защищаться во время захвата
 		attack_timer += _delta
-		find_new_target()
+		# Оптимизация: ищем цели не каждый кадр
+		if target_search_timer >= target_search_interval:
+			find_new_targets()
 		if target and is_instance_valid(target):
 			if attack_timer > attack_cooldown:
 				attack()
@@ -410,63 +502,210 @@ func complete_crystal_capture():
 	# Захватываем кристалл
 	battle_manager.crystal_system.force_capture_crystal(target_crystal.id, team)
 	
-	# Превращаемся в турель
-	transform_to_turret()
+	# Создаем генератор с турелью на кристалле
+	create_crystal_generator_turret()
 	
 	var crystal_type_name = get_crystal_type_name(target_crystal.type)
-	print("🏰 Коллектор ", team, " захватил кристалл ", target_crystal.id, " (", crystal_type_name, ") и превратился в турель!")
+	print("🏰 Коллектор ", team, " захватил кристалл ", target_crystal.id, " (", crystal_type_name, ") и создал генератор с турелью!")
 
-func transform_to_turret():
+func create_crystal_generator_turret():
 	has_transformed = true
 	is_capturing = false
 	speed = 0
 	
-	# Меняем внешний вид на турель
+	# Меняем внешний вид на генератор с турелью
 	if has_node("MeshInstance3D_Cylinder"):
 		var mesh = get_node("MeshInstance3D_Cylinder")
 		mesh.visible = false
 	
-	# Создаем новый меш турели
+	# Создаем основание генератора
+	var generator_base = MeshInstance3D.new()
+	var base_mesh = CylinderMesh.new()
+	base_mesh.top_radius = 1.2
+	base_mesh.bottom_radius = 1.5
+	base_mesh.height = 0.8
+	generator_base.mesh = base_mesh
+	generator_base.position = Vector3(0, 0.4, 0)
+	
+	# Материал генератора
+	var base_material = StandardMaterial3D.new()
+	if team == "player":
+		base_material.albedo_color = Color(0.1, 0.4, 0.8, 1)
+		base_material.emission = Color(0.05, 0.2, 0.4)
+	else:
+		base_material.albedo_color = Color(0.8, 0.1, 0.1, 1)
+		base_material.emission = Color(0.4, 0.05, 0.05)
+	
+	base_material.emission_enabled = true
+	base_material.emission_energy = 1.5
+	generator_base.material_override = base_material
+	generator_base.name = "GeneratorBase"
+	add_child(generator_base)
+	
+	# Создаем турель на генераторе
 	var turret_mesh = MeshInstance3D.new()
-	var cyl = CylinderMesh.new()
-	cyl.top_radius = 0.6
-	cyl.bottom_radius = 0.6
-	cyl.height = 1.5
-	turret_mesh.mesh = cyl
-	turret_mesh.position = Vector3(0, 0.75, 0)
+	var turret_cyl = CylinderMesh.new()
+	turret_cyl.top_radius = 0.4
+	turret_cyl.bottom_radius = 0.6
+	turret_cyl.height = 1.2
+	turret_mesh.mesh = turret_cyl
+	turret_mesh.position = Vector3(0, 1.2, 0)
 	
-	# Цвет турели
-	turret_mesh.material_override = StandardMaterial3D.new()
+	# Материал турели
+	var turret_material = StandardMaterial3D.new()
 	if team == "player":
-		turret_mesh.material_override.albedo_color = Color(0.2, 0.6, 1, 1)
+		turret_material.albedo_color = Color(0.2, 0.6, 1, 1)
+		turret_material.emission = Color(0.1, 0.3, 0.5)
 	else:
-		turret_mesh.material_override.albedo_color = Color(1, 0.2, 0.2, 1)
+		turret_material.albedo_color = Color(1, 0.2, 0.2, 1)
+		turret_material.emission = Color(0.5, 0.1, 0.1)
 	
-	# Добавляем свечение
-	turret_mesh.material_override.emission_enabled = true
-	if team == "player":
-		turret_mesh.material_override.emission = Color(0.1, 0.3, 0.5)
-	else:
-		turret_mesh.material_override.emission = Color(0.5, 0.1, 0.1)
-	
+	turret_material.emission_enabled = true
+	turret_material.emission_energy = 2.0
+	turret_mesh.material_override = turret_material
+	turret_mesh.name = "Turret"
 	add_child(turret_mesh)
 	
-	# Улучшаем характеристики турели
-	damage = 40  # Больше урона
-	attack_range = 6.0  # Больше дальность
-	attack_cooldown = 0.8  # Быстрее стреляет
-	health = 200  # Больше здоровья
-	max_health = 200
+	# Создаем энергетические кабели от кристалла к генератору
+	create_energy_cables()
+	
+	# Улучшаем характеристики (питание от кристалла)
+	var crystal_bonus = get_crystal_power_bonus()
+	damage = 30 + crystal_bonus.damage  # Базовый урон + бонус от кристалла
+	attack_range = 5.0 + crystal_bonus.range  # Базовая дальность + бонус
+	attack_cooldown = 1.0 - crystal_bonus.speed  # Базовый кулдаун - бонус скорости
+	health = 300 + crystal_bonus.health  # Базовое здоровье + бонус
+	max_health = health
 	
 	# Обновляем тип юнита
-	unit_type = "turret"
+	unit_type = "crystal_generator_turret"
 	
 	# Обновляем группы
 	remove_from_group("units")
+	add_to_group("crystal_generators")
 	add_to_group("turrets")
 	
+	# Запускаем генерацию ресурсов от кристалла
+	start_crystal_power_generation()
+	
 	update_health_display()
-	update_3d_health_bar()  # Обновляем 3D HP бар для турели
+	update_3d_health_bar()
+
+func create_energy_cables():
+	"""Создает визуальные энергетические кабели от кристалла к генератору"""
+	if not target_crystal:
+		return
+	
+	# Создаем кабель
+	var cable = MeshInstance3D.new()
+	var cable_mesh = CylinderMesh.new()
+	cable_mesh.top_radius = 0.05
+	cable_mesh.bottom_radius = 0.05
+	
+	# Вычисляем длину и направление кабеля
+	var crystal_pos = target_crystal.position
+	var generator_pos = global_position
+	var direction = (generator_pos - crystal_pos).normalized()
+	var distance = generator_pos.distance_to(crystal_pos)
+	
+	cable_mesh.height = distance
+	cable.mesh = cable_mesh
+	
+	# Позиционируем кабель между кристаллом и генератором
+	var mid_point = (crystal_pos + generator_pos) / 2
+	cable.global_position = mid_point
+	
+	# Поворачиваем кабель в нужном направлении
+	var up_vector = Vector3.UP
+	var rotation_axis = up_vector.cross(direction).normalized()
+	var rotation_angle = acos(up_vector.dot(direction))
+	cable.rotate(rotation_axis, rotation_angle)
+	
+	# Материал кабеля с пульсирующим свечением
+	var cable_material = StandardMaterial3D.new()
+	cable_material.albedo_color = Color(0.8, 0.9, 1.0, 0.8)
+	cable_material.emission_enabled = true
+	cable_material.emission = Color(0.4, 0.6, 1.0)
+	cable_material.emission_energy = 1.5
+	cable_material.flags_transparent = true
+	cable.material_override = cable_material
+	cable.name = "EnergyCable"
+	
+	# Добавляем кабель в сцену
+	get_parent().add_child(cable)
+
+func get_crystal_power_bonus() -> Dictionary:
+	"""Возвращает бонусы от типа кристалла для генератора"""
+	var bonus = {
+		"damage": 0,
+		"range": 0,
+		"speed": 0,
+		"health": 0,
+		"resource_bonus": 0
+	}
+	
+	if not target_crystal:
+		return bonus
+	
+	match target_crystal.type:
+		0:  # MAIN_CRYSTAL
+			bonus.damage = 20
+			bonus.range = 2.0
+			bonus.health = 100
+			bonus.resource_bonus = 5
+		1:  # ENERGY_CRYSTAL
+			bonus.damage = 15
+			bonus.speed = 0.2
+			bonus.health = 50
+			bonus.resource_bonus = 10
+		2:  # UNSTABLE_CRYSTAL
+			bonus.damage = 25
+			bonus.range = 1.5
+			bonus.speed = 0.3
+			bonus.health = 75
+			bonus.resource_bonus = 15
+		3:  # VOID_CRYSTAL
+			bonus.damage = 30
+			bonus.range = 3.0
+			bonus.speed = 0.4
+			bonus.health = 100
+			bonus.resource_bonus = 20
+	
+	return bonus
+
+func start_crystal_power_generation():
+	"""Запускает генерацию ресурсов от кристалла"""
+	if not target_crystal or not battle_manager:
+		return
+	
+	# Создаем таймер для генерации ресурсов
+	var resource_timer = Timer.new()
+	resource_timer.wait_time = 2.0  # Генерируем ресурсы каждые 2 секунды
+	resource_timer.autostart = true
+	resource_timer.timeout.connect(_on_crystal_resource_generation)
+	resource_timer.name = "CrystalResourceTimer"
+	add_child(resource_timer)
+	
+	print("⚡ Генератор на кристалле ", target_crystal.id, " начал производство ресурсов!")
+
+func _on_crystal_resource_generation():
+	"""Генерирует ресурсы от кристалла"""
+	if not target_crystal or not battle_manager:
+		return
+	
+	var bonus = get_crystal_power_bonus()
+	var resource_amount = 5 + bonus.resource_bonus  # Базовые 5 + бонус от кристалла
+	
+	# Добавляем ресурсы команде
+	if battle_manager.has_method("add_resources"):
+		battle_manager.add_resources(team, resource_amount, 0)  # Энергия, кристаллы
+	
+	# Визуальный эффект генерации
+	if battle_manager and battle_manager.effect_system:
+		battle_manager.effect_system.create_resource_generation_effect(global_position, resource_amount)
+	
+	# Обновляем HP бар с информацией о генерации
+	update_generator_display(resource_amount)
 
 func get_current_mesh() -> MeshInstance3D:
 	# (documentation comment)
@@ -487,9 +726,9 @@ func get_crystal_type_name(crystal_type: int) -> String:
 	match crystal_type:
 		0: return "MAIN_CRYSTAL"
 		1: return "ENERGY_CRYSTAL"
-		2: return "TECH_CRYSTAL"
-		3: return "BIO_CRYSTAL"
-		4: return "PSI_CRYSTAL"
+		2: return "UNSTABLE_CRYSTAL"
+		3: return "VOID_CRYSTAL"
+		4: return "ALTAR_CRYSTAL"
 		_: return "UNKNOWN"
 
 func create_3d_health_bar():
@@ -573,6 +812,81 @@ func update_3d_health_bar():
 			var progress_percent = int(capture_progress * 100 / capture_time)
 			health_label_3d.text = "💎 " + str(progress_percent) + "%"
 			health_label_3d.modulate = Color.ORANGE
+		elif unit_type == "crystal_generator_turret":
+			var bonus = get_crystal_power_bonus()
+			var resource_amount = 5 + bonus.resource_bonus
+			health_label_3d.text = "⚡ " + str(resource_amount) + "/сек"
+			health_label_3d.modulate = Color.CYAN
 		else:
 			health_label_3d.text = str(health) + "/" + str(max_health)
 			health_label_3d.modulate = Color.WHITE
+
+func create_detection_zones():
+	"""Создает визуальные зоны восприятия для отладки"""
+	# Создаем контейнер для зон
+	var zones_container = Node3D.new()
+	zones_container.name = "DetectionZones"
+	add_child(zones_container)
+	
+	# Зона восприятия вражеских войск (красная)
+	var enemy_zone = MeshInstance3D.new()
+	var enemy_mesh = SphereMesh.new()
+	enemy_mesh.radius = enemy_detection_range
+	enemy_mesh.height = 0.1
+	enemy_zone.mesh = enemy_mesh
+	enemy_zone.material_override = StandardMaterial3D.new()
+	enemy_zone.material_override.albedo_color = Color(1, 0, 0, 0.1)  # Красная, прозрачная
+	enemy_zone.material_override.flags_transparent = true
+	enemy_zone.name = "EnemyDetectionZone"
+	enemy_zone.position = Vector3(0, 0.05, 0)
+	zones_container.add_child(enemy_zone)
+	
+	# Зона поиска зданий (синяя)
+	var building_zone = MeshInstance3D.new()
+	var building_mesh = SphereMesh.new()
+	building_mesh.radius = building_search_range
+	building_mesh.height = 0.1
+	building_zone.mesh = building_mesh
+	building_zone.material_override = StandardMaterial3D.new()
+	building_zone.material_override.albedo_color = Color(0, 0, 1, 0.05)  # Синяя, очень прозрачная
+	building_zone.material_override.flags_transparent = true
+	building_zone.name = "BuildingSearchZone"
+	building_zone.position = Vector3(0, 0.1, 0)
+	zones_container.add_child(building_zone)
+	
+	# По умолчанию скрываем зоны (можно включить для отладки)
+	zones_container.visible = false
+
+func toggle_detection_zones():
+	"""Переключает видимость зон восприятия"""
+	var zones_container = get_node_or_null("DetectionZones")
+	if zones_container:
+		zones_container.visible = !zones_container.visible
+		print("Зоны восприятия ", "включены" if zones_container.visible else "выключены")
+
+func _input(event):
+	# Тестирование зон восприятия (F1)
+	if event is InputEventKey and event.pressed and event.keycode == KEY_F1:
+		toggle_detection_zones()
+		# Показываем текущие цели
+		print("=== ДИАГНОСТИКА ЮНИТА ===")
+		print("Тип: ", unit_type)
+		print("Команда: ", team)
+		print("Зона восприятия врагов: ", enemy_detection_range)
+		print("Зона поиска зданий: ", building_search_range)
+		print("Текущий тип цели: ", current_target_type)
+		print("Вражеская цель: ", enemy_target.name if enemy_target else "нет")
+		print("Цель здания: ", building_target.name if building_target else "нет")
+		print("Активная цель: ", target.name if target else "нет")
+		print("========================")
+
+func update_generator_display(resource_amount: int):
+	"""Обновляет отображение генератора с информацией о производстве"""
+	var health_container = get_node_or_null("HealthBarContainer")
+	if not health_container:
+		return
+		
+	var health_label_3d = health_container.get_node_or_null("HealthLabel3D")
+	if health_label_3d:
+		health_label_3d.text = "⚡ " + str(resource_amount) + "/сек"
+		health_label_3d.modulate = Color.CYAN

@@ -377,8 +377,9 @@ func get_available_territories_for_team(team_name: String) -> Array[Dictionary]:
 	var available: Array[Dictionary] = []
 	for territory in territories:
 		if territory.owner == "neutral" or territory.owner != team_name:
-			if not territory.has("assigned_collector"):
-				available.append(territory)
+			if not territory.has_variable("assigned_collector"):
+				continue
+			available.append(territory)
 	return available
  
  
