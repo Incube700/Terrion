@@ -1,31 +1,37 @@
 extends Node
 class_name TerritorySystem
 
-# Система территорий для захвата зон на карте
-# Похоже на Tiny Clash - игроки могут захватывать зоны для получения ресурсов
+# Единая система территорий и кристаллов для TERRION RTS
+# Объединяет стратегические точки, кристаллы и ресурсы
 
-signal territory_captured(territory_id, new_owner)
+signal territory_captured(territory_id, new_owner, territory_type)
+signal territory_depleted(territory_id)
 
 var territories: Array[Dictionary] = []
 var territory_meshes: Array[MeshInstance3D] = []
 var battle_manager = null
 
-# Типы территорий
+# Типы территорий (объединенные)
 enum TerritoryType {
-	NEUTRAL,
-	ENERGY_MINE,        # Дает энергию
-	CRYSTAL_MINE,       # Дает кристаллы
-	STRATEGIC_POINT,    # Дает бонус к атаке/защите
-	DEFENSIVE_TOWER,    # Автоматически атакует врагов
-	FACTORY,            # Автоматически производит юнитов
-	PORTAL,             # Телепортирует юнитов
-	ANCIENT_ALTAR,      # Дает мощные бонусы способностей
-	BATTLEFIELD_SHRINE, # Воскрешает павших юнитов
-	# НОВЫЕ ТИПЫ ТЕРРИТОРИЙ
+	# === ОСНОВНЫЕ РЕСУРСНЫЕ ТЕРРИТОРИИ ===
+	ENERGY_MINE,        # Энергетические рудники
+	CRYSTAL_MINE,       # Кристальные рудники
+	VOID_CRYSTAL,       # Кристаллы пустоты (ультиматы)
+	
+	# === СТРАТЕГИЧЕСКИЕ ТОЧКИ ===
 	CENTER_TRIGGER_1,   # Первый центральный триггер
 	CENTER_TRIGGER_2,   # Второй центральный триггер
-	ANCIENT_TOWER,      # Башня Предтеч (нейтральная, стреляет по всем)
-	VOID_CRYSTAL        # Кристалл пустоты (аура эффективности + энергия для ультиматов)
+	ANCIENT_TOWER,      # Башня Предтеч (нейтральная)
+	
+	# === СПЕЦИАЛЬНЫЕ ТЕРРИТОРИИ ===
+	ANCIENT_ALTAR,      # Главный алтарь (победа)
+	BATTLEFIELD_SHRINE, # Святилище (лечение)
+	DEFENSIVE_TOWER,    # Оборонительная башня
+	FACTORY,            # Фабрика (производство)
+	
+	# === СТАРТОВЫЕ ПОЗИЦИИ ===
+	PLAYER_BASE,        # База игрока
+	ENEMY_BASE          # База врага
 }
 
 func _ready():
@@ -40,36 +46,45 @@ func _ready():
 	add_child(resource_timer)
 
 func create_territories():
-	# Создаем СПРАВЕДЛИВО распределенные территории для обеих сторон
+	# Создаем логичную карту территорий для TERRION
 	var territory_configs = [
-		# === РЕСУРСНЫЕ ТЕРРИТОРИИ (ПОРОВНУ ДЛЯ КАЖДОЙ СТОРОНЫ) ===
-		# Зона игрока (нижняя половина)
-		{"name": "Энергетический Рудник Юг", "pos": Vector3(-12, 0, 15), "type": TerritoryType.ENERGY_MINE, "value": 100, "radius": 5.0},
-		{"name": "Кристальный Рудник Юг", "pos": Vector3(12, 0, 15), "type": TerritoryType.CRYSTAL_MINE, "value": 100, "radius": 5.0},
+		# === СТАРТОВЫЕ ПОЗИЦИИ ===
+		{"name": "База Игрока", "pos": Vector3(0, 0, 28), "type": TerritoryType.PLAYER_BASE, "value": 1000, "radius": 8.0},
+		{"name": "База Врага", "pos": Vector3(0, 0, -28), "type": TerritoryType.ENEMY_BASE, "value": 1000, "radius": 8.0},
 		
-		# Зона врага (верхняя половина)
-		{"name": "Энергетический Рудник Север", "pos": Vector3(-12, 0, -15), "type": TerritoryType.ENERGY_MINE, "value": 100, "radius": 5.0},
-		{"name": "Кристальный Рудник Север", "pos": Vector3(12, 0, -15), "type": TerritoryType.CRYSTAL_MINE, "value": 100, "radius": 5.0},
+		# === РЕСУРСНЫЕ ТЕРРИТОРИИ (СИММЕТРИЧНО) ===
+		# Энергетические рудники
+		{"name": "Энергетический Рудник Юг-Запад", "pos": Vector3(-15, 0, 15), "type": TerritoryType.ENERGY_MINE, "value": 100, "radius": 5.0},
+		{"name": "Энергетический Рудник Юг-Восток", "pos": Vector3(15, 0, 15), "type": TerritoryType.ENERGY_MINE, "value": 100, "radius": 5.0},
+		{"name": "Энергетический Рудник Север-Запад", "pos": Vector3(-15, 0, -15), "type": TerritoryType.ENERGY_MINE, "value": 100, "radius": 5.0},
+		{"name": "Энергетический Рудник Север-Восток", "pos": Vector3(15, 0, -15), "type": TerritoryType.ENERGY_MINE, "value": 100, "radius": 5.0},
 		
-		# === СИММЕТРИЧНЫЕ БОКОВЫЕ ТЕРРИТОРИИ ===
-		{"name": "Левая Застава", "pos": Vector3(-18, 0, 0), "type": TerritoryType.DEFENSIVE_TOWER, "value": 120, "radius": 4.5},
-		{"name": "Правая Фабрика", "pos": Vector3(18, 0, 0), "type": TerritoryType.FACTORY, "value": 120, "radius": 4.5},
+		# Кристальные рудники
+		{"name": "Кристальный Рудник Юг", "pos": Vector3(0, 0, 20), "type": TerritoryType.CRYSTAL_MINE, "value": 150, "radius": 5.0},
+		{"name": "Кристальный Рудник Север", "pos": Vector3(0, 0, -20), "type": TerritoryType.CRYSTAL_MINE, "value": 150, "radius": 5.0},
 		
-		# === ЦЕНТРАЛЬНЫЕ НЕЙТРАЛЬНЫЕ ТЕРРИТОРИИ ===
-		{"name": "Центральный Алтарь", "pos": Vector3(0, 0, 0), "type": TerritoryType.ANCIENT_ALTAR, "value": 200, "radius": 6.0},
-		{"name": "Северное Святилище", "pos": Vector3(0, 0, -8), "type": TerritoryType.BATTLEFIELD_SHRINE, "value": 100, "radius": 4.5},
-		{"name": "Южное Святилище", "pos": Vector3(0, 0, 8), "type": TerritoryType.BATTLEFIELD_SHRINE, "value": 100, "radius": 4.5},
-		
-		# === НОВЫЕ СТРАТЕГИЧЕСКИЕ ТОЧКИ ===
+		# === СТРАТЕГИЧЕСКИЕ ТОЧКИ ===
 		# Центральные триггеры для призыва героя
-		{"name": "Триггер Альфа", "pos": Vector3(-8, 0, 0), "type": TerritoryType.CENTER_TRIGGER_1, "value": 150, "radius": 4.0},
-		{"name": "Триггер Бета", "pos": Vector3(8, 0, 0), "type": TerritoryType.CENTER_TRIGGER_2, "value": 150, "radius": 4.0},
+		{"name": "Триггер Альфа", "pos": Vector3(-8, 0, 0), "type": TerritoryType.CENTER_TRIGGER_1, "value": 200, "radius": 4.0},
+		{"name": "Триггер Бета", "pos": Vector3(8, 0, 0), "type": TerritoryType.CENTER_TRIGGER_2, "value": 200, "radius": 4.0},
 		
-		# Башня Предтеч (нейтральная, в центре между триггерами)
+		# Башня Предтеч (нейтральная, в центре)
 		{"name": "Башня Предтеч", "pos": Vector3(0, 0, 0), "type": TerritoryType.ANCIENT_TOWER, "value": 300, "radius": 5.5},
 		
 		# Кристалл пустоты (между ядром и центральной точкой)
-		{"name": "Кристалл Пустоты", "pos": Vector3(0, 0, 12), "type": TerritoryType.VOID_CRYSTAL, "value": 250, "radius": 6.0}
+		{"name": "Кристалл Пустоты", "pos": Vector3(0, 0, 12), "type": TerritoryType.VOID_CRYSTAL, "value": 250, "radius": 6.0},
+		
+		# === СПЕЦИАЛЬНЫЕ ТЕРРИТОРИИ ===
+		# Оборонительные сооружения
+		{"name": "Застава Запад", "pos": Vector3(-20, 0, 0), "type": TerritoryType.DEFENSIVE_TOWER, "value": 120, "radius": 4.5},
+		{"name": "Фабрика Восток", "pos": Vector3(20, 0, 0), "type": TerritoryType.FACTORY, "value": 120, "radius": 4.5},
+		
+		# Святилища
+		{"name": "Святилище Юг", "pos": Vector3(0, 0, 8), "type": TerritoryType.BATTLEFIELD_SHRINE, "value": 100, "radius": 4.5},
+		{"name": "Святилище Север", "pos": Vector3(0, 0, -8), "type": TerritoryType.BATTLEFIELD_SHRINE, "value": 100, "radius": 4.5},
+		
+		# Главный алтарь (цель победы)
+		{"name": "Главный Алтарь", "pos": Vector3(0, 0, 4), "type": TerritoryType.ANCIENT_ALTAR, "value": 500, "radius": 6.0}
 	]
 	
 	for i in range(territory_configs.size()):
@@ -129,41 +144,33 @@ func create_territory_visual(territory: Dictionary):
 			# ВСЕ кристальные рудники - ЯРКО-ПУРПУРНЫЕ
 			material.albedo_color = Color(1.0, 0.0, 1.0, 0.95)  # Ярко-пурпурный
 			material.emission = Color(0.8, 0.0, 0.8)  # Сильное пурпурное свечение
-		TerritoryType.STRATEGIC_POINT:
-			material.albedo_color = Color(1.0, 1.0, 0.0, 0.95)  # Ярко-желтый
-			material.emission = Color(0.8, 0.8, 0.0)  # Сильное желтое свечение
 		TerritoryType.DEFENSIVE_TOWER:
-			# Оборонительные заставы - ЯРКО-КРАСНЫЕ
 			material.albedo_color = Color(1.0, 0.0, 0.0, 0.95)  # Ярко-красный
 			material.emission = Color(0.8, 0.0, 0.0)  # Сильное красное свечение
 		TerritoryType.FACTORY:
-			# Фабрики - ЯРКО-ОРАНЖЕВЫЕ
 			material.albedo_color = Color(1.0, 0.5, 0.0, 0.95)  # Ярко-оранжевый
 			material.emission = Color(0.8, 0.4, 0.0)  # Сильное оранжевое свечение
-		TerritoryType.PORTAL:
-			material.albedo_color = Color(0.0, 1.0, 0.0, 0.95)  # Ярко-зеленый
-			material.emission = Color(0.0, 0.8, 0.0)  # Сильное зеленое свечение
 		TerritoryType.ANCIENT_ALTAR:
-			# Главный алтарь - ЗОЛОТОЙ (особый)
 			material.albedo_color = Color(1.0, 0.8, 0.0, 0.95)  # Ярко-золотой
 			material.emission = Color(0.8, 0.6, 0.0)  # Сильное золотое свечение
 		TerritoryType.BATTLEFIELD_SHRINE:
-			# ВСЕ святилища - ЯРКО-ЗЕЛЕНЫЕ
 			material.albedo_color = Color(0.0, 1.0, 0.0, 0.95)  # Ярко-зеленый
 			material.emission = Color(0.0, 0.8, 0.0)  # Сильное зеленое свечение
-		# НОВЫЕ ТИПЫ ТЕРРИТОРИЙ
 		TerritoryType.CENTER_TRIGGER_1, TerritoryType.CENTER_TRIGGER_2:
-			# Центральные триггеры - ЯРКО-ЗОЛОТЫЕ
 			material.albedo_color = Color(1.0, 0.8, 0.0, 0.95)  # Ярко-золотой
 			material.emission = Color(1.0, 0.6, 0.0)  # Сильное золотое свечение
 		TerritoryType.ANCIENT_TOWER:
-			# Башня Предтеч - ТЕМНО-СИНЯЯ с пульсацией
 			material.albedo_color = Color(0.2, 0.2, 0.8, 0.95)  # Темно-синий
 			material.emission = Color(0.4, 0.4, 1.0)  # Синее свечение
 		TerritoryType.VOID_CRYSTAL:
-			# Кристалл пустоты - ТЕМНО-ПУРПУРНЫЙ с пульсацией
 			material.albedo_color = Color(0.6, 0.0, 0.8, 0.95)  # Темно-пурпурный
 			material.emission = Color(0.8, 0.0, 1.0)  # Пурпурное свечение
+		TerritoryType.PLAYER_BASE:
+			material.albedo_color = Color(0.2, 0.6, 1.0, 0.95)  # Синий игрок
+			material.emission = Color(0.1, 0.3, 0.5)  # Синее свечение
+		TerritoryType.ENEMY_BASE:
+			material.albedo_color = Color(1.0, 0.2, 0.2, 0.95)  # Красный враг
+			material.emission = Color(0.5, 0.1, 0.1)  # Красное свечение
 		_:
 			material.albedo_color = Color(0.6, 0.6, 0.6, 0.95)
 			material.emission = Color(0.3, 0.3, 0.3)
@@ -182,10 +189,12 @@ func get_resource_rate(type: TerritoryType) -> int:
 			return 15  # Энергия в секунду
 		TerritoryType.CRYSTAL_MINE:
 			return 10  # Кристаллы в секунду
-		TerritoryType.STRATEGIC_POINT:
-			return 5   # Бонусная энергия
+		TerritoryType.VOID_CRYSTAL:
+			return 1   # Медленная генерация энергии для ультиматов
 		TerritoryType.ANCIENT_ALTAR:
 			return 8   # Бонус к способностям
+		TerritoryType.PLAYER_BASE, TerritoryType.ENEMY_BASE:
+			return 5   # Базовая генерация ресурсов
 		_:
 			return 0
 
@@ -209,42 +218,31 @@ func apply_territory_effects(territory: Dictionary):
 		TerritoryType.CRYSTAL_MINE:
 			add_resource(territory_owner, "crystals", amount)
 			
-		TerritoryType.STRATEGIC_POINT:
+		TerritoryType.VOID_CRYSTAL:
 			add_resource(territory_owner, "energy", amount)
+			apply_void_crystal_effects(territory)
 			
 		TerritoryType.DEFENSIVE_TOWER:
-			# Автоматическая атака ближайших врагов
 			auto_attack_enemies(territory)
 			
 		TerritoryType.FACTORY:
-			# Автоматическое производство юнитов
 			auto_produce_units(territory)
 			
-		TerritoryType.PORTAL:
-			# Телепортация дружественных юнитов
-			teleport_friendly_units(territory)
-			
 		TerritoryType.ANCIENT_ALTAR:
-			# Снижение кулдаунов способностей
 			reduce_ability_cooldowns(territory)
 			add_resource(territory_owner, "crystals", amount)
 			
 		TerritoryType.BATTLEFIELD_SHRINE:
-			# Лечение дружественных юнитов в радиусе
 			heal_friendly_units(territory)
 			
-		# НОВЫЕ ТИПЫ ТЕРРИТОРИЙ
 		TerritoryType.CENTER_TRIGGER_1, TerritoryType.CENTER_TRIGGER_2:
-			# Центральные триггеры - проверяем условия для призыва героя
 			check_hero_summon_conditions()
 			
 		TerritoryType.ANCIENT_TOWER:
-			# Башня Предтеч - автоматическая атака всех врагов
 			ancient_tower_attack(territory)
 			
-		TerritoryType.VOID_CRYSTAL:
-			# Кристалл пустоты - аура эффективности и генерация энергии для ультиматов
-			apply_void_crystal_effects(territory)
+		TerritoryType.PLAYER_BASE, TerritoryType.ENEMY_BASE:
+			add_resource(territory_owner, "energy", amount)
 
 func add_resource(territory_owner: String, resource_type: String, amount: int):
 	match resource_type:
@@ -284,7 +282,7 @@ func attempt_capture(territory: Dictionary, team: String):
 		# Обновляем визуал
 		update_territory_visual(territory)
 		
-		territory_captured.emit(territory.id, team)
+		territory_captured.emit(territory.id, team, territory.type)
 		print("🏳️ Территория ", territory.id, " захвачена командой ", team)
 		
 		# Проверяем условия победы после захвата территории
@@ -330,7 +328,7 @@ func force_capture_territory(territory_id: int, territory_owner: String):
 	# Обновляем визуал
 	update_territory_visual(territory)
 	
-	territory_captured.emit(territory_id, territory_owner)
+	territory_captured.emit(territory_id, territory_owner, territory.type)
 	print("🏳️ Территория ", territory_id, " принудительно захвачена командой ", territory_owner)
 	return true
 
@@ -387,6 +385,8 @@ func get_territory_short_name(type) -> String:
 			return "⚡ ЭНЕРГИЯ\n+15/сек"
 		TerritoryType.CRYSTAL_MINE:
 			return "💎 КРИСТАЛЛЫ\n+10/сек"
+		TerritoryType.VOID_CRYSTAL:
+			return "💜 ПУСТОТА\n+1 энергия/сек"
 		TerritoryType.DEFENSIVE_TOWER:
 			return "🏰 ЗАСТАВА\nАвтоатака"
 		TerritoryType.FACTORY:
@@ -395,15 +395,16 @@ func get_territory_short_name(type) -> String:
 			return "✨ АЛТАРЬ\n💰 ГЛАВНАЯ ЦЕЛЬ!"
 		TerritoryType.BATTLEFIELD_SHRINE:
 			return "🌿 СВЯТИЛИЩЕ\nЛечение"
-		# НОВЫЕ ТИПЫ
 		TerritoryType.CENTER_TRIGGER_1:
 			return "⚔️ ТРИГГЕР АЛЬФА\nПризыв героя!"
 		TerritoryType.CENTER_TRIGGER_2:
 			return "⚔️ ТРИГГЕР БЕТА\nПризыв героя!"
 		TerritoryType.ANCIENT_TOWER:
 			return "🏛️ БАШНЯ ПРЕДТЕЧ\nНейтральная угроза"
-		TerritoryType.VOID_CRYSTAL:
-			return "💜 КРИСТАЛЛ ПУСТОТЫ\nАура эффективности"
+		TerritoryType.PLAYER_BASE:
+			return "🏠 БАЗА ИГРОКА\nКомандный центр"
+		TerritoryType.ENEMY_BASE:
+			return "🏠 БАЗА ВРАГА\nКомандный центр"
 		_:
 			return "❓ ТЕРРИТОРИЯ"
 

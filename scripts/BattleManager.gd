@@ -30,22 +30,8 @@ var building_preview = null
 var can_build_here = false
 var building_cost = 30  # Стоимость постройки модуля
 
-# Система ИИ для вражеской фракции
-var enemy_ai_timer: Timer
-var enemy_decision_timer: Timer
-var energy_timer: Timer
-var enemy_max_soldiers = 3  # Лимиты юнитов для ИИ
-var enemy_max_tanks = 2
-var enemy_max_drones = 2
-var enemy_current_soldiers = 0
-var enemy_current_tanks = 0
-var enemy_current_drones = 0
-
-var enemy_ai: EnemyAI = null
-var ai_difficulty: String = "normal"
-
-# Система кристаллов (заменяет территории)
-var crystal_system: CrystalSystem = null
+# Система территорий и кристаллов (объединенная)
+var territory_system: TerritorySystem = null
 
 # Система технологий и способностей
 var ability_system: AbilitySystem = null
@@ -178,7 +164,7 @@ func setup_battle_systems():
 	init_system_manager()  # Сначала инициализируем менеджер систем
 	init_enemy_ai()
 	init_energy_timer()
-	init_crystal_system()  # Включаем обратно после исправления ошибок
+	init_territory_system()  # Включаем обратно после исправления ошибок
 	init_ability_system()
 	init_race_system()
 	# Остальные системы уже инициализированы через SystemManager
@@ -338,18 +324,18 @@ func init_energy_timer():
 	energy_timer.timeout.connect(_on_energy_timer)
 	add_child(energy_timer)
 
-func init_crystal_system():
-	# Создаем новую кристаллическую систему
-	crystal_system = CrystalSystem.new()
-	crystal_system.battle_manager = self
-	add_child(crystal_system)
+func init_territory_system():
+	# Создаем новую систему территорий
+	territory_system = TerritorySystem.new()
+	territory_system.battle_manager = self
+	add_child(territory_system)
 	
 	# Подключаем сигналы
-	crystal_system.crystal_captured.connect(_on_crystal_captured)
-	crystal_system.crystal_depleted.connect(_on_crystal_depleted)
-	# Убираем подключение к удаленному сигналу crystal_regenerated
+	territory_system.territory_captured.connect(_on_territory_captured)
+	territory_system.territory_depleted.connect(_on_territory_depleted)
+	# Убираем подключение к удаленному сигналу territory_regenerated
 	
-	print("💎 Кристаллическая система инициализирована")
+	print("🏰 Территориальная система инициализирована")
 
 func init_ability_system():
 	# Создаем систему способностей
@@ -1278,8 +1264,8 @@ func ai_consider_collector_strategy():
 	# Дополнительная стратегия AI для использования коллекторов
 	if enemy_energy >= get_unit_cost("collector") and enemy_crystals >= get_unit_crystal_cost("collector"):
 		# Проверяем доступные кристаллы
-		if crystal_system:
-			var available_crystals = crystal_system.get_crystal_info()
+		if territory_system:
+			var available_crystals = territory_system.get_territory_info()
 			var neutral_crystals = 0
 			for crystal in available_crystals:
 				if crystal.owner == "neutral" or crystal.owner != "enemy":
@@ -1296,22 +1282,22 @@ func ai_consider_collector_strategy():
 					update_ui()
 
 # Система алтаря героя - обработка захвата боковых территорий
-func _on_crystal_captured(crystal_id: int, team: String, crystal_type: int):
-	print("💎 Кристалл захвачен: ID=", crystal_id, " типа=", crystal_type, " командой ", team)
+func _on_territory_captured(territory_id: int, team: String, territory_type: int):
+	print("🏰 Территория захвачена: ID=", territory_id, " типа=", territory_type, " командой ", team)
 	
 	# Проверяем если игрок захватил территории для алтаря
 	if team == "player":
 		# Получаем информацию о кристалле
-		if crystal_system:
-			var crystals = crystal_system.get_crystal_info()
-			if crystal_id < crystals.size():
-				var crystal = crystals[crystal_id]
+		if territory_system:
+			var crystals = territory_system.get_territory_info()
+			if territory_id < crystals.size():
+				var crystal = crystals[territory_id]
 				var crystal_name = crystal.get("name", "")
 				
-				print("🔍 Имя захваченного кристалла: '", crystal_name, "'")
+				print("🔍 Имя захваченной территории: '", crystal_name, "'")
 				
 				# Добавляем кристаллы в зависимости от типа
-				match crystal_type:
+				match territory_type:
 					1: # ENERGY_CRYSTAL
 						player_crystals += 15
 						# Проверяем боковые территории для алтаря героя (energy_1 и energy_2)
@@ -1385,17 +1371,17 @@ func _on_hero_summoned():
 	
 	print("🦸 Герой готов к бою! Способности активированы.")
 
-func _on_crystal_depleted(crystal_id: int):
-	print("💎 Кристалл ", crystal_id, " истощен")
+func _on_territory_depleted(territory_id: int):
+	print("🏰 Территория ", territory_id, " истощена")
 	if notification_system:
-		notification_system.show_notification("Кристалл истощен!")
+		notification_system.show_notification("Территория истощена!")
 
-# Убираем функцию _on_crystal_regenerated так как сигнал удален
+# Убираем функцию _on_territory_regenerated так как сигнал удален
 
 # Обновляем методы для работы с кристаллами
 func get_controlled_crystals(team: String) -> int:
-	if crystal_system:
-		return crystal_system.get_controlled_crystals(team)
+	if territory_system:
+		return territory_system.get_controlled_crystals(team)
 	return 0
 
 func get_crystal_type_name(crystal_type: int) -> String:
