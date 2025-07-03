@@ -809,7 +809,7 @@ func _on_build_structure_drag(screen_pos):
 	
 	# Определяем тип здания по drag_type из BattleUI
 	var building_type = "tower"  # По умолчанию башня
-	var building_cost = 60
+	var building_cost_local = 60
 	var crystal_cost = 0
 	
 	# Получаем тип здания из UI (нужно будет передать из BattleUI)
@@ -817,36 +817,36 @@ func _on_build_structure_drag(screen_pos):
 		match battle_ui.drag_type:
 			"barracks":
 				building_type = "barracks"
-				building_cost = 80
+				building_cost_local = 80
 			"training_camp":
 				building_type = "training_camp"
-				building_cost = 120
+				building_cost_local = 120
 				crystal_cost = 20
 			"magic_academy":
 				building_type = "magic_academy"
-				building_cost = 100
+				building_cost_local = 100
 				crystal_cost = 30
 			"collector_facility":
 				building_type = "collector_facility"
-				building_cost = 90
+				building_cost_local = 90
 				crystal_cost = 15
 			"mech_factory":
 				building_type = "mech_factory"
-				building_cost = 150
+				building_cost_local = 150
 				crystal_cost = 25
 			"drone_factory":
 				building_type = "drone_factory"
-				building_cost = 130
+				building_cost_local = 130
 				crystal_cost = 20
 			_:
 				building_type = "tower"
-				building_cost = 60
+				building_cost_local = 60
 	
 	print("3. Тип здания: ", building_type)
-	print("4. Стоимость: ", building_cost, " энергии, ", crystal_cost, " кристаллов")
+	print("4. Стоимость: ", building_cost_local, " энергии, ", crystal_cost, " кристаллов")
 	print("5. У игрока: ", player_energy, " энергии, ", player_crystals, " кристаллов")
 	
-	if player_energy < building_cost or player_crystals < crystal_cost:
+	if player_energy < building_cost_local or player_crystals < crystal_cost:
 		print("❌ Недостаточно ресурсов для постройки ", building_type, "!")
 		return
 		
@@ -860,7 +860,7 @@ func _on_build_structure_drag(screen_pos):
 	if is_valid_build_position(pos):
 		print("✅ Позиция валидна, строим ", building_type, "...")
 		place_spawner("player", building_type, pos)
-		player_energy -= building_cost
+		player_energy -= building_cost_local
 		player_crystals -= crystal_cost
 		update_ui()
 		print("✅ ", building_type, " построено успешно!")

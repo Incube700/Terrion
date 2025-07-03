@@ -22,19 +22,15 @@ extends Node3D
 var battle_manager = null
 
 func find_battle_manager():
-	# Ищем BattleManager в дереве узлов
 	var current = get_parent()
 	while current:
 		if current.has_method("spawn_unit_at_pos"):
 			return current
 		current = current.get_parent()
-	
-	# Если не нашли, попробуем найти по имени
 	var root = get_tree().current_scene
 	if root and root.has_method("spawn_unit_at_pos"):
 		return root
-	
-	print("⚠️ BattleManager не найден для спавнера ", name)
+	print("⚠️ BattleManager не найден для спавнера ", name, ". Путь поиска завершён.")
 	return null
 
 func _ready():

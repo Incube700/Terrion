@@ -253,7 +253,7 @@ func find_new_targets():
 		if spawner.team == team:
 			continue  # Пропускаем союзные здания
 			
-		if not spawner.has_variable("health") or spawner.health <= 0:
+		if not "health" in spawner or spawner.health <= 0:
 			continue  # Пропускаем разрушенные здания
 			
 		var distance = global_position.distance_to(spawner.global_position)
@@ -375,7 +375,7 @@ func update_health_display():
 		if health_bar is Label:
 			if unit_type == "collector" and is_capturing:
 				# Показываем прогресс захвата для коллекторов
-				var capture_time = target_crystal.max_capture_time if target_crystal and target_crystal.has("max_capture_time") else 5.0
+				var capture_time = float(target_crystal.max_capture_time) if target_crystal and target_crystal.has("max_capture_time") else 5.0
 				var progress_percent = int(capture_progress * 100 / capture_time)
 				health_bar.text = "💎 " + str(progress_percent) + "%"
 				health_bar.modulate = Color.ORANGE
@@ -426,7 +426,7 @@ func handle_collector_behavior(_delta):
 		update_3d_health_bar()  # Обновляем 3D HP бар при захвате
 		
 		# Проверяем, завершен ли захват
-		var capture_time = target_crystal.max_capture_time if target_crystal.has("max_capture_time") else 5.0
+		var capture_time = float(target_crystal.max_capture_time) if target_crystal and target_crystal.has("max_capture_time") else 5.0
 		if capture_progress >= capture_time:
 			complete_crystal_capture()
 		
@@ -447,6 +447,10 @@ func handle_collector_behavior(_delta):
 	
 	# Двигаемся к целевому кристаллу
 	if target_crystal:
+		if not is_inside_tree() or not target_crystal:
+			return
+		if not ("position" in target_crystal and is_instance_valid(self)):
+			return
 		var crystal_pos = target_crystal.position
 		var distance = global_position.distance_to(crystal_pos)
 		
@@ -593,7 +597,7 @@ func create_crystal_generator_turret():
 
 func create_energy_cables():
 	"""Создает визуальные энергетические кабели от кристалла к генератору"""
-	if not target_crystal:
+	if not is_inside_tree() or not target_crystal:
 		return
 	
 	# Создаем кабель
@@ -603,6 +607,8 @@ func create_energy_cables():
 	cable_mesh.bottom_radius = 0.05
 	
 	# Вычисляем длину и направление кабеля
+	if not ("position" in target_crystal and is_instance_valid(self)):
+		return
 	var crystal_pos = target_crystal.position
 	var generator_pos = global_position
 	var direction = (generator_pos - crystal_pos).normalized()
@@ -612,7 +618,7 @@ func create_energy_cables():
 	cable.mesh = cable_mesh
 	
 	# Позиционируем кабель между кристаллом и генератором
-	var mid_point = (crystal_pos + generator_pos) / 2
+	var mid_point = (crystal_pos + generator_pos) / 2.0
 	cable.global_position = mid_point
 	
 	# Поворачиваем кабель в нужном направлении
@@ -808,7 +814,7 @@ func update_3d_health_bar():
 		
 		# Обновляем текст
 		if unit_type == "collector" and is_capturing:
-			var capture_time = target_crystal.max_capture_time if target_crystal and target_crystal.has("max_capture_time") else 5.0
+			var capture_time = float(target_crystal.max_capture_time) if target_crystal and target_crystal.has("max_capture_time") else 5.0
 			var progress_percent = int(capture_progress * 100 / capture_time)
 			health_label_3d.text = "💎 " + str(progress_percent) + "%"
 			health_label_3d.modulate = Color.ORANGE

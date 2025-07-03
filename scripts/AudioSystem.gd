@@ -39,11 +39,11 @@ func get_available_audio_player() -> AudioStreamPlayer3D:
 	for player in audio_players:
 		if not player.playing:
 			return player
+	print("❌ Нет свободных аудиоплееров!")
 	return null
 
 # Получение звукового потока по имени
 func get_sound_stream(sound_name: String) -> AudioStream:
-	# Создаем простые процедурные звуки
 	match sound_name:
 		"unit_spawn":
 			return create_spawn_sound()
@@ -60,6 +60,7 @@ func get_sound_stream(sound_name: String) -> AudioStream:
 		"energy_gain":
 			return create_energy_sound()
 		_:
+			print("❌ Не найден звуковой поток для: ", sound_name)
 			return null
 
 # Создание процедурных звуков

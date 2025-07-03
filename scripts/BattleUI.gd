@@ -9,7 +9,6 @@ signal build_structure_drag(screen_pos)
 signal use_ability(ability_name: String, position: Vector3)
 signal summon_hero()
 signal use_race_ability(ability_name, position)
-signal summon_race_hero(position)
 
 var drag_type = ""
 var is_dragging = false

@@ -21,22 +21,16 @@ var analysis_interval: float = 2.0
 var build_priorities: Array = []
 var unit_priorities: Array = []
 
+var ai_config = preload("res://scripts/ai_config.gd")
+
 func _init(manager: Node, diff: String = "normal"):
 	battle_manager = manager
 	difficulty = diff
 	setup_difficulty_parameters()
 
 func setup_difficulty_parameters():
-	match difficulty:
-		"easy":
-			strategy_change_interval = 45.0  # Медленнее меняет стратегию
-			analysis_interval = 3.0  # Реже анализирует
-		"normal":
-			strategy_change_interval = 30.0
-			analysis_interval = 2.0
-		"hard":
-			strategy_change_interval = 20.0  # Быстрее адаптируется
-			analysis_interval = 1.5  # Чаще анализирует
+	strategy_change_interval = ai_config.STRATEGY_CHANGE_INTERVAL.get(difficulty, 30.0)
+	analysis_interval = ai_config.ANALYSIS_INTERVAL.get(difficulty, 2.0)
 
 func _ready():
 	print("EnemyAI инициализирован с уровнем сложности: ", difficulty)
@@ -60,7 +54,7 @@ func make_decision(delta: float) -> Dictionary:
 func analyze_battlefield():
 	if not battle_manager:
 		return
-	
+
 	var analysis = {
 		"player_units": count_units("player"),
 		"enemy_units": count_units("enemy"),
@@ -70,14 +64,40 @@ func analyze_battlefield():
 		"enemy_energy": battle_manager.enemy_energy,
 		"battlefield_control": calculate_battlefield_control(),
 		"threat_level": calculate_threat_level(),
-		"economic_advantage": calculate_economic_advantage()
+		"economic_advantage": calculate_economic_advantage(),
+		"player_crystals": 0,
+		"enemy_crystals": 0,
+		"base_threat": 0.0
 	}
-	
+
+	# Подсчёт захваченных кристаллов
+	if battle_manager.has("crystal_system") and battle_manager.crystal_system:
+		var crystals = battle_manager.crystal_system.get_crystal_info()
+		for crystal in crystals:
+			if crystal.owner == "player":
+				analysis.player_crystals += 1
+			elif crystal.owner == "enemy":
+				analysis.enemy_crystals += 1
+
+	# Угроза базе: враги в радиусе THREAT_RADIUS от ядра
+	var base_pos = battle_manager.enemy_core.global_position if battle_manager.has("enemy_core") and battle_manager.enemy_core else Vector3.ZERO
+	var units = get_tree().get_nodes_in_group("units")
+	var threat_count = 0
+	for unit in units:
+		if unit.team == "player" and unit.global_position.distance_to(base_pos) < ai_config.THREAT_RADIUS:
+			threat_count += 1
+	analysis.base_threat = float(threat_count) * ai_config.WEIGHT_BASE_THREAT
+
+	# Итоговый анализ с весами
+	analysis.total_score = (
+		analysis.enemy_crystals * ai_config.WEIGHT_CRYSTAL
+		- analysis.player_crystals * ai_config.WEIGHT_CRYSTAL
+		+ analysis.base_threat
+		+ analysis.economic_advantage * ai_config.WEIGHT_ECON_ADVANTAGE
+	)
+
 	battlefield_analysis = analysis
-	print("AI анализ: Игрок юниты=", analysis.player_units, 
-		  " Враг юниты=", analysis.enemy_units,
-		  " Контроль поля=", analysis.battlefield_control,
-		  " Угроза=", analysis.threat_level)
+	print("AI анализ: ", analysis)
 
 func count_units(team: String) -> Dictionary:
 	var units = get_tree().get_nodes_in_group("units")
@@ -130,15 +150,15 @@ func calculate_threat_level() -> float:
 func calculate_army_power(units: Dictionary) -> int:
 	# Рассчитываем общую силу армии
 	var power = 0
-	power += units.get("soldier", 0) * 20  # Базовая сила солдата
-	power += units.get("tank", 0) * 40     # Танки сильнее
-	power += units.get("drone", 0) * 15    # Дроны быстрые, но слабые
+	power += units.get("soldier", 0) * ai_config.UNIT_POWER["soldier"] * ai_config.WEIGHTS_UNIT_TYPE["soldier"]
+	power += units.get("tank", 0) * ai_config.UNIT_POWER["tank"] * ai_config.WEIGHTS_UNIT_TYPE["tank"]
+	power += units.get("drone", 0) * ai_config.UNIT_POWER["drone"] * ai_config.WEIGHTS_UNIT_TYPE["drone"]
 	return power
 
 func calculate_economic_advantage() -> float:
 	# Рассчитываем экономическое преимущество (-1.0 = игрок сильнее, 1.0 = AI сильнее)
 	var player_energy = battlefield_analysis.get("player_energy", 100)
-	var enemy_energy = battlefield_analysis.get("enemy_energy", 100)
+	var enemy_energy = battle_manager.enemy_energy
 	var player_spawners = battlefield_analysis.get("player_spawners", {}).get("total", 1)
 	var enemy_spawners = battlefield_analysis.get("enemy_spawners", {}).get("total", 1)
 	
@@ -155,34 +175,38 @@ func change_strategy():
 	var threat = battlefield_analysis.get("threat_level", 0.5)
 	var control = battlefield_analysis.get("battlefield_control", 0.5)
 	var economy = battlefield_analysis.get("economic_advantage", 0.0)
-	
-	# Выбираем стратегию на основе анализа
-	if threat > 0.7:
-		current_strategy = "defensive"  # Высокая угроза - обороняемся
+	var base_threat = battlefield_analysis.get("base_threat", 0.0)
+	var player_collectors = battlefield_analysis.get("player_units", {}).get("collector", 0)
+	var player_towers = battlefield_analysis.get("player_spawners", {}).get("tower", 0)
+	var free_crystals = 0
+	if battle_manager.has("crystal_system") and battle_manager.crystal_system:
+		var crystals = battle_manager.crystal_system.get_crystal_info()
+		for crystal in crystals:
+			if crystal.owner == "neutral":
+				free_crystals += 1
+
+	# Новые условия для стратегий
+	if free_crystals >= 2:
+		current_strategy = "capture"  # Много свободных кристаллов — захват
+	elif base_threat > ai_config.WEIGHT_BASE_THREAT * 1.5:
+		current_strategy = "fortify"  # База или кристаллы под угрозой — усиленная оборона
+	elif player_collectors >= 3 and player_towers < 2:
+		current_strategy = "harass"  # У врага много коллекторов и мало башен — рейды
+	elif threat > 0.7:
+		current_strategy = "defensive"
 	elif control > 0.6 and economy > 0.2:
-		current_strategy = "rush"  # Контролируем поле и есть ресурсы - атакуем
+		current_strategy = "rush"
 	elif economy < -0.3:
-		current_strategy = "economic"  # Слабая экономика - развиваемся
+		current_strategy = "economic"
 	else:
-		current_strategy = "balanced"  # Сбалансированная стратегия
-	
+		current_strategy = "balanced"
+
 	print("AI сменил стратегию на: ", current_strategy)
 	update_priorities()
 
 func update_priorities():
-	match current_strategy:
-		"rush":
-			unit_priorities = ["soldier", "tank", "drone"]
-			build_priorities = ["spawner", "barracks", "tower"]
-		"defensive":
-			unit_priorities = ["tank", "soldier", "drone"]
-			build_priorities = ["tower", "spawner", "barracks"]
-		"economic":
-			unit_priorities = ["soldier", "drone", "tank"]
-			build_priorities = ["spawner", "spawner", "barracks"]
-		"balanced":
-			unit_priorities = ["soldier", "tank", "drone"]
-			build_priorities = ["spawner", "tower", "barracks"]
+	unit_priorities = ai_config.UNIT_PRIORITIES.get(current_strategy, ["soldier", "tank", "drone"])
+	build_priorities = ai_config.BUILD_PRIORITIES.get(current_strategy, ["spawner", "tower", "barracks"])
 
 func make_strategic_decision() -> Dictionary:
 	var decision = {
@@ -192,142 +216,92 @@ func make_strategic_decision() -> Dictionary:
 		"position": Vector3.ZERO,
 		"priority": 0
 	}
-	
 	if not battle_manager:
 		return decision
-	
-	var enemy_energy = battle_manager.enemy_energy
-	var enemy_crystals = battle_manager.enemy_crystals
-	var threat = battlefield_analysis.get("threat_level", 0.5)
+
+	# Если угроза базе высокая — строим башню
+	if battlefield_analysis.get("base_threat", 0.0) > ai_config.WEIGHT_BASE_THREAT:
+		decision.action = "build"
+		decision.structure_type = "tower"
+		decision.position = get_optimal_build_position("tower")
+		decision.priority = calculate_build_priority("tower")
+		return decision
+
+	# Если экономическое преимущество — атакуем
+	if battlefield_analysis.get("economic_advantage", 0.0) > 0.2:
+		decision.action = "spawn"
+		decision.unit_type = unit_priorities[0]
+		decision.position = get_optimal_spawn_position(unit_priorities[0])
+		decision.priority = 2
+		return decision
+
+	# Если мало кристаллов — захватываем
+	if battlefield_analysis.get("enemy_crystals", 0) < 2:
+		decision.action = "capture"
+		decision.unit_type = "collector"
+		decision.position = get_optimal_spawn_position("collector")
+		decision.priority = 1.5
+		return decision
+
+	# По умолчанию — сбалансированное поведение
+	decision.action = "spawn"
+	decision.unit_type = unit_priorities[0]
+	decision.position = get_optimal_spawn_position(unit_priorities[0])
+	decision.priority = 1
+	return decision
+
+func calculate_build_priority(structure_type: String) -> float:
+	# Базовый приоритет по стратегии
+	var base_priority = 1.0
+	if build_priorities.has(structure_type):
+		base_priority += 2.0 - build_priorities.find(structure_type) * 0.5
+
+	# Динамические параметры
 	var control = battlefield_analysis.get("battlefield_control", 0.5)
-	
-	# Принимаем решение на основе приоритетов и ситуации
-	var ability_decision = consider_ability_use(enemy_energy, enemy_crystals)
-	var spawn_decision = consider_unit_spawn(enemy_energy, threat, control)
-	var build_decision = consider_building(enemy_energy, threat, control)
-	
-	# Выбираем решение с наивысшим приоритетом
-	if ability_decision.priority > spawn_decision.priority and ability_decision.priority > build_decision.priority:
-		return ability_decision
-	elif spawn_decision.priority > build_decision.priority:
-		return spawn_decision
-	elif build_decision.priority > 0:
-		return build_decision
-	
-	return decision
+	var econ = battlefield_analysis.get("economic_advantage", 0.0)
+	var base_threat = battlefield_analysis.get("base_threat", 0.0)
+	var enemy_crystals = battlefield_analysis.get("enemy_crystals", 0)
+	var player_crystals = battlefield_analysis.get("player_crystals", 0)
 
-func consider_unit_spawn(energy: int, threat: float, control: float) -> Dictionary:
-	var decision = {"action": "none", "unit_type": "", "priority": 0, "position": Vector3.ZERO}
-	
-	for unit_type in unit_priorities:
-		var cost = battle_manager.get_unit_cost(unit_type)
-		if energy >= cost:
-			var priority = calculate_unit_priority(unit_type, threat, control)
-			if priority > decision.priority:
-				decision.action = "spawn"
-				decision.unit_type = unit_type
-				decision.priority = priority
-				decision.position = get_optimal_spawn_position(unit_type)
-	
-	return decision
+	# Весовые коэффициенты
+	var score = base_priority
+	score += econ * ai_config.WEIGHT_ECON_ADVANTAGE
+	score += (enemy_crystals - player_crystals) * ai_config.WEIGHT_CRYSTAL
+	score += base_threat
+	if structure_type == "tower":
+		score += base_threat * 2.0  # Усиливаем приоритет башен при угрозе
+	if structure_type == "spawner":
+		score += econ * 1.5  # Усиливаем приоритет спавнеров при экономическом преимуществе
+	return score
 
-func consider_building(energy: int, threat: float, control: float) -> Dictionary:
-	var decision = {"action": "none", "structure_type": "", "priority": 0, "position": Vector3.ZERO}
-	
-	for structure_type in build_priorities:
-		var cost = battle_manager.get_structure_cost(structure_type)
-		if energy >= cost:
-			var priority = calculate_build_priority(structure_type, threat, control)
-			if priority > decision.priority:
-				decision.action = "build"
-				decision.structure_type = structure_type
-				decision.priority = priority
-				decision.position = get_optimal_build_position(structure_type)
-	
-	return decision
+func get_optimal_spawn_position(unit_type: String) -> Vector3:
+	# Получаем все возможные позиции спавна (например, позиции спавнеров AI)
+	var spawners = get_tree().get_nodes_in_group("spawners")
+	var positions = []
+	for spawner in spawners:
+		if spawner.team == "enemy":
+			positions.append(spawner.global_position)
 
-func calculate_unit_priority(unit_type: String, threat: float, control: float) -> int:
-	var base_priority = 0
-	var enemy_units = battlefield_analysis.get("enemy_units", {})
-	
-	match unit_type:
-		"soldier":
-			base_priority = 50
-			# Больше приоритет если мало солдат
-			if enemy_units.get("soldier", 0) < 2:
-				base_priority += 30
-		"tank":
-			base_priority = 30
-			# Больше приоритет при высокой угрозе
-			if threat > 0.6:
-				base_priority += 40
-		"drone":
-			base_priority = 20
-			# Больше приоритет при хорошем контроле поля
-			if control > 0.5:
-				base_priority += 25
-	
-	# Модификаторы стратегии
-	match current_strategy:
-		"rush":
-			if unit_type == "soldier":
-				base_priority += 20
-		"defensive":
-			if unit_type == "tank":
-				base_priority += 25
-		"economic":
-			base_priority = int(base_priority * 0.7)  # Меньше фокуса на юнитах
-	
-	return base_priority
+	# Фильтруем позиции: нет врагов ближе SAFE_DISTANCE
+	var units = get_tree().get_nodes_in_group("units")
+	var safe_positions = []
+	for pos in positions:
+		var safe = true
+		for unit in units:
+			if unit.team == "player" and unit.global_position.distance_to(pos) < ai_config.SAFE_DISTANCE:
+				safe = false
+				break
+		if safe:
+			safe_positions.append(pos)
 
-func calculate_build_priority(structure_type: String, threat: float, _control: float) -> int:
-	var base_priority = 0
-	var enemy_spawners = battlefield_analysis.get("enemy_spawners", {})
-	
-	match structure_type:
-		"spawner":
-			base_priority = 40
-			# Больше приоритет если мало спавнеров
-			if enemy_spawners.get("total", 0) < 3:
-				base_priority += 30
-		"tower":
-			base_priority = 25
-			# Больше приоритет при угрозе
-			if threat > 0.5:
-				base_priority += 35
-		"barracks":
-			base_priority = 20
-			# Больше приоритет при хорошей экономике
-			var economy = battlefield_analysis.get("economic_advantage", 0.0)
-			if economy > 0.2:
-				base_priority += 30
-	
-	# Модификаторы стратегии
-	match current_strategy:
-		"rush":
-			if structure_type == "barracks":
-				base_priority += 25
-		"defensive":
-			if structure_type == "tower":
-				base_priority += 30
-		"economic":
-			if structure_type == "spawner":
-				base_priority += 35
-	
-	return base_priority
+	# Если есть безопасные позиции — выбираем ближайшую к базе игрока
+	if safe_positions.size() > 0:
+		var player_core = battle_manager.player_core.global_position if battle_manager.has("player_core") and battle_manager.player_core else Vector3.ZERO
+		safe_positions.sort_custom(func(a, b): return a.distance_to(player_core) < b.distance_to(player_core))
+		return safe_positions[0]
 
-func get_optimal_spawn_position(_unit_type: String) -> Vector3:
-	# Выбираем оптимальную позицию для спавна в зависимости от стратегии
-	match current_strategy:
-		"rush":
-			# Агрессивная позиция ближе к центру
-			return Vector3(randf_range(-6.0, 6.0), 0, randf_range(2.0, 6.0))
-		"defensive":
-			# Оборонительная позиция ближе к базе
-			return Vector3(randf_range(-8.0, 8.0), 0, randf_range(8.0, 12.0))
-		_:
-			# Сбалансированная позиция
-			return Vector3(randf_range(-7.0, 7.0), 0, randf_range(5.0, 10.0))
+	# Если нет безопасных — возвращаем любую доступную
+	return positions.size() > 0 ? positions[0] : Vector3.ZERO
 
 func get_optimal_build_position(structure_type: String) -> Vector3:
 	# Выбираем оптимальную позицию для постройки

@@ -41,13 +41,17 @@ func init_system(system_name: String, system_script_path: String, parent_node: N
 	return system_instance
 
 func get_system(system_name: String):
-	# Получение системы по имени
-	return systems.get(system_name, null)
+	if not systems.has(system_name):
+		print("❌ Система не найдена: ", system_name)
+		return null
+	return systems[system_name]
 
 func is_system_ready(system_name: String) -> bool:
-	# Проверка готовности системы
 	var system = get_system(system_name)
-	return system != null
+	if system == null:
+		print("❌ Система не готова: ", system_name)
+		return false
+	return true
 
 func call_system_method(system_name: String, method_name: String, args: Array = []):
 	# Безопасный вызов метода системы
