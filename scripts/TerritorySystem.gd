@@ -450,11 +450,12 @@ func check_hero_summon_conditions():
 			trigger_2_captured = territory.owner != "neutral"
 			trigger_2_owner = territory.owner
 	
-	# Если оба триггера захвачены одной командой - призываем героя
+	# Если оба триггера захвачены одной командой - призываем героя и освящаем башню
 	if trigger_1_captured and trigger_2_captured and trigger_1_owner == trigger_2_owner:
 		if not battle_manager.has("hero_summoned") or not battle_manager.hero_summoned:
 			summon_hero(trigger_1_owner)
-			print("🦸 ГЕРОЙ ПРИЗВАН для команды ", trigger_1_owner, "!")
+			consecrate_ancient_tower(trigger_1_owner)
+			print("🦸 ГЕРОЙ ПРИЗВАН и БАШНЯ ОСВЯЩЕНА для команды ", trigger_1_owner, "!")
 
 # Призыв героя
 func summon_hero(team: String):
@@ -480,22 +481,50 @@ func summon_hero(team: String):
 	
 	print("🦸 Герой призван для команды ", team, " в позиции ", spawn_position)
 
+# Освящение башни предтеч
+func consecrate_ancient_tower(team: String):
+	# Находим башню предтеч и делаем её союзной и неуязвимой
+	for territory in territories:
+		if territory.type == TerritoryType.ANCIENT_TOWER:
+			territory.owner = team
+			territory["consecrated"] = true  # Помечаем как освященную
+			territory["invulnerable"] = true  # Делаем неуязвимой
+			
+			# Обновляем визуал башни
+			update_territory_visual(territory)
+			
+			print("🏛️ Башня Предтеч освящена для команды ", team, " и стала неуязвимой")
+			break
+
 # Атака башни предтеч
 func ancient_tower_attack(territory: Dictionary):
 	if not battle_manager:
 		return
 	
-	# Башня атакует всех врагов в радиусе, независимо от владельца
+	# Башня атакует в зависимости от владельца
 	var attack_radius = territory.control_radius * 1.5
 	var tower_position = territory.position
 	
-	# Ищем всех юнитов в радиусе
+	# Определяем цели в зависимости от владельца
+	var target_team = ""
+	if territory.owner == "neutral":
+		# Нейтральная башня атакует всех
+		target_team = "all"
+	elif territory.owner == "player":
+		# Союзная башня атакует только врагов
+		target_team = "enemy"
+	elif territory.owner == "enemy":
+		# Вражеская башня атакует только игрока
+		target_team = "player"
+	
+	# Ищем цели
 	var units = get_tree().get_nodes_in_group("units")
 	var targets = []
 	
 	for unit in units:
 		if unit.global_position.distance_to(tower_position) <= attack_radius:
-			targets.append(unit)
+			if target_team == "all" or unit.team == target_team:
+				targets.append(unit)
 	
 	# Атакуем случайную цель
 	if targets.size() > 0:
@@ -524,9 +553,9 @@ func apply_void_crystal_effects(territory: Dictionary):
 	var crystal_position = territory.position
 	var aura_radius = territory.control_radius
 	
-	# Генерируем энергию для ультиматов
+	# Генерируем энергию для ультиматов (очень медленно)
 	if territory.owner != "neutral":
-		var energy_amount = 5  # Энергия для ультиматов
+		var energy_amount = 1  # Очень медленная генерация (было 5)
 		add_resource(territory.owner, "energy", energy_amount)
 		
 		# Применяем ауру эффективности к зданиям в радиусе
