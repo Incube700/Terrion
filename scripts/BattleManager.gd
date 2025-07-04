@@ -179,28 +179,28 @@ func _input(event):
 			is_mouse_dragging = event.pressed
 			last_mouse_position = event.position
 			
-		# Зум колесиком мыши - БЛИЖЕ для лучшего наблюдения
+		# Зум колесиком мыши - ОБНОВЛЕНО для новой карты
 		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			var new_pos = battle_camera.position
-			new_pos.y = max(20, new_pos.y - zoom_speed)  # Минимальная высота
-			new_pos.z = max(15, new_pos.z - zoom_speed * 0.8)  # Минимальная дистанция
+			new_pos.y = max(25, new_pos.y - zoom_speed)  # Минимальная высота увеличена
+			new_pos.z = max(20, new_pos.z - zoom_speed * 0.8)  # Минимальная дистанция увеличена
 			battle_camera.position = new_pos
 			
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			var new_pos = battle_camera.position
-			new_pos.y = min(80, new_pos.y + zoom_speed)  # Исправлено: в пределах карты
-			new_pos.z = min(50, new_pos.z + zoom_speed * 0.8)  # Исправлено: в пределах карты
+			new_pos.y = min(120, new_pos.y + zoom_speed)  # Максимальная высота увеличена
+			new_pos.z = min(70, new_pos.z + zoom_speed * 0.8)  # Максимальная дистанция увеличена
 			battle_camera.position = new_pos
 			
 	elif event is InputEventMouseMotion and is_mouse_dragging:
-		# Перемещение камеры
+		# Перемещение камеры - ОБНОВЛЕНО для новой карты
 		var delta = (event.position - last_mouse_position) * 0.1
 		var new_pos = battle_camera.position
 		new_pos.x -= delta.x * 0.1
 		new_pos.z += delta.y * 0.1
-		# Ограничиваем перемещение камеры в пределах поля
-		new_pos.x = clamp(new_pos.x, -25, 25)  # Исправлено: в пределах карты (40 ширина)
-		new_pos.z = clamp(new_pos.z, -35, 35)  # Исправлено: в пределах карты (60 длина)
+		# Ограничиваем перемещение камеры в пределах новой карты
+		new_pos.x = clamp(new_pos.x, -35, 35)  # Увеличено: в пределах карты (60 ширина)
+		new_pos.z = clamp(new_pos.z, -45, 45)  # Увеличено: в пределах карты (80 длина)
 		battle_camera.position = new_pos
 		last_mouse_position = event.position
 
@@ -234,10 +234,10 @@ func setup_battle_systems():
 
 func create_battlefield():
 	# Создает поле боя - территорию конфликта между фракциями
-	# Поверхность планеты (зеленая зона) - УВЕЛИЧЕНА для мобильных
+	# НОВАЯ УВЕЛИЧЕННАЯ КАРТА для стратегического геймплея
 	var field = MeshInstance3D.new()
 	var plane = PlaneMesh.new()
-	plane.size = Vector2(40, 60)  # Увеличил с 30x50 до 40x60
+	plane.size = Vector2(60, 80)  # Увеличил до 60x80 для большего пространства маневра
 	field.mesh = plane
 	field.position = Vector3(0, 0, 0)
 	var field_mat = StandardMaterial3D.new()
@@ -256,11 +256,11 @@ func create_battlefield():
 	# Зона игрока (синяя, внизу карты) - УВЕЛИЧЕНА
 	var player_zone = MeshInstance3D.new()
 	var player_plane = PlaneMesh.new()
-	player_plane.size = Vector2(40, 25)  # Увеличил с 30x20 до 40x25
+	player_plane.size = Vector2(60, 30)  # Увеличил до 60x30
 	player_zone.mesh = player_plane
-	player_zone.position = Vector3(0, 0.01, 17.5)  # Смещение к игроку
+	player_zone.position = Vector3(0, 0.01, 25)  # Смещение к игроку (было 17.5)
 	var player_zone_mat = StandardMaterial3D.new()
-	player_zone_mat.albedo_color = Color(0.2, 0.6, 1.0, 0.5)  # Более видимая синяя зона
+	player_zone_mat.albedo_color = Color(0.2, 0.6, 1.0, 0.3)  # Менее яркая для лучшей видимости территорий
 	player_zone_mat.flags_transparent = true
 	player_zone.set_surface_override_material(0, player_zone_mat)
 	add_child(player_zone)
@@ -268,11 +268,11 @@ func create_battlefield():
 	# Зона врага (красная, вверху карты) - УВЕЛИЧЕНА
 	var enemy_zone = MeshInstance3D.new()
 	var enemy_plane = PlaneMesh.new()
-	enemy_plane.size = Vector2(40, 25)  # Увеличил с 30x20 до 40x25
+	enemy_plane.size = Vector2(60, 30)  # Увеличил до 60x30
 	enemy_zone.mesh = enemy_plane
-	enemy_zone.position = Vector3(0, 0.01, -17.5)  # Смещение к врагу
+	enemy_zone.position = Vector3(0, 0.01, -25)  # Смещение к врагу (было -17.5)
 	var enemy_zone_mat = StandardMaterial3D.new()
-	enemy_zone_mat.albedo_color = Color(1.0, 0.2, 0.2, 0.5)  # Более видимая красная зона
+	enemy_zone_mat.albedo_color = Color(1.0, 0.2, 0.2, 0.3)  # Менее яркая для лучшей видимости территорий
 	enemy_zone_mat.flags_transparent = true
 	enemy_zone.set_surface_override_material(0, enemy_zone_mat)
 	add_child(enemy_zone)
@@ -280,7 +280,7 @@ func create_battlefield():
 	# Демаркационная линия (граница территорий) - УВЕЛИЧЕНА
 	var line = MeshInstance3D.new()
 	var box = BoxMesh.new()
-	box.size = Vector3(40, 0.2, 0.5)  # Увеличил ширину с 30 до 40
+	box.size = Vector3(60, 0.2, 0.5)  # Увеличил ширину до 60
 	line.mesh = box
 	line.position = Vector3(0, 0.1, 0)
 	var line_mat = StandardMaterial3D.new()
@@ -294,7 +294,7 @@ func create_battlefield():
 	# Подписи зон - БОЛЬШЕ ОТДАЛЕНЫ
 	var player_zone_label = Label3D.new()
 	player_zone_label.text = "ЗОНА ИГРОКА (СИНЯЯ)\nЮниты атакуют ВВЕРХ ↑"
-	player_zone_label.position = Vector3(0, 1.0, 27)  # Увеличил с 22 до 27
+	player_zone_label.position = Vector3(0, 1.0, 37)  # Увеличил до 37
 	player_zone_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	player_zone_label.font_size = 64  # Увеличил с 48 до 64
 	player_zone_label.modulate = Color(0.2, 0.6, 1, 1)
@@ -306,7 +306,7 @@ func create_battlefield():
 
 	var enemy_zone_label = Label3D.new()
 	enemy_zone_label.text = "ЗОНА ВРАГА (КРАСНАЯ)\nЮниты атакуют ВНИЗ ↓"
-	enemy_zone_label.position = Vector3(0, 1.0, -27)  # Увеличил с -22 до -27
+	enemy_zone_label.position = Vector3(0, 1.0, -37)  # Увеличил до -37
 	enemy_zone_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	enemy_zone_label.font_size = 64  # Увеличил с 48 до 64
 	enemy_zone_label.modulate = Color(1, 0.2, 0.2, 1)
@@ -323,24 +323,24 @@ func create_grid_lines():
 	add_child(grid_container)
 	
 	var grid_material = StandardMaterial3D.new()
-	grid_material.albedo_color = Color(0.6, 0.6, 0.6, 0.5)
+	grid_material.albedo_color = Color(0.6, 0.6, 0.6, 0.3)  # Менее яркая сетка
 	grid_material.flags_transparent = true
 	
 	# Вертикальные линии
-	for x in range(-20, 21, 5):
+	for x in range(-30, 31, 5):
 		var line = MeshInstance3D.new()
 		var box = BoxMesh.new()
-		box.size = Vector3(0.1, 0.05, 60)
+		box.size = Vector3(0.1, 0.05, 80)
 		line.mesh = box
 		line.position = Vector3(x, 0.02, 0)
 		line.material_override = grid_material
 		grid_container.add_child(line)
 	
 	# Горизонтальные линии
-	for z in range(-30, 31, 5):
+	for z in range(-40, 41, 5):
 		var line = MeshInstance3D.new()
 		var box = BoxMesh.new()
-		box.size = Vector3(40, 0.05, 0.1)
+		box.size = Vector3(60, 0.05, 0.1)
 		line.mesh = box
 		line.position = Vector3(0, 0.02, z)
 		line.material_override = grid_material
@@ -403,8 +403,8 @@ func create_command_centers():
 	add_child(enemy_label)
 
 	# Создание стартовых производственных модулей - ОБНОВЛЕНЫ ПОЗИЦИИ
-	create_start_spawner("player", Vector3(-5, 0, 23))   # Исправлено: ближе к ядру игрока
-	create_start_spawner("enemy", Vector3(5, 0, -23))    # Исправлено: ближе к ядру врага
+	create_start_spawner("player", Vector3(-6, 0, 28))   # Ближе к центру для лучшего доступа
+	create_start_spawner("enemy", Vector3(6, 0, -28))    # Ближе к центру для лучшего доступа
 
 func init_energy_timer():
 	# Таймер для автоматического пополнения энергии
@@ -523,8 +523,6 @@ func init_systems_directly():
 	var unit_effectiveness_script = load("res://scripts/unit_effectiveness_matrix.gd")
 	if unit_effectiveness_script:
 		unit_effectiveness_matrix = unit_effectiveness_script.new()
-		unit_effectiveness_matrix.name = "UnitEffectivenessMatrix"
-		add_child(unit_effectiveness_matrix)
 		print("✅ UnitEffectivenessMatrix загружена")
 	
 	print("🔧 Все системы инициализированы напрямую")
@@ -551,11 +549,11 @@ func create_cores_and_spawners():
 		if node.name == "PlayerCore" or node.name == "EnemyCore":
 			node.queue_free()
 
-	# Создаём ядро игрока (синее) - внизу экрана
+	# Создаём ядро игрока (синее) - НОВАЯ ПОЗИЦИЯ
 	var player_core_scene = preload("res://scenes/Core.tscn")
 	var player_core = player_core_scene.instantiate()
 	player_core.name = "PlayerCore"
-	player_core.position = Vector3(0, 0.5, 20)  # Игрок внизу экрана
+	player_core.position = Vector3(0, 0.5, 35)  # Отодвинул дальше (было 20)
 	# Проверяем, что есть MeshInstance3D
 	if not player_core.has_node("MeshInstance3D"):
 		var mesh = MeshInstance3D.new()
@@ -566,11 +564,11 @@ func create_cores_and_spawners():
 		player_core.add_child(mesh)
 	add_child(player_core)
 
-	# Создаём ядро врага (красное) - вверху экрана
+	# Создаём ядро врага (красное) - НОВАЯ ПОЗИЦИЯ
 	var enemy_core_scene = preload("res://scenes/Core.tscn")
 	var enemy_core = enemy_core_scene.instantiate()
 	enemy_core.name = "EnemyCore"
-	enemy_core.position = Vector3(0, 0.5, -20)  # Враг вверху экрана
+	enemy_core.position = Vector3(0, 0.5, -35)  # Отодвинул дальше (было -20)
 	if not enemy_core.has_node("MeshInstance3D"):
 		var mesh = MeshInstance3D.new()
 		mesh.mesh = SphereMesh.new()
@@ -580,9 +578,9 @@ func create_cores_and_spawners():
 		enemy_core.add_child(mesh)
 	add_child(enemy_core)
 
-	# Создаём стартовые спавнеры игрока и врага
-	create_start_spawner("player", Vector3(-4, 0, 15))   # Игрок внизу экрана
-	create_start_spawner("enemy", Vector3(4, 0, -15))    # Враг вверху экрана
+	# Создаём стартовые спавнеры игрока и врага - НОВЫЕ ПОЗИЦИИ
+	create_start_spawner("player", Vector3(-6, 0, 28))   # Ближе к центру для лучшего доступа
+	create_start_spawner("enemy", Vector3(6, 0, -28))    # Ближе к центру для лучшего доступа
 
 func create_start_spawner(team: String, position: Vector3):
 	var spawner = spawner_scene.instantiate()
@@ -861,41 +859,54 @@ func get_mouse_world_position() -> Vector3:
 	return get_mouse_map_position(mouse_pos)
 
 func is_valid_build_position(pos: Vector3) -> bool:
-	var map_width = 40.0
-	var map_height = 60.0
-	var map_half_height = map_height / 2.0  # 30 единиц каждая половина
+	var map_width = 60.0   # Увеличил с 40 до 60
+	var map_height = 80.0  # Увеличил с 60 до 80
+	var map_half_height = map_height / 2.0  # 40 единиц каждая половина
 	
-	if pos.z < 0:
-		print("[DEBUG] ОТКАЗ: pos.z < 0 (", pos.z, ") — нельзя строить на вражеской половине")
+	# Игрок может строить только в своей половине (z > 5) с буферной зоной
+	if pos.z < 5:
+		print("[DEBUG] ОТКАЗ: pos.z < 5 (", pos.z, ") — нельзя строить слишком близко к центру")
 		return false
 	if pos.x < -map_width/2 or pos.x > map_width/2:
 		print("[DEBUG] ОТКАЗ: pos.x вне границ (", pos.x, ")")
 		return false
-	if pos.z > map_half_height or pos.z < 0:
+	if pos.z > map_half_height or pos.z < 5:
 		print("[DEBUG] ОТКАЗ: pos.z вне границ (", pos.z, ")")
 		return false
+	
+	# Проверяем расстояние до территорий - нельзя строить слишком близко
 	if territory_system:
 		var territories = territory_system.get_territory_info()
 		for territory in territories:
 			var distance = pos.distance_to(territory.position)
-			if distance <= territory.control_radius:
+			if distance <= territory.control_radius + 2.0:  # Буферная зона 2 единицы
 				if territory.type == VOID_CRYSTAL_TYPE:
-					continue
+					continue  # Можно строить рядом с кристаллами пустоты
 				else:
-					print("[DEBUG] ОТКАЗ: позиция внутри территории кристалла (", territory.type, ")")
+					print("[DEBUG] ОТКАЗ: слишком близко к территории (", territory.type, ")")
 					return false
+	
+	# Проверяем расстояние до других зданий
 	var all_spawners = get_tree().get_nodes_in_group("spawners")
 	for s in all_spawners:
-		if s.global_position.distance_to(pos) < 1.5:
+		if s.global_position.distance_to(pos) < 3.0:  # Увеличил минимальное расстояние
 			print("[DEBUG] ОТКАЗ: слишком близко к другому зданию (", s.global_position, ")")
 			return false
+	
 	print("[DEBUG] ПОЗИЦИЯ ВАЛИДНА для строительства:", pos)
 	return true
 
 func is_valid_enemy_build_position(pos: Vector3) -> bool:
 	# Проверяет, можно ли строить в данной позиции для врага
-	# Враг может строить только в верхней половине карты (z < 0)
+	# Враг может строить только в верхней половине карты (z < -5) с буферной зоной
 	if pos.z > -5.0:
+		return false
+	
+	# Проверяем границы карты
+	if pos.x < -30.0 or pos.x > 30.0:
+		return false
+	
+	if pos.z < -40.0:
 		return false
 	
 	# Проверяем расстояние до других зданий
@@ -927,8 +938,8 @@ func _on_spawn_unit_simple(unit_type: String):
 		print("❌ Недостаточно ресурсов для ", unit_type, "!")
 		return
 	
-	# Автоматическое размещение на игровой половине карты
-	var spawn_pos = Vector3(randf_range(-4.0, 4.0), 0, randf_range(10.0, 18.0))
+	# Автоматическое размещение на игровой половине карты - НОВЫЕ ПОЗИЦИИ
+	var spawn_pos = Vector3(randf_range(-8.0, 8.0), 0, randf_range(15.0, 30.0))  # Больше пространства для маневра
 	
 	# Создаем юнита
 	spawn_unit_at_pos("player", spawn_pos, unit_type)
@@ -1015,15 +1026,14 @@ func spawn_unit_at_pos(team, pos, unit_type="warrior"):
 	unit.team = team
 	unit.unit_type = unit_type
 	unit.global_position = pos
-	# ПРАВИЛЬНАЯ ЛОГИКА: Юниты идут к вражескому ядру
+	
+	# ОБНОВЛЁННАЯ ЛОГИКА: Юниты идут к вражескому ядру с новыми координатами
 	if team == "player":
-		unit.target_pos = Vector3(0, 0, -28)  # Игрок атакует вражеское ядро (север)
+		unit.target_pos = Vector3(0, 0, -35)  # Игрок атакует вражеское ядро (обновлено)
 		player_energy -= energy_cost
 		player_crystals -= crystal_cost
 	else:
-		unit.target_pos = Vector3(0, 0, 28)   # Враг атакует ядро игрока (юг)
-		enemy_energy -= energy_cost
-		enemy_crystals -= crystal_cost
+		unit.target_pos = Vector3(0, 0, 35)   # Враг атакует ядро игрока (обновлено)
 	unit.battle_manager = self
 	unit.add_to_group("units")
 	

@@ -43,46 +43,49 @@ func _ready():
 	add_child(resource_timer)
 
 func create_territories():
-	# Создаем логичную карту территорий для TERRION
+	# НОВАЯ СТРАТЕГИЧЕСКАЯ КАРТА TERRION RTS
+	# Карта 50x80 единиц для большего пространства маневра
 	var territory_configs = [
-		# === СТАРТОВЫЕ ПОЗИЦИИ ===
-		{"name": "База Игрока", "pos": Vector3(0, 0, 28), "type": TerritoryType.PLAYER_BASE, "value": 1000, "radius": 8.0},
-		{"name": "База Врага", "pos": Vector3(0, 0, -28), "type": TerritoryType.ENEMY_BASE, "value": 1000, "radius": 8.0},
+		# === СТАРТОВЫЕ ПОЗИЦИИ (отодвинуты дальше) ===
+		{"name": "База Игрока", "pos": Vector3(0, 0, 35), "type": TerritoryType.PLAYER_BASE, "value": 1000, "radius": 6.0},
+		{"name": "База Врага", "pos": Vector3(0, 0, -35), "type": TerritoryType.ENEMY_BASE, "value": 1000, "radius": 6.0},
 		
-		# === РЕСУРСНЫЕ ТЕРРИТОРИИ (СИММЕТРИЧНО) ===
-		# Энергетические рудники
-		{"name": "Энергетический Рудник Юг-Запад", "pos": Vector3(-15, 0, 15), "type": TerritoryType.ENERGY_MINE, "value": 100, "radius": 5.0},
-		{"name": "Энергетический Рудник Юг-Восток", "pos": Vector3(15, 0, 15), "type": TerritoryType.ENERGY_MINE, "value": 100, "radius": 5.0},
-		{"name": "Энергетический Рудник Север-Запад", "pos": Vector3(-15, 0, -15), "type": TerritoryType.ENERGY_MINE, "value": 100, "radius": 5.0},
-		{"name": "Энергетический Рудник Север-Восток", "pos": Vector3(15, 0, -15), "type": TerritoryType.ENERGY_MINE, "value": 100, "radius": 5.0},
+		# === РЕСУРСНЫЕ ТЕРРИТОРИИ (больше пространства между ними) ===
+		# Энергетические рудники - по углам карты
+		{"name": "Энергорудник Юго-Запад", "pos": Vector3(-20, 0, 20), "type": TerritoryType.ENERGY_MINE, "value": 100, "radius": 4.0},
+		{"name": "Энергорудник Юго-Восток", "pos": Vector3(20, 0, 20), "type": TerritoryType.ENERGY_MINE, "value": 100, "radius": 4.0},
+		{"name": "Энергорудник Северо-Запад", "pos": Vector3(-20, 0, -20), "type": TerritoryType.ENERGY_MINE, "value": 100, "radius": 4.0},
+		{"name": "Энергорудник Северо-Восток", "pos": Vector3(20, 0, -20), "type": TerritoryType.ENERGY_MINE, "value": 100, "radius": 4.0},
 		
-		# Кристальные рудники
-		{"name": "Кристальный Рудник Юг", "pos": Vector3(0, 0, 20), "type": TerritoryType.CRYSTAL_MINE, "value": 150, "radius": 5.0},
-		{"name": "Кристальный Рудник Север", "pos": Vector3(0, 0, -20), "type": TerritoryType.CRYSTAL_MINE, "value": 150, "radius": 5.0},
+		# Кристальные рудники - ближе к центру, но в стороне
+		{"name": "Кристаллорудник Запад", "pos": Vector3(-15, 0, 0), "type": TerritoryType.CRYSTAL_MINE, "value": 150, "radius": 4.5},
+		{"name": "Кристаллорудник Восток", "pos": Vector3(15, 0, 0), "type": TerritoryType.CRYSTAL_MINE, "value": 150, "radius": 4.5},
 		
-		# === СПЕЦИАЛЬНЫЕ ТЕРРИТОРИИ ===
-		# Святилища ближе к базе
-		{"name": "Святилище Юг", "pos": Vector3(0, 0, 10), "type": TerritoryType.BATTLEFIELD_SHRINE, "value": 100, "radius": 4.5},
-		{"name": "Святилище Север", "pos": Vector3(0, 0, -10), "type": TerritoryType.BATTLEFIELD_SHRINE, "value": 100, "radius": 4.5},
+		# === ПЕРЕДОВЫЕ ПОЗИЦИИ (места для активных боёв) ===
+		# Святилища - в средней зоне, места для сражений
+		{"name": "Святилище Юга", "pos": Vector3(0, 0, 12), "type": TerritoryType.BATTLEFIELD_SHRINE, "value": 120, "radius": 4.0},
+		{"name": "Святилище Севера", "pos": Vector3(0, 0, -12), "type": TerritoryType.BATTLEFIELD_SHRINE, "value": 120, "radius": 4.0},
 		
-		# Кристалл пустоты между лечением и центром (на обеих половинах)
-		{"name": "Кристалл Пустоты Юг", "pos": Vector3(0, 0, 5), "type": TerritoryType.VOID_CRYSTAL, "value": 250, "radius": 6.0},
-		{"name": "Кристалл Пустоты Север", "pos": Vector3(0, 0, -5), "type": TerritoryType.VOID_CRYSTAL, "value": 250, "radius": 6.0},
+		# Кристаллы пустоты - стратегические точки между святилищами и центром
+		{"name": "Пустотный Кристалл Юга", "pos": Vector3(-8, 0, 6), "type": TerritoryType.VOID_CRYSTAL, "value": 200, "radius": 3.5},
+		{"name": "Пустотный Кристалл Севера", "pos": Vector3(8, 0, -6), "type": TerritoryType.VOID_CRYSTAL, "value": 200, "radius": 3.5},
 		
-		# === СТРАТЕГИЧЕСКИЕ ТОЧКИ ===
-		# Центральные триггеры для призыва героя
-		{"name": "Триггер Альфа", "pos": Vector3(-8, 0, 0), "type": TerritoryType.CENTER_TRIGGER_1, "value": 200, "radius": 4.0},
-		{"name": "Триггер Бета", "pos": Vector3(8, 0, 0), "type": TerritoryType.CENTER_TRIGGER_2, "value": 200, "radius": 4.0},
+		# === ЦЕНТРАЛЬНАЯ ЗОНА КОНФЛИКТА ===
+		# Триггеры героев - по бокам от центра
+		{"name": "Триггер Альфа", "pos": Vector3(-6, 0, 0), "type": TerritoryType.CENTER_TRIGGER_1, "value": 300, "radius": 3.0},
+		{"name": "Триггер Бета", "pos": Vector3(6, 0, 0), "type": TerritoryType.CENTER_TRIGGER_2, "value": 300, "radius": 3.0},
 		
-		# Башня Предтеч (нейтральная, в центре)
-		{"name": "Башня Предтеч", "pos": Vector3(0, 0, 0), "type": TerritoryType.ANCIENT_TOWER, "value": 300, "radius": 5.5},
+		# Башня Предтеч - в самом центре, главная угроза
+		{"name": "Башня Предтеч", "pos": Vector3(0, 0, 0), "type": TerritoryType.ANCIENT_TOWER, "value": 400, "radius": 4.0},
 		
-		# Оборонительные сооружения (две заставы)
-		{"name": "Застава Запад", "pos": Vector3(-20, 0, 0), "type": TerritoryType.DEFENSIVE_TOWER, "value": 120, "radius": 4.5},
-		{"name": "Застава Восток", "pos": Vector3(20, 0, 0), "type": TerritoryType.DEFENSIVE_TOWER, "value": 120, "radius": 4.5},
+		# === ФЛАНГОВЫЕ ПОЗИЦИИ (для обходных маневров) ===
+		# Оборонительные башни - по краям, контролируют фланги
+		{"name": "Застава Запад", "pos": Vector3(-25, 0, 0), "type": TerritoryType.DEFENSIVE_TOWER, "value": 150, "radius": 5.0},
+		{"name": "Застава Восток", "pos": Vector3(25, 0, 0), "type": TerritoryType.DEFENSIVE_TOWER, "value": 150, "radius": 5.0},
 		
-		# Главный алтарь (цель победы)
-		{"name": "Главный Алтарь", "pos": Vector3(0, 0, 4), "type": TerritoryType.ANCIENT_ALTAR, "value": 500, "radius": 6.0}
+		# === ЦЕЛЬ ПОБЕДЫ ===
+		# Главный алтарь - слегка смещён от центра для асимметрии
+		{"name": "Главный Алтарь", "pos": Vector3(0, 0, 3), "type": TerritoryType.ANCIENT_ALTAR, "value": 500, "radius": 4.5}
 	]
 	
 	for i in range(territory_configs.size()):
@@ -423,34 +426,6 @@ func get_territory_short_name(type) -> String:
 			return "🏠 БАЗА ВРАГА\nКомандный центр"
 		_:
 			return "❓ ТЕРРИТОРИЯ"
-
-# Получение названия типа территории для метрик
-func get_territory_type_name(type) -> String:
-	match type:
-		TerritoryType.ENERGY_MINE:
-			return "energy_mine"
-		TerritoryType.CRYSTAL_MINE:
-			return "crystal_mine"
-		TerritoryType.VOID_CRYSTAL:
-			return "void_crystal"
-		TerritoryType.DEFENSIVE_TOWER:
-			return "defensive_tower"
-		TerritoryType.ANCIENT_ALTAR:
-			return "ancient_altar"
-		TerritoryType.BATTLEFIELD_SHRINE:
-			return "battlefield_shrine"
-		TerritoryType.CENTER_TRIGGER_1:
-			return "center_trigger_1"
-		TerritoryType.CENTER_TRIGGER_2:
-			return "center_trigger_2"
-		TerritoryType.ANCIENT_TOWER:
-			return "ancient_tower"
-		TerritoryType.PLAYER_BASE:
-			return "player_base"
-		TerritoryType.ENEMY_BASE:
-			return "enemy_base"
-		_:
-			return "unknown_territory"
 
 # Получение названия типа территории для метрик
 func get_territory_type_name(type) -> String:
