@@ -707,25 +707,6 @@ func can_capture_territory(territory: Dictionary, team: String) -> bool:
 	
 	return true # Можно захватывать
 
-# Попытка захвата территории
-func attempt_capture(territory: Dictionary, team: String):
-	if territory.owner == team:
-		return # Уже наша территория
-	
-	# Если территория нейтральная или вражеская, начинаем захват
-	if territory.owner == "neutral" or territory.owner != team:
-		# Создаем коллектора на точке захвата
-		create_collector_at_territory(territory, team)
-		
-		# Обновляем владельца территории
-		territory.owner = team
-		territory.capture_progress = 0.0
-		
-		# Обновляем визуал территории
-		update_territory_visual(territory)
-		
-		print("🎯 Коллектор создан на территории ", territory.type, " для команды ", team)
-
 # Создание коллектора на территории
 func create_collector_at_territory(territory: Dictionary, team: String):
 	if not battle_manager:
