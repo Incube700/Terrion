@@ -4,9 +4,6 @@ class_name TerritorySystem
 # Единая система территорий и кристаллов для TERRION RTS
 # Объединяет стратегические точки, кристаллы и ресурсы
 
-signal territory_captured(territory_id, new_owner, territory_type)
-signal territory_depleted(territory_id)
-
 var territories: Array[Dictionary] = []
 var territory_meshes: Array[MeshInstance3D] = []
 var battle_manager = null
@@ -271,9 +268,6 @@ func attempt_capture(territory: Dictionary, team: String):
 		# Обновляем визуал
 		update_territory_visual(territory)
 		
-		territory_captured.emit(territory.id, team, territory.type)
-		print("🏳️ Территория ", territory.id, " захвачена командой ", team)
-		
 		# Проверяем условия победы после захвата территории
 		if battle_manager:
 			battle_manager.call_deferred("check_victory_conditions")
@@ -334,8 +328,9 @@ func force_capture_territory(territory_id: int, territory_owner: String):
 	# Обновляем визуал
 	update_territory_visual(territory)
 	
-	territory_captured.emit(territory_id, territory_owner, territory.type)
-	print("🏳️ Территория ", territory_id, " принудительно захвачена командой ", territory_owner)
+	# Проверяем условия победы после захвата территории
+	if battle_manager:
+		battle_manager.call_deferred("check_victory_conditions")
 	return true
 
 func get_controlled_territories(team: String) -> int:
@@ -371,8 +366,8 @@ var shrine_heal_timers = {}
 func heal_friendly_units(territory: Dictionary):
 	if not battle_manager:
 		return
-	var territory_id = territory.id if "id" in territory else str(territory.position)
-	var now = OS.get_ticks_msec() / 1000.0
+	var territory_id = str(territory.id) if "id" in territory else str(territory.position)
+	var now = Time.get_ticks_msec() / 1000.0
 	if shrine_heal_timers.has(territory_id):
 		if now - shrine_heal_timers[territory_id] < 3.0:
 			return # Лечим только раз в 3 секунды

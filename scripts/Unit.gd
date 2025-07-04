@@ -207,8 +207,6 @@ func create_unit_visual():
 				material.emission = Color(0.1, 0.3, 0.5)
 		material.emission_enabled = true
 		material.emission_energy = 1.0
-		material.outline_size = 0.05
-		material.outline_color = Color(0.2, 0.6, 1, 1)
 	else:
 		match unit_type:
 			"collector":
@@ -228,8 +226,6 @@ func create_unit_visual():
 				material.emission = Color(0.5, 0.1, 0.1)
 		material.emission_enabled = true
 		material.emission_energy = 1.0
-		material.outline_size = 0.05
-		material.outline_color = Color(1, 0.05, 0.05, 1)
 	mesh_instance.material_override = material
 	current_mesh = mesh_instance
 	
@@ -416,15 +412,15 @@ func attack():
 			battle_manager.audio_system.play_unit_attack_sound(global_position)
 		
 		# Визуальный эффект атаки на самом юните
-		var current_mesh = get_current_mesh()
-		if current_mesh and current_mesh.material_override:
-			current_mesh.material_override.albedo_color = Color.WHITE
+		var mesh = get_current_mesh()
+		if mesh and mesh.material_override:
+			mesh.material_override.albedo_color = Color.WHITE
 			await get_tree().create_timer(0.1).timeout
 			# Возвращаем исходный цвет
 			if team == "player":
-				current_mesh.material_override.albedo_color = Color(0.2, 0.6, 1, 1)
+				mesh.material_override.albedo_color = Color(0.2, 0.6, 1, 1)
 			else:
-				current_mesh.material_override.albedo_color = Color(1, 0.2, 0.2, 1)
+				mesh.material_override.albedo_color = Color(1, 0.2, 0.2, 1)
 
 func take_damage(amount: int):
 	health -= amount
@@ -434,15 +430,15 @@ func take_damage(amount: int):
 	print(team, " ", unit_type, " получил урон: ", amount, " HP: ", health)
 	
 	# Визуальный эффект получения урона
-	var current_mesh = get_current_mesh()
-	if current_mesh and current_mesh.material_override:
-		current_mesh.material_override.albedo_color = Color.RED
+	var mesh = get_current_mesh()
+	if mesh and mesh.material_override:
+		mesh.material_override.albedo_color = Color.RED
 		await get_tree().create_timer(0.2).timeout
 		# Возвращаем исходный цвет
 		if team == "player":
-			current_mesh.material_override.albedo_color = Color(0.2, 0.6, 1, 1)
+			mesh.material_override.albedo_color = Color(0.2, 0.6, 1, 1)
 		else:
-			current_mesh.material_override.albedo_color = Color(1, 0.2, 0.2, 1)
+			mesh.material_override.albedo_color = Color(1, 0.2, 0.2, 1)
 	
 	if health <= 0:
 		print(team, " ", unit_type, " уничтожен!")

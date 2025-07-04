@@ -383,8 +383,8 @@ func init_territory_system():
 	add_child(territory_system)
 	
 	# Подключаем сигналы
-	territory_system.territory_captured.connect(_on_territory_captured)
-	territory_system.territory_depleted.connect(_on_territory_depleted)
+	# Удалено: territory_system.territory_captured.connect(_on_territory_captured)
+	# Удалено: territory_system.territory_depleted.connect(_on_territory_depleted)
 	# Убираем подключение к удаленному сигналу territory_regenerated
 	
 	print("🏰 Территориальная система инициализирована")
@@ -404,7 +404,7 @@ func init_race_system():
 	
 	# Устанавливаем расы по умолчанию
 	race_system.set_player_race(RaceSystem.Race.HUMANS)
-	race_system.set_enemy_race(RaceSystem.Race.UNDEAD)  # Теперь против техно-зануд Некрополя
+	race_system.set_enemy_race(RaceSystem.Race.HUMANS)  # Теперь обе стороны — люди
 	
 	print("🏛️ Система рас инициализирована")
 
