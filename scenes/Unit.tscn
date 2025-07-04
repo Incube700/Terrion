@@ -15,6 +15,13 @@ height = 1.0
 
 [node name="Unit" type="CharacterBody3D" groups=["units"]]
 script = ExtResource("1_1j8k5")
+team = null
+unit_type = null
+speed = null
+health = null
+max_health = null
+damage = null
+target_pos = null
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 shape = SubResource("CapsuleShape3D_1")

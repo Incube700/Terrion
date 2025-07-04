@@ -1,15 +1,16 @@
 const UNIT_STATS = {
-    "scout": { "hp": 120, "speed": 18, "damage": 10, "vision": 20, "cost": 30 },
-    "engineer": { "hp": 200, "speed": 8, "damage": 5, "repair": 30, "cost": 40 },
-    "heavy_mech": { "hp": 1200, "speed": 4, "damage": 80, "armor": 30, "cost": 120 },
-    "medic": { "hp": 150, "speed": 10, "heal": 25, "cost": 35 }
+    "warrior": { "hp": 300, "speed": 8, "damage": 35, "vision": 10, "cost": 25 },
+    "heavy": { "hp": 800, "speed": 5, "damage": 60, "armor": 15, "cost": 60 },
+    "fast": { "hp": 240, "speed": 12, "damage": 40, "vision": 12, "cost": 30 },
+    "sniper": { "hp": 180, "speed": 6, "damage": 60, "range": 8, "cost": 45 },
+    "collector": { "hp": 280, "speed": 10, "damage": 15, "vision": 5, "cost": 40 }
 }
 
 const HERO_STATS = {
     "hero": {
-        "hp": 2000,
+        "hp": 1000,
         "speed": 12,
-        "damage": 150,
+        "damage": 100,
         "armor": 50,
         "cost": 0,
         "attack_range": 8.0,

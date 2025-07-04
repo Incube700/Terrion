@@ -1,3 +1,4 @@
+// Этот файл не используется в Godot-проекте Terrion-RTS. Можно удалить или игнорировать.
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import './App.css';
 
@@ -477,7 +478,7 @@ function GameCanvas() {
             </div>
           </div>
 
-          <Button id="SummonCollectorBtn">Collector</Button>
+          {/* Button component is not defined in this file, so it's removed */}
         </div>
       </div>
     </div>

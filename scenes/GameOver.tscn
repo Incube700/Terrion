@@ -1,0 +1,68 @@
+[gd_scene load_steps=2 format=3 uid="uid://bqxvn8yqxqxqx"]
+
+[ext_resource type="Script" path="res://scripts/GameOver.gd" id="1_0x0x0"]
+
+[node name="GameOver" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_0x0x0")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.8)
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -300.0
+offset_right = 200.0
+offset_bottom = 300.0
+
+[node name="ResultLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "ПОБЕДА!"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="StatsContainer" type="VBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="BattleDuration" type="Label" parent="VBoxContainer/StatsContainer"]
+layout_mode = 2
+text = "Длительность битвы: 0:00"
+
+[node name="UnitsSpawned" type="Label" parent="VBoxContainer/StatsContainer"]
+layout_mode = 2
+text = "Создано юнитов: 0"
+
+[node name="UnitsKilled" type="Label" parent="VBoxContainer/StatsContainer"]
+layout_mode = 2
+text = "Уничтожено врагов: 0"
+
+[node name="BuildingsBuilt" type="Label" parent="VBoxContainer/StatsContainer"]
+layout_mode = 2
+text = "Построено зданий: 0"
+
+[node name="HSeparator" type="HSeparator" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="ButtonsContainer" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="RestartButton" type="Button" parent="VBoxContainer/ButtonsContainer"]
+layout_mode = 2
+text = "Начать заново"
+
+[node name="ExitButton" type="Button" parent="VBoxContainer/ButtonsContainer"]
+layout_mode = 2
+text = "Выход" 

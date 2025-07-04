@@ -180,18 +180,18 @@ func show_battle_start():
 
 func get_unit_emoji(unit_type: String) -> String:
 	match unit_type:
-		"soldier":
+		"warrior":
 			return "🪖"
-		"tank":
-			return "🚗"
-		"drone":
+		"heavy":
+			return "🤖"
+		"fast":
 			return "🛸"
+		"sniper":
+			return "🎯"
 		"collector":
 			return "🏃"
-		"elite_soldier":
-			return "🎖️"
-		"crystal_mage":
-			return "🔮"
+		"hero":
+			return "👑"
 		"turret":
 			return "🗼"
 		_:

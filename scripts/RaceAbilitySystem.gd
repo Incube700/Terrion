@@ -202,6 +202,11 @@ func can_use_ability(team: String, ability_name: String) -> bool:
 			print("❌ Способность ", ability_name, " на кулдауне еще ", time_left, " сек")
 			return false
 	
+	# Проверяем усталость способностей (если система доступна)
+	if battle_manager.ability_fatigue_system:
+		if not battle_manager.ability_fatigue_system.can_use_ability(team, ability_name):
+			return false
+	
 	return true
 
 # Использование активной способности
@@ -214,6 +219,15 @@ func use_ability(team: String, ability_name: String, position: Vector3) -> bool:
 	var current_time = Time.get_unix_time_from_system()
 	var cooldown_time = get_ability_cooldown_time(ability_name)
 	ability_cooldowns[cooldown_key] = current_time + cooldown_time
+	
+	# Регистрируем использование в системе усталости способностей
+	if battle_manager.ability_fatigue_system:
+		battle_manager.ability_fatigue_system.use_ability(team, ability_name)
+	
+	# Регистрируем использование в системе метрик баланса
+	if battle_manager.balance_metrics_system:
+		var effectiveness = 1.0  # Базовая эффективность
+		battle_manager.balance_metrics_system.register_ability_use(team, ability_name, 0, effectiveness)
 	
 	# Выполняем способность
 	execute_ability(team, ability_name, position)

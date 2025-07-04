@@ -8,7 +8,6 @@ signal start_battle
 signal build_structure_drag(screen_pos)
 signal use_ability(ability_name: String, position: Vector3)
 signal summon_hero()
-signal use_race_ability(ability_name, position)
 signal rally_units()
 signal retreat_units()
 signal upgrade_units()
@@ -50,6 +49,16 @@ func _ready():
 	
 	print("✅ Все кнопки настроены")
 
+	# В _ready добавляю настройку mouse_filter для всех потомков:
+	for node in get_children():
+		if node is Control:
+			if not node.visible or node.modulate.a < 0.1:
+				node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			elif node.name.find("Panel") != -1 or node.name.find("Container") != -1:
+				node.mouse_filter = Control.MOUSE_FILTER_PASS
+			else:
+				node.mouse_filter = Control.MOUSE_FILTER_STOP
+
 func setup_building_buttons():
 	# Кнопки зданий с drag&drop
 	var barracks_button = get_node("GameUI/BottomPanel/BottomContainer/BuildingRow/BarracksButton")
@@ -72,25 +81,13 @@ func setup_building_buttons():
 	print("✅ Кнопки зданий настроены")
 
 func setup_ability_buttons():
-	# Кнопки способностей
-	var fireball_button = get_node("GameUI/BottomPanel/BottomContainer/AbilityRow/FireballButton")
-	var heal_button = get_node("GameUI/BottomPanel/BottomContainer/AbilityRow/HealButton")
-	var shield_button = get_node("GameUI/BottomPanel/BottomContainer/AbilityRow/ShieldButton")
-	var lightning_button = get_node("GameUI/BottomPanel/BottomContainer/AbilityRow/LightningButton")
-	var hero_button = get_node("GameUI/BottomPanel/BottomContainer/AbilityRow/HeroButton")
-	
-	if fireball_button:
-		fireball_button.pressed.connect(_on_fireball_ability)
-	if heal_button:
-		heal_button.pressed.connect(_on_heal_ability)
-	if shield_button:
-		shield_button.pressed.connect(_on_shield_ability)
-	if lightning_button:
-		lightning_button.pressed.connect(_on_lightning_ability)
-	if hero_button:
-		hero_button.pressed.connect(_on_hero_summon_pressed)
-	
-	print("✅ Кнопки способностей настроены")
+	# Временно отключаем все кнопки способностей
+	var ability_row = get_node_or_null("GameUI/BottomPanel/BottomContainer/AbilityRow")
+	if ability_row:
+		for child in ability_row.get_children():
+			if child is Button:
+				child.visible = false
+	# Можно также отключить обработчики, если потребуется
 
 func setup_special_buttons():
 	# Специальные кнопки
@@ -118,7 +115,11 @@ func _on_barracks_button_input(event):
 	_handle_building_drag(event, "barracks", get_node("GameUI/BottomPanel/BottomContainer/BuildingRow/BarracksButton"))
 
 func _on_collector_button_input(event):
-	_handle_building_drag(event, "collector_facility", get_node("GameUI/BottomPanel/BottomContainer/BuildingRow/CollectorButton"))
+	# Коллектор теперь создается кнопкой, а не drag&drop
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		print("🏃 Кнопка коллектора нажата!")
+		# Эмитим сигнал для создания коллектора
+		use_ability.emit("spawn_collector", Vector3.ZERO)
 
 func _on_tower_button_input(event):
 	_handle_building_drag(event, "tower", get_node("GameUI/BottomPanel/BottomContainer/BuildingRow/TowerButton"))
@@ -132,7 +133,13 @@ func _on_academy_button_input(event):
 func _handle_building_drag(event, building_type: String, button: Button):
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
-			# Начало drag-операции
+			# Сброс drag, если был незавершён
+			if is_dragging:
+				is_dragging = false
+				drag_type = ""
+				destroy_ghost_preview()
+				# Можно добавить print("[UI] Прежний drag сброшен")
+			# Начало нового drag
 			drag_type = building_type
 			is_dragging = true
 			drag_start_pos = event.position
@@ -140,7 +147,7 @@ func _handle_building_drag(event, building_type: String, button: Button):
 			create_ghost_preview(building_type)
 			print("🏗️ Начало drag ", building_type, " - перетащите на карту")
 		else:
-			# Завершение drag - строительство здания
+			# Завершение drag - строительство здания (строим сразу при отпускании мыши)
 			if is_dragging and drag_type == building_type:
 				print("🏗️ Завершение drag ", building_type, " на позиции: ", event.position)
 				build_structure_drag.emit(event.position)
@@ -208,9 +215,29 @@ func update_info(player_hp, player_energy, enemy_hp, enemy_energy, player_crysta
 	update_button_availability(player_energy, player_crystals)
 
 func update_button_availability(energy: int, crystals: int):
+	# Получаем ссылку на BattleManager для проверки зарядов коллекторов
+	var battle_manager = get_node_or_null("/root/BattleManager")
+	var collector_charges = 0
+	var collector_cooldown = 0.0
+	if battle_manager and battle_manager.has_method("get_collector_charges"):
+		collector_charges = battle_manager.get_collector_charges("player")
+		collector_cooldown = battle_manager.get_collector_charge_cooldown("player")
+	
 	# Здания
 	update_single_button("GameUI/BottomPanel/BottomContainer/BuildingRow/BarracksButton", energy >= 80)
-	update_single_button("GameUI/BottomPanel/BottomContainer/BuildingRow/CollectorButton", energy >= 90 and crystals >= 15)
+	
+	# Коллектор с проверкой зарядов
+	var can_spawn_collector = energy >= 40 and crystals >= 5 and collector_charges > 0
+	update_single_button("GameUI/BottomPanel/BottomContainer/BuildingRow/CollectorButton", can_spawn_collector)
+	
+	# Обновляем текст кнопки коллектора с зарядами
+	var collector_button = get_node_or_null("GameUI/BottomPanel/BottomContainer/BuildingRow/CollectorButton")
+	if collector_button:
+		if collector_charges > 0:
+			collector_button.text = "🏃\nКОЛЛЕКТОР\n" + str(collector_charges) + "/3 заряда"
+		else:
+			collector_button.text = "🏃\nКОЛЛЕКТОР\n⏰ " + str(int(collector_cooldown)) + "с"
+	
 	update_single_button("GameUI/BottomPanel/BottomContainer/BuildingRow/TowerButton", energy >= 60)
 	update_single_button("GameUI/BottomPanel/BottomContainer/BuildingRow/TrainingButton", energy >= 120 and crystals >= 20)
 	update_single_button("GameUI/BottomPanel/BottomContainer/BuildingRow/AcademyButton", energy >= 100 and crystals >= 30)

@@ -101,7 +101,7 @@ func analyze_battlefield():
 
 func count_units(team: String) -> Dictionary:
 	var units = get_tree().get_nodes_in_group("units")
-	var count = {"soldier": 0, "tank": 0, "drone": 0, "total": 0}
+	var count = {"warrior": 0, "heavy": 0, "fast": 0, "sniper": 0, "collector": 0, "total": 0}
 	
 	for unit in units:
 		if unit.team == team:
@@ -112,11 +112,11 @@ func count_units(team: String) -> Dictionary:
 
 func count_spawners(team: String) -> Dictionary:
 	var spawners = get_tree().get_nodes_in_group("spawners")
-	var count = {"spawner": 0, "tower": 0, "barracks": 0, "total": 0}
+	var count = {"tower": 0, "barracks": 0, "mech_factory": 0, "recon_center": 0, "shooting_range": 0, "collector_facility": 0, "total": 0}
 	
 	for spawner in spawners:
 		if spawner.team == team:
-			var type = spawner.spawner_type if spawner.has_method("get") else "spawner"
+			var type = spawner.spawner_type if spawner.has_method("get") else "barracks"
 			count[type] = count.get(type, 0) + 1
 			count.total += 1
 	
@@ -150,9 +150,11 @@ func calculate_threat_level() -> float:
 func calculate_army_power(units: Dictionary) -> int:
 	# Рассчитываем общую силу армии
 	var power = 0
-	power += units.get("soldier", 0) * ai_config.UNIT_POWER["soldier"] * ai_config.WEIGHTS_UNIT_TYPE["soldier"]
-	power += units.get("tank", 0) * ai_config.UNIT_POWER["tank"] * ai_config.WEIGHTS_UNIT_TYPE["tank"]
-	power += units.get("drone", 0) * ai_config.UNIT_POWER["drone"] * ai_config.WEIGHTS_UNIT_TYPE["drone"]
+	power += units.get("warrior", 0) * ai_config.UNIT_POWER["warrior"] * ai_config.WEIGHTS_UNIT_TYPE["warrior"]
+	power += units.get("heavy", 0) * ai_config.UNIT_POWER["heavy"] * ai_config.WEIGHTS_UNIT_TYPE["heavy"]
+	power += units.get("fast", 0) * ai_config.UNIT_POWER["fast"] * ai_config.WEIGHTS_UNIT_TYPE["fast"]
+	power += units.get("sniper", 0) * ai_config.UNIT_POWER["sniper"] * ai_config.WEIGHTS_UNIT_TYPE["sniper"]
+	power += units.get("collector", 0) * ai_config.UNIT_POWER["collector"] * ai_config.WEIGHTS_UNIT_TYPE["collector"]
 	return power
 
 func calculate_economic_advantage() -> float:
@@ -206,7 +208,7 @@ func change_strategy():
 	update_priorities()
 
 func update_priorities():
-	unit_priorities = ai_config.UNIT_PRIORITIES.get(current_strategy, ["soldier", "tank", "drone"])
+	unit_priorities = ai_config.UNIT_PRIORITIES.get(current_strategy, ["warrior", "heavy", "fast", "sniper", "collector"])
 	build_priorities = ai_config.BUILD_PRIORITIES.get(current_strategy, ["spawner", "tower", "barracks"])
 
 func make_strategic_decision() -> Dictionary:

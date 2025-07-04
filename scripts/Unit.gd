@@ -2,7 +2,7 @@ class_name Unit
 extends CharacterBody3D
 
 @export var team: String = "player"
-@export var unit_type: String = "soldier" # soldier, tank, drone
+@export var unit_type: String = "warrior" # collector, warrior, heavy, fast, sniper
 @export var speed: float = 100.0
 @export var health: int = 100
 @export var max_health: int = 100
@@ -22,6 +22,9 @@ var current_target_type: String = "building"  # "building" или "enemy"
 var enemy_target: Node = null  # Текущий вражеский юнит
 var building_target: Node = null  # Текущее здание
 
+# Система эффективности юнитов
+var effectiveness_multiplier: float = 1.0  # Множитель урона от матрицы эффективности
+
 # Оптимизация поиска целей
 var target_search_timer: float = 0.0
 var target_search_interval: float = 0.5  # Ищем цели раз в 0.5 секунды
@@ -40,6 +43,7 @@ var has_transformed = false
 @onready var health_bar: Label = null
 
 func _ready():
+	print("[DEBUG] Unit создан: team=", team, " unit_type=", unit_type, " pos=", global_position)
 	# Добавляем юнита в группу для поиска целей
 	add_to_group("units")
 	
@@ -68,56 +72,49 @@ func _ready():
 	create_unit_visual()
 	
 	# Тип и параметры (МАКСИМАЛЬНО МЕДЛЕННЫЕ СКОРОСТИ для глубокого тактического геймплея)
-	if unit_type == "soldier":
+	if unit_type == "warrior":
 		speed = 3            # МАКСИМАЛЬНО МЕДЛЕННО (было 15)
 		health = 300         # Увеличено в 3 раза для тактики
 		max_health = 300
-		damage = 25
+		damage = 35
 		enemy_detection_range = 10.0  # Хорошая зона восприятия
 		building_search_range = 15.0
-	elif unit_type == "tank":
+	elif unit_type == "heavy":
 		speed = 2            # МАКСИМАЛЬНО МЕДЛЕННО (было 10)
 		health = 800         # Увеличено в 3+ раза для тактики
 		max_health = 800
-		damage = 35
+		damage = 60
 		enemy_detection_range = 8.0   # Средняя зона восприятия
 		building_search_range = 12.0
-	elif unit_type == "drone":
+	elif unit_type == "fast":
 		speed = 4           # МАКСИМАЛЬНО МЕДЛЕННО (было 20)
 		health = 240         # Увеличено в 3 раза для тактики
 		max_health = 240
-		damage = 15
+		damage = 40
 		enemy_detection_range = 12.0  # Отличная зона восприятия (дрон)
 		building_search_range = 18.0
-	elif unit_type == "elite_soldier":
-		speed = 4           # МАКСИМАЛЬНО МЕДЛЕННО (было 18)
-		health = 450         # Увеличено в 3+ раза для тактики
-		max_health = 450
-		damage = 40
-		enemy_detection_range = 12.0  # Отличная зона восприятия
-		building_search_range = 16.0
-	elif unit_type == "crystal_mage":
-		speed = 2            # МАКСИМАЛЬНО МЕДЛЕННО (было 12)
-		health = 320         # Увеличено в 3+ раза для тактики
-		max_health = 320
-		damage = 45
-		attack_range = 5.0
-		enemy_detection_range = 14.0  # Очень хорошая зона восприятия (маг)
-		building_search_range = 20.0
-	elif unit_type == "heavy_tank":
-		speed = 1            # МАКСИМАЛЬНО МЕДЛЕННО (было 8)
-		health = 1200        # Увеличено в 2.7 раза для тактики
-		max_health = 1200
+	elif unit_type == "sniper":
+		speed = 2           # МАКСИМАЛЬНО МЕДЛЕННО (было 18)
+		health = 180         # Увеличено в 3+ раза для тактики
+		max_health = 180
 		damage = 60
-		enemy_detection_range = 6.0   # Ограниченная зона восприятия (тяжелый танк)
-		building_search_range = 10.0
+		attack_range = 8.0   # Дальняя атака
+		enemy_detection_range = 15.0  # Отличная зона восприятия (снайпер)
+		building_search_range = 20.0
 	elif unit_type == "collector":
 		speed = 2           # МАКСИМАЛЬНО МЕДЛЕННО (было 18)
 		health = 280         # Увеличено почти в 3 раза для тактики
 		max_health = 280
-		damage = 0           # Не атакуют
+		damage = 15
 		enemy_detection_range = 5.0   # Ограниченная зона восприятия
 		building_search_range = 8.0
+	elif unit_type == "hero":
+		speed = 3           # МАКСИМАЛЬНО МЕДЛЕННО (было 18)
+		health = 1000        # Увеличено в 3+ раза для тактики
+		max_health = 1000
+		damage = 100
+		enemy_detection_range = 15.0  # Отличная зона восприятия
+		building_search_range = 20.0
 		
 	# Безопасно подключаем AttackArea
 	if attack_area:
@@ -135,6 +132,7 @@ func _ready():
 		update_health_display()
 
 func create_unit_visual():
+	print("[DEBUG] create_unit_visual для типа:", unit_type, " team=", team)
 	# Создаем визуальную модель для юнита
 	var mesh_instance = MeshInstance3D.new()
 	mesh_instance.name = "UnitMesh"
@@ -142,16 +140,16 @@ func create_unit_visual():
 	
 	# Уникальная форма для каждого типа юнита
 	match unit_type:
-		"soldier":
+		"warrior":
 			var capsule = CapsuleMesh.new()
 			capsule.radius = 0.3
 			capsule.height = 1.0
 			mesh_instance.mesh = capsule
-		"tank":
+		"heavy":
 			var box = BoxMesh.new()
 			box.size = Vector3(1.2, 0.5, 1.6)
 			mesh_instance.mesh = box
-		"drone":
+		"fast":
 			var sphere = SphereMesh.new()
 			sphere.radius = 0.5
 			sphere.height = 1.0
@@ -162,19 +160,10 @@ func create_unit_visual():
 			cylinder.bottom_radius = 0.35
 			cylinder.height = 1.0
 			mesh_instance.mesh = cylinder
-		"elite_soldier":
-			var capsule = CapsuleMesh.new()
-			capsule.radius = 0.4
-			capsule.height = 1.4
-			mesh_instance.mesh = capsule
-		"crystal_mage":
+		"sniper":
 			var prism = PrismMesh.new()
 			prism.size = Vector3(0.7, 1.3, 0.7)
 			mesh_instance.mesh = prism
-		"heavy_tank":
-			var box = BoxMesh.new()
-			box.size = Vector3(1.6, 0.7, 2.0)
-			mesh_instance.mesh = box
 		"hero":
 			var capsule = CapsuleMesh.new()
 			capsule.radius = 0.6
@@ -186,46 +175,16 @@ func create_unit_visual():
 			capsule.height = 1.0
 			mesh_instance.mesh = capsule
 	
-	# Цвет и эффекты — по команде (как раньше)
+	# Цвет только по команде (форма — по типу)
 	var material = StandardMaterial3D.new()
 	if team == "player":
-		match unit_type:
-			"collector":
-				material.albedo_color = Color(0.2, 1.0, 0.2, 1)
-				material.emission = Color(0.1, 0.7, 0.1)
-			"crystal_mage":
-				material.albedo_color = Color(0.7, 0.2, 1, 1)
-				material.emission = Color(0.5, 0.1, 0.7)
-			"heavy_tank":
-				material.albedo_color = Color(0.2, 0.6, 1, 1)
-				material.emission = Color(0.1, 0.3, 0.5)
-			"hero":
-				material.albedo_color = Color(1, 1, 0.2, 1)
-				material.emission = Color(1, 1, 0.2)
-			_:
-				material.albedo_color = Color(0.2, 0.6, 1, 1)
-				material.emission = Color(0.1, 0.3, 0.5)
-		material.emission_enabled = true
-		material.emission_energy = 1.0
+		material.albedo_color = Color(0.2, 0.6, 1, 1) # Ярко-синий
+		material.emission = Color(0.1, 0.3, 0.8)
 	else:
-		match unit_type:
-			"collector":
-				material.albedo_color = Color(1, 1, 0.2, 1)
-				material.emission = Color(0.7, 0.7, 0.1)
-			"crystal_mage":
-				material.albedo_color = Color(1, 0.2, 0.7, 1)
-				material.emission = Color(0.7, 0.1, 0.5)
-			"heavy_tank":
-				material.albedo_color = Color(1, 0.05, 0.05, 1)
-				material.emission = Color(0.5, 0.1, 0.1)
-			"hero":
-				material.albedo_color = Color(1, 0.7, 0.2, 1)
-				material.emission = Color(1, 0.5, 0.1)
-			_:
-				material.albedo_color = Color(1, 0.05, 0.05, 1)
-				material.emission = Color(0.5, 0.1, 0.1)
-		material.emission_enabled = true
-		material.emission_energy = 1.0
+		material.albedo_color = Color(1, 0.2, 0.2, 1) # Ярко-красный
+		material.emission = Color(0.8, 0.1, 0.1)
+	material.emission_enabled = true
+	material.emission_energy = 1.0
 	mesh_instance.material_override = material
 	current_mesh = mesh_instance
 	
@@ -238,7 +197,7 @@ func create_unit_visual():
 	if team == "player":
 		label.modulate = Color(0.2, 0.6, 1, 1)
 	else:
-		label.modulate = Color(1, 0.05, 0.05, 1)
+		label.modulate = Color(1, 0.2, 0.2, 1)
 	label.outline_size = 4
 	label.outline_modulate = Color.BLACK
 	label.name = "TypeLabel3D"
@@ -262,7 +221,7 @@ func _physics_process(_delta):
 	
 	# Заменяем проверку crystal_system на territory_system
 	if battle_manager and battle_manager.territory_system:
-		battle_manager.territory_system.check_territory_interaction(global_position, team)
+		battle_manager.territory_system.check_territory_interaction(global_position, team, unit_type)
 	
 	attack_timer += _delta
 	target_search_timer += _delta
@@ -400,8 +359,10 @@ func _on_attack_area_body_exited(body):
 
 func attack():
 	if target and target.has_method("take_damage"):
-		target.take_damage(damage)
-		print(team, " ", unit_type, " атакует ", target.team, " ", target.unit_type, " урон: ", damage)
+		# Применяем матрицу эффективности
+		var final_damage = calculate_effective_damage(target)
+		target.take_damage(final_damage)
+		print(team, " ", unit_type, " атакует ", target.team, " ", target.unit_type, " урон: ", final_damage, " (базовый: ", damage, ", эффективность: ", effectiveness_multiplier, ")")
 		
 		# Визуальный эффект атаки через систему эффектов
 		if battle_manager and battle_manager.effect_system:
@@ -421,6 +382,20 @@ func attack():
 				mesh.material_override.albedo_color = Color(0.2, 0.6, 1, 1)
 			else:
 				mesh.material_override.albedo_color = Color(1, 0.2, 0.2, 1)
+
+# Расчет эффективного урона с учетом матрицы эффективности
+func calculate_effective_damage(target_unit: Node) -> int:
+	if not target_unit or not target_unit.has_method("get_unit_type"):
+		return damage
+	
+	var target_type = target_unit.unit_type
+	effectiveness_multiplier = UnitEffectivenessMatrix.get_effectiveness_multiplier(unit_type, target_type)
+	
+	# Регистрируем в метриках баланса
+	if battle_manager and battle_manager.balance_metrics_system:
+		battle_manager.balance_metrics_system.register_damage(team, unit_type, target_unit.team, target_type, damage)
+	
+	return int(damage * effectiveness_multiplier)
 
 func take_damage(amount: int):
 	health -= amount
@@ -458,10 +433,17 @@ func take_damage(amount: int):
 		# Регистрируем в статистике
 		if battle_manager and battle_manager.statistics_system:
 			battle_manager.statistics_system.register_unit_killed(team, unit_type)
-		
-		# Проверяем условия победы после смерти юнита
-		if battle_manager:
-			battle_manager.call_deferred("check_victory_conditions")
+	
+	# Регистрируем убийство в системе метрик баланса
+	if battle_manager and battle_manager.balance_metrics_system:
+		# Находим атакующего (можно передавать как параметр)
+		var attacker_team = "enemy" if team == "player" else "player"
+		var attacker_type = "unknown"  # Можно определить по контексту
+		battle_manager.balance_metrics_system.register_unit_kill(attacker_team, attacker_type, team, unit_type, amount)
+	
+	# Проверяем условия победы после смерти юнита
+	if battle_manager:
+		battle_manager.call_deferred("check_victory_conditions")
 		
 		queue_free()
 
@@ -470,7 +452,7 @@ func update_health_display():
 		if health_bar is Label:
 			if unit_type == "collector" and is_capturing:
 				# Показываем прогресс захвата для коллекторов
-				var capture_time = float(target_crystal.max_capture_time) if target_crystal and target_crystal.has("max_capture_time") else 5.0
+				var capture_time = float(target_crystal.max_capture_time) if target_crystal and target_crystal.has("max_capture_time") else float(5.0)
 				var progress_percent = int(capture_progress * 100 / capture_time)
 				health_bar.text = "💎 " + str(progress_percent) + "%"
 				health_bar.modulate = Color.ORANGE
@@ -521,7 +503,7 @@ func handle_collector_behavior(_delta):
 		update_3d_health_bar()  # Обновляем 3D HP бар при захвате
 		
 		# Проверяем, завершен ли захват
-		var capture_time = float(target_crystal.max_capture_time) if target_crystal and target_crystal.has("max_capture_time") else 5.0
+		var capture_time = float(target_crystal.max_capture_time) if target_crystal and target_crystal.has("max_capture_time") else float(5.0)
 		if capture_progress >= capture_time:
 			complete_crystal_capture()
 		
@@ -814,15 +796,17 @@ func get_current_mesh() -> MeshInstance3D:
 	if has_node("UnitMesh"):
 		return get_node("UnitMesh")
 	# Если по какой-то причине нет UnitMesh, пробуем найти старые меши
-	if unit_type == "soldier" and has_node("MeshInstance3D_Capsule"):
+	if unit_type == "warrior" and has_node("MeshInstance3D_Capsule"):
 		return get_node("MeshInstance3D_Capsule")
-	elif unit_type == "tank" and has_node("MeshInstance3D_Cube"):
+	elif unit_type == "heavy" and has_node("MeshInstance3D_Cube"):
 		return get_node("MeshInstance3D_Cube")
-	elif unit_type == "drone" and has_node("MeshInstance3D_Sphere"):
+	elif unit_type == "fast" and has_node("MeshInstance3D_Sphere"):
 		return get_node("MeshInstance3D_Sphere")
 	elif unit_type == "collector" and has_node("MeshInstance3D_Cylinder"):
 		return get_node("MeshInstance3D_Cylinder")
-	elif has_node("MeshInstance3D_Capsule"):
+	elif unit_type == "sniper" and has_node("MeshInstance3D_Prism"):
+		return get_node("MeshInstance3D_Prism")
+	elif unit_type == "hero" and has_node("MeshInstance3D_Capsule"):
 		return get_node("MeshInstance3D_Capsule")
 	return current_mesh  # Возвращаем сохраненную ссылку
 
@@ -913,7 +897,7 @@ func update_3d_health_bar():
 		
 		# Обновляем текст
 		if unit_type == "collector" and is_capturing:
-			var capture_time = float(target_crystal.max_capture_time) if target_crystal and target_crystal.has("max_capture_time") else 5.0
+			var capture_time = float(target_crystal.max_capture_time) if target_crystal and target_crystal.has("max_capture_time") else float(5.0)
 			var progress_percent = int(capture_progress * 100 / capture_time)
 			health_label_3d.text = "💎 " + str(progress_percent) + "%"
 			health_label_3d.modulate = Color.ORANGE
@@ -995,3 +979,52 @@ func update_generator_display(resource_amount: int):
 	if health_label_3d:
 		health_label_3d.text = "⚡ " + str(resource_amount) + "/сек"
 		health_label_3d.modulate = Color.CYAN
+
+# Превращение коллектора в турель на захваченной точке
+func transform_into_turret():
+	if unit_type != "collector":
+		return
+	
+	print("🔧 Коллектор превращается в турель на позиции ", global_position)
+	
+	# Обновляем характеристики для турели
+	health = 400
+	max_health = 400
+	damage = 50
+	attack_range = 6.0
+	attack_cooldown = 1.5
+	speed = 0  # Турель не двигается
+	
+	# Обновляем тип юнита
+	unit_type = "turret"
+	
+	# Обновляем группы
+	remove_from_group("units")
+	add_to_group("turrets")
+	
+	# Обновляем визуализацию (можно сделать турель более заметной)
+	update_turret_visual()
+	
+	update_health_display()
+	update_3d_health_bar()
+
+# Обновление визуализации турели
+func update_turret_visual():
+	if has_node("UnitMesh"):
+		var mesh = get_node("UnitMesh")
+		# Делаем турель больше и заметнее
+		var scale_factor = 1.5
+		mesh.scale = Vector3(scale_factor, scale_factor, scale_factor)
+		
+		# Добавляем материал с свечением для турели
+		var material = StandardMaterial3D.new()
+		if team == "player":
+			material.albedo_color = Color(0.2, 0.6, 1.0, 1.0)
+			material.emission = Color(0.1, 0.3, 0.8)
+		else:
+			material.albedo_color = Color(1.0, 0.2, 0.2, 1.0)
+			material.emission = Color(0.8, 0.1, 0.1)
+		
+		material.emission_enabled = true
+		material.emission_energy = 2.0
+		mesh.material_override = material

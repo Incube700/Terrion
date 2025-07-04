@@ -222,7 +222,7 @@ func apply_territory_effects(territory: Dictionary):
 			reduce_ability_cooldowns(territory)
 			add_resource(territory_owner, "crystals", amount)
 		TerritoryType.BATTLEFIELD_SHRINE:
-			heal_friendly_units(territory)
+			pass  # Лечение отключено, поэтому блок не пустой
 		TerritoryType.CENTER_TRIGGER_1, TerritoryType.CENTER_TRIGGER_2:
 			check_hero_summon_conditions()
 		TerritoryType.ANCIENT_TOWER:
@@ -279,13 +279,15 @@ func update_territory_visual(territory: Dictionary):
 		var material = mesh.get_surface_override_material(0)
 		
 		if territory.owner == "player":
-			material.albedo_color.r = 0.2
-			material.albedo_color.g = 0.6
-			material.albedo_color.b = 1.0
+			material.albedo_color = Color(0.2, 0.6, 1.0, 0.95) # Ярко-синий, почти непрозрачный
+			material.emission = Color(0.1, 0.3, 0.8)
+			material.emission_enabled = true
+			material.emission_energy = 3.0
 		elif territory.owner == "enemy":
-			material.albedo_color.r = 1.0
-			material.albedo_color.g = 0.2
-			material.albedo_color.b = 0.2
+			material.albedo_color = Color(1.0, 0.2, 0.2, 0.95) # Ярко-красный, почти непрозрачный
+			material.emission = Color(0.8, 0.1, 0.1)
+			material.emission_enabled = true
+			material.emission_energy = 3.0
 		else:
 			# Восстанавливаем оригинальный цвет по типу
 			match territory.type:
@@ -305,7 +307,6 @@ func update_territory_visual(territory: Dictionary):
 					material.albedo_color = Color(0.0, 1.0, 0.0, 0.7)
 				TerritoryType.DEFENSIVE_TOWER:
 					material.albedo_color = Color(1.0, 0.0, 0.0, 0.7)
-				# Удалено: TerritoryType.FACTORY
 				TerritoryType.PLAYER_BASE:
 					material.albedo_color = Color(0.2, 0.6, 1.0, 0.7)
 				TerritoryType.ENEMY_BASE:
@@ -324,6 +325,12 @@ func force_capture_territory(territory_id: int, territory_owner: String):
 	var territory = territories[territory_id]
 	territory.owner = territory_owner
 	territory.capture_progress = 0.0
+	
+	# Регистрируем захват территории в системе метрик баланса
+	if battle_manager and battle_manager.balance_metrics_system:
+		var territory_type_name = get_territory_type_name(territory.type)
+		var capture_time = 5.0  # Стандартное время захвата
+		battle_manager.balance_metrics_system.register_territory_capture(territory_owner, territory_type_name, capture_time)
 	
 	# Обновляем визуал
 	update_territory_visual(territory)
@@ -416,6 +423,62 @@ func get_territory_short_name(type) -> String:
 			return "🏠 БАЗА ВРАГА\nКомандный центр"
 		_:
 			return "❓ ТЕРРИТОРИЯ"
+
+# Получение названия типа территории для метрик
+func get_territory_type_name(type) -> String:
+	match type:
+		TerritoryType.ENERGY_MINE:
+			return "energy_mine"
+		TerritoryType.CRYSTAL_MINE:
+			return "crystal_mine"
+		TerritoryType.VOID_CRYSTAL:
+			return "void_crystal"
+		TerritoryType.DEFENSIVE_TOWER:
+			return "defensive_tower"
+		TerritoryType.ANCIENT_ALTAR:
+			return "ancient_altar"
+		TerritoryType.BATTLEFIELD_SHRINE:
+			return "battlefield_shrine"
+		TerritoryType.CENTER_TRIGGER_1:
+			return "center_trigger_1"
+		TerritoryType.CENTER_TRIGGER_2:
+			return "center_trigger_2"
+		TerritoryType.ANCIENT_TOWER:
+			return "ancient_tower"
+		TerritoryType.PLAYER_BASE:
+			return "player_base"
+		TerritoryType.ENEMY_BASE:
+			return "enemy_base"
+		_:
+			return "unknown_territory"
+
+# Получение названия типа территории для метрик
+func get_territory_type_name(type) -> String:
+	match type:
+		TerritoryType.ENERGY_MINE:
+			return "energy_mine"
+		TerritoryType.CRYSTAL_MINE:
+			return "crystal_mine"
+		TerritoryType.VOID_CRYSTAL:
+			return "void_crystal"
+		TerritoryType.DEFENSIVE_TOWER:
+			return "defensive_tower"
+		TerritoryType.ANCIENT_ALTAR:
+			return "ancient_altar"
+		TerritoryType.BATTLEFIELD_SHRINE:
+			return "battlefield_shrine"
+		TerritoryType.CENTER_TRIGGER_1:
+			return "center_trigger_1"
+		TerritoryType.CENTER_TRIGGER_2:
+			return "center_trigger_2"
+		TerritoryType.ANCIENT_TOWER:
+			return "ancient_tower"
+		TerritoryType.PLAYER_BASE:
+			return "player_base"
+		TerritoryType.ENEMY_BASE:
+			return "enemy_base"
+		_:
+			return "unknown_territory"
 
 func get_territory_label(type):
 	match type:
@@ -624,20 +687,91 @@ func block_healing_in_zone(crystal_position: Vector3, aura_radius: float):
  
  
 # Проверка взаимодействия юнита с территорией (захват и спецэффекты)
-func check_territory_interaction(unit_position: Vector3, team: String):
+func check_territory_interaction(unit_position: Vector3, team: String, unit_type: String = "soldier"):
 	for territory in territories:
 		var distance = unit_position.distance_to(territory.position)
 		if distance <= territory.control_radius:
-			# Попытка захвата территории
-			attempt_capture(territory, team)
-			# Спецэффекты для особых территорий
-			if territory.type == TerritoryType.BATTLEFIELD_SHRINE:
-				heal_friendly_units(territory)
-			elif territory.type == TerritoryType.VOID_CRYSTAL:
-				apply_void_crystal_effects(territory)
-			elif territory.type == TerritoryType.DEFENSIVE_TOWER:
-				auto_attack_enemies(territory)
-			# Удалено: elif territory.type == TerritoryType.FACTORY
-			break 
+			# Ограничение: только collector может захватывать кристаллы, триггеры и ресурсные точки
+			match territory.type:
+				TerritoryType.CRYSTAL_MINE, TerritoryType.VOID_CRYSTAL, TerritoryType.ENERGY_MINE, TerritoryType.CENTER_TRIGGER_1, TerritoryType.CENTER_TRIGGER_2, TerritoryType.ANCIENT_ALTAR:
+					if unit_type != "collector":
+						return # Только collector может захватывать эти точки
+					
+					# Проверяем, нет ли вражеских войск или зданий на точке
+					if not can_capture_territory(territory, team):
+						return # Нельзя захватить, пока есть враги
+					
+					# Попытка захвата территории
+					attempt_capture(territory, team)
+					break
+				_:
+					# Остальные территории (например, башни, базы) — логика по умолчанию
+					attempt_capture(territory, team)
+					break 
+ 
+ 
+# Проверка возможности захвата территории
+func can_capture_territory(territory: Dictionary, team: String) -> bool:
+	var enemy_team = "enemy" if team == "player" else "player"
+	
+	# Проверяем вражеские юниты в радиусе территории
+	var units = get_tree().get_nodes_in_group("units")
+	for unit in units:
+		if unit.team == enemy_team:
+			var distance = unit.global_position.distance_to(territory.position)
+			if distance <= territory.control_radius:
+				return false # Есть вражеские войска
+	
+	# Проверяем вражеские здания в радиусе территории
+	var spawners = get_tree().get_nodes_in_group("spawners")
+	for spawner in spawners:
+		if spawner.team == enemy_team:
+			var distance = spawner.global_position.distance_to(territory.position)
+			if distance <= territory.control_radius:
+				return false # Есть вражеские здания
+	
+	return true # Можно захватывать
+
+# Попытка захвата территории
+func attempt_capture(territory: Dictionary, team: String):
+	if territory.owner == team:
+		return # Уже наша территория
+	
+	# Если территория нейтральная или вражеская, начинаем захват
+	if territory.owner == "neutral" or territory.owner != team:
+		# Создаем коллектора на точке захвата
+		create_collector_at_territory(territory, team)
+		
+		# Обновляем владельца территории
+		territory.owner = team
+		territory.capture_progress = 0.0
+		
+		# Обновляем визуал территории
+		update_territory_visual(territory)
+		
+		print("🎯 Коллектор создан на территории ", territory.type, " для команды ", team)
+
+# Создание коллектора на территории
+func create_collector_at_territory(territory: Dictionary, team: String):
+	if not battle_manager:
+		return
+	
+	# Создаем коллектора на позиции территории
+	var collector = battle_manager.unit_scene.instantiate()
+	battle_manager.add_child(collector)
+	collector.team = team
+	collector.unit_type = "collector"
+	collector.global_position = territory.position
+	collector.battle_manager = battle_manager
+	
+	# Специальная настройка для коллектора на территории
+	collector.target_crystal = territory
+	collector.is_capturing = true
+	
+	# Для триггеров - сразу превращаем в турель
+	if territory.type == TerritoryType.CENTER_TRIGGER_1 or territory.type == TerritoryType.CENTER_TRIGGER_2:
+		collector.transform_into_turret()
+	
+	print("🏃 Коллектор создан на позиции ", territory.position, " для команды ", team) 
  
  

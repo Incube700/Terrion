@@ -25,13 +25,15 @@ var spawner_scene = preload("res://scenes/Spawner.tscn")
 var battle_ui = null
 var battle_started = false
 
+var battle_start_time: float = 0.0  # Время начала битвы для метрик
+
 var is_building_mode = false
 var building_preview = null
 var can_build_here = false
 var building_cost = 30  # Стоимость постройки модуля
 
 # Система территорий и кристаллов (объединенная)
-var territory_system: TerritorySystem = null
+var territory_system = null
 
 # Система технологий и способностей
 var ability_system: AbilitySystem = null
@@ -53,6 +55,15 @@ var statistics_system = null
 
 # Система расовых способностей
 var race_ability_system = null
+
+# Система метрик баланса
+var balance_metrics_system = null
+
+# Система усталости способностей
+var ability_fatigue_system = null
+
+# Система эффективности юнитов
+var unit_effectiveness_matrix = null
 
 # Менеджер систем для безопасной инициализации
 var system_manager = null
@@ -85,7 +96,29 @@ var enemy_current_soldiers = 0
 # Флаг для тестового спавна юнитов при старте битвы
 var debug_spawn_test_units := false
 
+# Локальные константы для типов территорий (по enum в TerritorySystem.gd)
+const ENERGY_MINE_TYPE = 0
+const CRYSTAL_MINE_TYPE = 1
+const VOID_CRYSTAL_TYPE = 2
+const CENTER_TRIGGER_1_TYPE = 3
+const CENTER_TRIGGER_2_TYPE = 4
+const ANCIENT_TOWER_TYPE = 5
+const ANCIENT_ALTAR_TYPE = 6
+
+# Система зарядов для коллекторов
+var collector_charges = {
+	"player": 3,
+	"enemy": 3
+}
+var collector_charge_cooldown = 120.0  # 2 минуты на восстановление пачки
+var collector_charge_timers = {
+	"player": 0.0,
+	"enemy": 0.0
+}
+
 func _ready():
+	Engine.time_scale = 0.5 # Замедление всей игры в 2 раза
+	print("⏳ Вся игра замедлена в 2 раза (Engine.time_scale = 0.5)")
 	print("🚀 Инициализация BattleManager...")
 	
 	# Инициализируем системы
@@ -96,6 +129,13 @@ func _ready():
 	# Убираем автоматический спавн - коллекторы будут созданы при старте битвы
 	
 	print("✅ BattleManager готов к бою!")
+
+func _process(delta):
+	if not battle_started:
+		return
+	
+	# Обновляем систему зарядов коллекторов
+	update_collector_charges(delta)
 
 func setup_ui_connections():
 	"""Настройка подключений к UI"""
@@ -113,7 +153,7 @@ func setup_ui_connections():
 		
 		# Подключение к расовой системе
 		if race_system:
-			battle_ui.use_race_ability.connect(_on_use_race_ability)
+			pass  # строка подключения use_race_ability удалена, сигнал больше не существует
 		
 		print("🔗 Drag&drop управление подключено")
 	else:
@@ -206,9 +246,7 @@ func create_battlefield():
 	field_mat.metallic = 0.1
 	# Добавляем текстуру сетки
 	field_mat.detail_enabled = true
-	field_mat.detail_blend_mode = BaseMaterial3D.BLEND_MODE_MIX
 	field_mat.detail_uv_layer = BaseMaterial3D.DETAIL_UV_1
-	field_mat.detail_normal_blend_mode = BaseMaterial3D.BLEND_MODE_MIX
 	field.set_surface_override_material(0, field_mat)
 	add_child(field)
 	
@@ -377,8 +415,9 @@ func init_energy_timer():
 	add_child(energy_timer)
 
 func init_territory_system():
-	# Создаем новую систему территорий
-	territory_system = TerritorySystem.new()
+	# Создаем новую систему территорий через load()
+	var TerritorySystemClass = load("res://scripts/TerritorySystem.gd")
+	territory_system = TerritorySystemClass.new()
 	territory_system.battle_manager = self
 	add_child(territory_system)
 	
@@ -464,6 +503,30 @@ func init_systems_directly():
 		add_child(race_ability_system)
 		print("✅ RaceAbilitySystem загружена")
 	
+	# BalanceMetricsSystem
+	var balance_metrics_script = load("res://scripts/balance_metrics_system.gd")
+	if balance_metrics_script:
+		balance_metrics_system = balance_metrics_script.new()
+		balance_metrics_system.name = "BalanceMetricsSystem"
+		add_child(balance_metrics_system)
+		print("✅ BalanceMetricsSystem загружена")
+	
+	# AbilityFatigueSystem
+	var ability_fatigue_script = load("res://scripts/ability_fatigue_system.gd")
+	if ability_fatigue_script:
+		ability_fatigue_system = ability_fatigue_script.new()
+		ability_fatigue_system.name = "AbilityFatigueSystem"
+		add_child(ability_fatigue_system)
+		print("✅ AbilityFatigueSystem загружена")
+	
+	# UnitEffectivenessMatrix
+	var unit_effectiveness_script = load("res://scripts/unit_effectiveness_matrix.gd")
+	if unit_effectiveness_script:
+		unit_effectiveness_matrix = unit_effectiveness_script.new()
+		unit_effectiveness_matrix.name = "UnitEffectivenessMatrix"
+		add_child(unit_effectiveness_matrix)
+		print("✅ UnitEffectivenessMatrix загружена")
+	
 	print("🔧 Все системы инициализированы напрямую")
 
 func init_effect_system():
@@ -533,6 +596,7 @@ func _on_start_battle():
 	print("🚀 === BattleManager получил сигнал start_battle ===")
 	print("1. Устанавливаем battle_started = true")
 	battle_started = true
+	battle_start_time = Time.get_unix_time_from_system()  # Записываем время начала битвы
 	
 	print("2. Показываем уведомление о начале битвы...")
 	# Уведомление о начале битвы
@@ -678,11 +742,43 @@ func finish_battle(winner):
 	if statistics_system:
 		statistics_system.end_battle(winner)
 	
+	# Регистрируем окончание битвы в системе метрик баланса
+	if balance_metrics_system:
+		var battle_duration = Time.get_unix_time_from_system() - battle_start_time if battle_started else 0.0
+		var player_units_remaining = get_team_unit_count("player")
+		var enemy_units_remaining = get_team_unit_count("enemy")
+		balance_metrics_system.register_battle_end(winner, battle_duration, player_units_remaining, enemy_units_remaining)
+	
 	# Показываем уведомление о победе/поражении
 	if notification_system:
 		notification_system.show_victory(winner)
 	
-	# TODO: показать экран победы/поражения
+	# Показываем экран окончания игры
+	show_game_over_screen(winner)
+
+# Показ экрана окончания игры
+func show_game_over_screen(winner: String):
+	print("🎮 Показываем экран окончания игры...")
+	
+	# Создаем экран окончания игры
+	var game_over_scene = preload("res://scenes/GameOver.tscn")
+	if game_over_scene:
+		var game_over_instance = game_over_scene.instantiate()
+		add_child(game_over_instance)
+		
+		# Передаем данные о победителе и статистике
+		game_over_instance.set_winner(winner)
+		
+		# Передаем статистику из систем
+		if statistics_system:
+			game_over_instance.set_battle_stats(statistics_system.battle_stats)
+		
+		if balance_metrics_system:
+			game_over_instance.set_balance_report(balance_metrics_system.get_balance_report())
+		
+		print("✅ Экран окончания игры создан")
+	else:
+		print("❌ Не удалось загрузить сцену GameOver.tscn")
 
 # TODO: добавить обработку UI, победы, расширение логики по мере развития 
 
@@ -747,24 +843,18 @@ func get_mouse_map_position(screen_pos):
 	if not camera_to_use:
 		print("❌ Камера недоступна!")
 		return Vector3.ZERO
-	
-	# Получаем луч от камеры через позицию мыши
+
 	var from = camera_to_use.project_ray_origin(screen_pos)
 	var direction = camera_to_use.project_ray_normal(screen_pos)
-	
-	# Пересечение луча с плоскостью y = 0 (поле боя)
 	var plane_y = 0.0
 	if direction.y == 0:
 		return Vector3.ZERO  # Луч параллелен плоскости
-	
 	var t = (plane_y - from.y) / direction.y
 	if t < 0:
 		return Vector3.ZERO  # Пересечение позади камеры
-	
-	var intersection = from + direction * t
-	
-	print("🎯 Экранная позиция: ", screen_pos, " → 3D позиция: ", intersection)
-	return intersection
+	var pos = from + direction * t
+	print("[DEBUG] get_mouse_map_position: screen_pos=", screen_pos, " → pos=", pos)
+	return pos
 
 func get_mouse_world_position() -> Vector3:
 	var mouse_pos = get_viewport().get_mouse_position()
@@ -775,17 +865,31 @@ func is_valid_build_position(pos: Vector3) -> bool:
 	var map_height = 60.0
 	var map_half_height = map_height / 2.0  # 30 единиц каждая половина
 	
-	# Игрок строит только на нижней половине (положительные Z)
 	if pos.z < 0:
+		print("[DEBUG] ОТКАЗ: pos.z < 0 (", pos.z, ") — нельзя строить на вражеской половине")
 		return false
 	if pos.x < -map_width/2 or pos.x > map_width/2:
+		print("[DEBUG] ОТКАЗ: pos.x вне границ (", pos.x, ")")
 		return false
 	if pos.z > map_half_height or pos.z < 0:
+		print("[DEBUG] ОТКАЗ: pos.z вне границ (", pos.z, ")")
 		return false
+	if territory_system:
+		var territories = territory_system.get_territory_info()
+		for territory in territories:
+			var distance = pos.distance_to(territory.position)
+			if distance <= territory.control_radius:
+				if territory.type == VOID_CRYSTAL_TYPE:
+					continue
+				else:
+					print("[DEBUG] ОТКАЗ: позиция внутри территории кристалла (", territory.type, ")")
+					return false
 	var all_spawners = get_tree().get_nodes_in_group("spawners")
 	for s in all_spawners:
 		if s.global_position.distance_to(pos) < 1.5:
+			print("[DEBUG] ОТКАЗ: слишком близко к другому зданию (", s.global_position, ")")
 			return false
+	print("[DEBUG] ПОЗИЦИЯ ВАЛИДНА для строительства:", pos)
 	return true
 
 func is_valid_enemy_build_position(pos: Vector3) -> bool:
@@ -897,7 +1001,7 @@ func is_valid_unit_position(pos: Vector3) -> bool:
 			return false
 	return true
 
-func spawn_unit_at_pos(team, pos, unit_type="soldier"):
+func spawn_unit_at_pos(team, pos, unit_type="warrior"):
 	if not can_spawn_unit(team, unit_type):
 		print("❌ Недостаточно ресурсов!")
 		return
@@ -939,6 +1043,10 @@ func spawn_unit_at_pos(team, pos, unit_type="soldier"):
 	if statistics_system:
 		statistics_system.register_unit_spawned(team, unit_type)
 	
+	# Регистрируем создание юнита в системе метрик баланса
+	if balance_metrics_system:
+		balance_metrics_system.register_unit_spawn(team, unit_type, energy_cost)
+	
 	print("✅ Юнит создан успешно: ", unit.name, " команда: ", unit.team)
 	print("🎯 Цель юнита: ", unit.target_pos)
 	var units_in_group = get_tree().get_nodes_in_group("units")
@@ -967,20 +1075,16 @@ func place_spawner(team: String, spawner_type: String, position: Vector3):
 	
 	# Специальная настройка для разных типов зданий
 	match spawner_type:
-		"collector_facility":
-			spawner.unit_type = "collector"
 		"barracks":
-			spawner.unit_type = "soldier"
-		"training_camp":
-			spawner.unit_type = "elite_soldier"
-		"magic_academy":
-			spawner.unit_type = "crystal_mage"
+			spawner.unit_type = "warrior"
 		"mech_factory":
-			spawner.unit_type = "battle_robot"  # Новый тип юнита
-		"drone_factory":
-			spawner.unit_type = "attack_drone"  # Новый тип юнита
+			spawner.unit_type = "heavy"
+		"recon_center":
+			spawner.unit_type = "fast"
+		"shooting_range":
+			spawner.unit_type = "sniper"
 		"tower":
-			spawner.unit_type = "tower"  # Башня не производит юнитов
+			spawner.unit_type = ""  # Башня не производит юнитов
 	
 	# Устанавливаем цвет здания
 	set_building_visual(spawner, spawner_type, team)
@@ -1064,18 +1168,14 @@ func get_building_color(building_type: String, base_color: Color) -> Color:
 
 func get_unit_cost(unit_type: String) -> int:
 	match unit_type:
-		"soldier":
+		"warrior":
 			return 25        # Базовый юнит - доступная цена
-		"tank":
-			return 60        # Танки дороже из-за высокого HP
-		"drone":
-			return 30        # Снижена цена для баланса
-		"elite_soldier":
-			return 35        # Премиум юнит
-		"crystal_mage":
-			return 30        # Снижена энергия, но нужны кристаллы
-		"heavy_tank":
-			return 100       # Супертанк - очень дорого
+		"heavy":
+			return 60        # Тяжёлые механические роботы дороже
+		"fast":
+			return 30        # Быстрые юниты - средняя цена
+		"sniper":
+			return 45        # Снайперы - премиум юнит
 		"collector":
 			return 40        # Специализированный юнит
 		"hero":
@@ -1085,12 +1185,8 @@ func get_unit_cost(unit_type: String) -> int:
 
 func get_unit_crystal_cost(unit_type: String) -> int:
 	match unit_type:
-		"crystal_mage":
-			return 12        # Снижено для баланса
-		"elite_soldier":
-			return 8         # Снижено для доступности
-		"heavy_tank":
-			return 15        # Снижено, но все еще дорого
+		"sniper":
+			return 15        # Снайперы требуют кристаллы
 		"collector":
 			return 5         # Небольшая стоимость кристаллов
 		"hero":
@@ -1102,20 +1198,14 @@ func get_structure_cost(structure_type: String) -> int:
 	match structure_type:
 		"tower":
 			return 60
-		"spawner":
-			return 30
 		"barracks":
 			return 80
-		"collector_facility":
-			return 50  # Средняя стоимость для комплекса коллекторов
-		"training_camp":
-			return 120
-		"magic_academy":
-			return 100
 		"mech_factory":
-			return 150  # Новое здание для роботов
-		"drone_factory":
-			return 130  # Новое здание для дронов
+			return 150  # Мех-завод для роботов
+		"recon_center":
+			return 100  # Центр разведки
+		"shooting_range":
+			return 120  # Стрельбище для снайперов
 		"orbital_drop":
 			return 100
 		"energy_generator":
@@ -1129,16 +1219,12 @@ func get_structure_cost(structure_type: String) -> int:
 
 func get_structure_crystal_cost(structure_type: String) -> int:
 	match structure_type:
-		"training_camp":
-			return 20
-		"magic_academy":
-			return 30
 		"mech_factory":
 			return 25  # Кристаллы для мех завода
-		"drone_factory":
-			return 20  # Кристаллы для дрон фабрики
-		"collector_facility":
-			return 15
+		"recon_center":
+			return 15  # Кристаллы для центра разведки
+		"shooting_range":
+			return 20  # Кристаллы для стрельбища
 		_:
 			return 0
 
@@ -1206,13 +1292,16 @@ func _on_spawn_crystal_mage():
 		spawn_unit_at_pos("player", spawn_pos, "crystal_mage")
 		update_ui()
 
-func _on_use_ability(ability_name: String, position: Vector3):
-	print("Кнопка способности ", ability_name, " нажата!")
-	if battle_started and race_ability_system and race_ability_system.can_use_ability("player", ability_name):
-		race_ability_system.use_ability("player", ability_name, position)
-		update_ui()
-	else:
-		print("❌ Нельзя использовать ", ability_name)
+# Обработка способностей и специальных действий
+func _on_use_ability(ability_name, _position):
+	print("[DEBUG] Способность: ", ability_name)
+	
+	match ability_name:
+		"spawn_collector":
+			_on_spawn_collector()
+		_:
+			print("[DEBUG] Способность ", ability_name, " временно отключена для отладки.")
+			return
 
 func can_spawn_unit(team, unit_type):
 	var energy_cost = get_unit_cost(unit_type)
@@ -1279,14 +1368,60 @@ func _on_use_race_ability(ability_name: String, position: Vector3):
 
 func _on_spawn_collector():
 	print("🏃 Кнопка спавна коллектора нажата!")
+	
+	# Проверяем наличие зарядов
+	if not can_spawn_collector("player"):
+		var time_left = get_collector_charge_cooldown("player")
+		print("⏰ Нет зарядов коллектора! Восстановление через ", int(time_left), " сек")
+		return
+	
 	if battle_started and can_spawn_unit("player", "collector"):
 		var spawn_pos = Vector3(randf_range(-4.0, 4.0), 0, 13.0)
 		spawn_unit_at_pos("player", spawn_pos, "collector")
+		
+		# Используем заряд
+		use_collector_charge("player")
+		
 		update_ui()
-		print("✅ Коллектор отправлен для захвата территорий!")
+		print("✅ Коллектор отправлен для захвата территорий! Осталось зарядов: ", collector_charges["player"])
+
+# Проверка возможности создания коллектора (есть ли заряды)
+func can_spawn_collector(team: String) -> bool:
+	return collector_charges[team] > 0
+
+# Получение количества зарядов
+func get_collector_charges(team: String) -> int:
+	return collector_charges[team]
+
+# Получение оставшегося времени кулдауна зарядов
+func get_collector_charge_cooldown(team: String) -> float:
+	return max(0.0, collector_charge_timers[team])
+
+# Использование заряда коллектора
+func use_collector_charge(team: String):
+	collector_charges[team] -= 1
+	print("⚡ Использован заряд коллектора для ", team, ". Осталось: ", collector_charges[team])
+	
+	# Если заряды закончились, запускаем таймер восстановления
+	if collector_charges[team] <= 0:
+		collector_charge_timers[team] = collector_charge_cooldown
+		print("⏰ Запущен таймер восстановления зарядов для ", team, " (", collector_charge_cooldown, " сек)")
+
+# Обновление системы зарядов коллекторов
+func update_collector_charges(delta: float):
+	for team in collector_charge_timers:
+		if collector_charges[team] <= 0 and collector_charge_timers[team] > 0:
+			collector_charge_timers[team] -= delta
+			if collector_charge_timers[team] <= 0:
+				collector_charges[team] = 3  # Восстанавливаем полную пачку
+				collector_charge_timers[team] = 0.0
+				print("✅ Заряды коллекторов восстановлены для ", team, " (3/3)")
 
 func ai_consider_collector_strategy():
 	# Дополнительная стратегия AI для использования коллекторов
+	if not can_spawn_collector("enemy"):
+		return # AI не может создать коллектора без зарядов
+	
 	if enemy_energy >= get_unit_cost("collector") and enemy_crystals >= get_unit_crystal_cost("collector"):
 		# Проверяем доступные кристаллы
 		if territory_system:
@@ -1303,7 +1438,11 @@ func ai_consider_collector_strategy():
 					spawn_unit_at_pos("enemy", spawn_pos, "collector")
 					enemy_energy -= get_unit_cost("collector")
 					enemy_crystals -= get_unit_crystal_cost("collector")
-					print("🤖 AI создал коллектора для захвата кристаллов")
+					
+					# Используем заряд для AI
+					use_collector_charge("enemy")
+					
+					print("🤖 AI создал коллектора для захвата кристаллов. Осталось зарядов: ", collector_charges["enemy"])
 					update_ui()
 
 # Система алтаря героя - обработка захвата боковых территорий
@@ -1322,21 +1461,21 @@ func _on_territory_captured(territory_id: int, team: String, territory_type: int
 			# Обрабатываем захват в зависимости от типа территории
 			if team == "player":
 				match territory_type:
-					TerritorySystem.TerritoryType.ENERGY_MINE:
+					ENERGY_MINE_TYPE:
 						player_crystals += 15
 						print("⚡ Захвачен энергетический рудник! +15 кристаллов")
-					TerritorySystem.TerritoryType.CRYSTAL_MINE:
+					CRYSTAL_MINE_TYPE:
 						player_crystals += 25
 						print("💎 Захвачен кристальный рудник! +25 кристаллов")
-					TerritorySystem.TerritoryType.VOID_CRYSTAL:
+					VOID_CRYSTAL_TYPE:
 						player_crystals += 50
 						print("💜 Захвачен кристалл пустоты! +50 кристаллов")
-					TerritorySystem.TerritoryType.ANCIENT_ALTAR:
+					ANCIENT_ALTAR_TYPE:
 						player_crystals += 100
 						print("✨ Захвачен главный алтарь! +100 кристаллов")
 						# Проверяем условия победы
 						check_victory_conditions()
-					TerritorySystem.TerritoryType.CENTER_TRIGGER_1, TerritorySystem.TerritoryType.CENTER_TRIGGER_2:
+					CENTER_TRIGGER_1_TYPE, CENTER_TRIGGER_2_TYPE:
 						side_territories_captured += 1
 						print("🦸 Захвачен триггер! Всего: ", side_territories_captured, "/2")
 						
@@ -1361,7 +1500,7 @@ func _on_summon_altar_hero():
 		print("❌ Герой уже призван!")
 		return
 	
-	print("🦸 === НАЧИНАЕТСЯ ПРИЗЫВ ГЕРОЯ ===")
+	print("�� === НАЧИНАЕТСЯ ПРИЗЫВ ГЕРОЯ ===")
 	print("⏰ Герой будет призван через 45 секунд...")
 	
 	# Создаем таймер призыва героя

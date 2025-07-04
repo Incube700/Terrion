@@ -14,36 +14,40 @@ const ANALYSIS_INTERVAL = {
 
 # Сила юнитов для расчёта power
 const UNIT_POWER = {
-	"soldier": 20,
-	"tank": 40,
-	"drone": 15
+	"warrior": 20,
+	"heavy": 40,
+	"fast": 15,
+	"sniper": 25,
+	"collector": 5
 }
 
 # Приоритеты юнитов и построек по стратегии
 const UNIT_PRIORITIES = {
-	"rush": ["soldier", "tank", "drone"],
-	"defensive": ["tank", "soldier", "drone"],
-	"economic": ["soldier", "drone", "tank"],
-	"balanced": ["soldier", "tank", "drone"],
-	"capture": ["collector", "soldier", "drone"],
-	"fortify": ["tank", "collector", "soldier"],
-	"harass": ["drone", "soldier", "collector"]
+	"rush": ["warrior", "heavy", "fast"],
+	"defensive": ["heavy", "warrior", "sniper"],
+	"economic": ["warrior", "fast", "collector"],
+	"balanced": ["warrior", "heavy", "fast"],
+	"capture": ["collector", "warrior", "fast"],
+	"fortify": ["heavy", "collector", "sniper"],
+	"harass": ["fast", "warrior", "sniper"]
 }
 const BUILD_PRIORITIES = {
-	"rush": ["spawner", "barracks", "tower"],
-	"defensive": ["tower", "spawner", "barracks"],
-	"economic": ["spawner", "spawner", "barracks"],
-	"balanced": ["spawner", "tower", "barracks"],
-	"capture": ["spawner", "tower", "collector_facility"],
-	"fortify": ["tower", "collector_facility", "spawner"],
-	"harass": ["spawner", "barracks", "collector_facility"]
+	"rush": ["barracks", "mech_factory", "recon_center"],
+	"defensive": ["tower", "barracks", "mech_factory"],
+	"economic": ["barracks", "recon_center", "shooting_range"],
+	"balanced": ["barracks", "tower", "mech_factory"],
+	"capture": ["tower", "barracks", "recon_center"],
+	"fortify": ["tower", "shooting_range", "mech_factory"],
+	"harass": ["recon_center", "barracks", "shooting_range"]
 }
 
 # Веса для анализа поля боя
 const WEIGHTS_UNIT_TYPE = {
-	"soldier": 1.0,
-	"tank": 2.0,
-	"drone": 0.7
+	"warrior": 1.0,
+	"heavy": 2.0,
+	"fast": 0.7,
+	"sniper": 1.5,
+	"collector": 0.3
 }
 const WEIGHT_CRYSTAL = 3.0  # Влияние захваченных кристаллов
 const WEIGHT_BASE_THREAT = 5.0  # Влияние угрозы базе

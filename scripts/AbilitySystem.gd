@@ -100,6 +100,11 @@ func can_use_ability(team: String, ability_key: String) -> bool:
 	if ability_cooldowns[ability_key] > 0:
 		return false
 	
+	# Проверяем усталость способностей (если система доступна)
+	if battle_manager and battle_manager.ability_fatigue_system:
+		if not battle_manager.ability_fatigue_system.can_use_ability(team, ability_key):
+			return false
+	
 	# Проверяем ресурсы
 	if team == "player":
 		return (battle_manager.player_energy >= ability.energy_cost and 
@@ -125,6 +130,15 @@ func use_ability(team: String, ability_key: String, target_position: Vector3) ->
 	
 	# Запускаем кулдаун
 	ability_cooldowns[ability_key] = ability.cooldown
+	
+	# Регистрируем использование в системе усталости способностей
+	if battle_manager and battle_manager.ability_fatigue_system:
+		battle_manager.ability_fatigue_system.use_ability(team, ability_key)
+	
+	# Регистрируем использование в системе метрик баланса
+	if battle_manager and battle_manager.balance_metrics_system:
+		var effectiveness = 1.0  # Базовая эффективность, можно рассчитать на основе результатов
+		battle_manager.balance_metrics_system.register_ability_use(team, ability_key, ability.energy_cost, effectiveness)
 	
 	# Выполняем способность
 	execute_ability(team, ability_key, target_position)

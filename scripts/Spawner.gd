@@ -3,7 +3,7 @@ extends Node3D
 
 @export var team: String = "player"
 @export var lane_idx: int = 0
-@export var unit_type: String = "soldier"
+@export var unit_type: String = "warrior"
 @export var spawner_type: String = "spawner" # 'spawner', 'tower', 'barracks'
 @export var spawn_interval: float = 5.0
 @export var max_units: int = 10
@@ -214,20 +214,22 @@ func _on_spawn_timer_timeout():
 func get_spawn_unit_type() -> String:
 	match spawner_type:
 		"tower":
-			# Башни спавнят дронов (воздушные юниты)
-			return "drone"
+			# Башни только атакуют, не производят юнитов
+			return ""
 		"barracks":
-			# Бараки спавнят солдат
-			return "soldier"
-		"collector_facility":
-			# Комплекс коллекторов спавнит коллекторов
-			return "collector"
-		"spawner":
-			# Базовые спавнеры случайно выбирают тип
-			var types = ["soldier", "soldier", "tank"]  # Больше шансов на солдат
-			return types[randi() % types.size()]
+			# Бараки спавнят воинов
+			return "warrior"
+		"mech_factory":
+			# Мех-завод спавнит тяжёлых механических роботов
+			return "heavy"
+		"recon_center":
+			# Центр разведки спавнит быстрых юнитов
+			return "fast"
+		"shooting_range":
+			# Стрельбище спавнит снайперов
+			return "sniper"
 		_:
-			return "soldier"
+			return "warrior"
 
 func get_spawn_position() -> Vector3:
 	# Спавним юнита рядом со спавнером, но не прямо на нём

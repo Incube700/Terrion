@@ -7,6 +7,14 @@ signal spawner_drag_end(spawner_type, global_pos)
 var dragging_type = null
 
 func _ready():
+	for node in get_children():
+		if node is Control:
+			if not node.visible or node.modulate.a < 0.1:
+				node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			elif node.name.find("Container") != -1:
+				node.mouse_filter = Control.MOUSE_FILTER_PASS
+			else:
+				node.mouse_filter = Control.MOUSE_FILTER_STOP
 	$HBoxContainer/OrbitalDropButton.gui_input.connect(_on_orbital_drop_input)
 	$HBoxContainer/EnergyGenButton.gui_input.connect(_on_energy_gen_input)
 	$HBoxContainer/ShieldGenButton.gui_input.connect(_on_shield_gen_input)
