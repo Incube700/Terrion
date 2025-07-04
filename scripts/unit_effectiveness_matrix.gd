@@ -2,7 +2,6 @@
 # Реализует механику "камень-ножницы-бумага" для сбалансированного геймплея
 
 class_name UnitEffectivenessMatrix
-extends Resource
 
 # Матрица эффективности: [атакующий][защищающийся] = множитель урона
 const EFFECTIVENESS_MATRIX = {
